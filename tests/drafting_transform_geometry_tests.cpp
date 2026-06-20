@@ -1,6 +1,6 @@
 #include "drafting/DraftingGeometry.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 #include <variant>
@@ -109,7 +109,7 @@ int main()
     // --- Per-kind IDENTITY: zero rotation + unit scale is a no-op for all 14. ---
     for (const DraftingGeometry &g : allKinds()) {
         const DraftingGeometry out = transformGeometry(g, pivot, 0.0, 1.0);
-        assert(geometryNear(out, g));
+        EDI_CHECK(geometryNear(out, g));
     }
 
     // --- Inverse ROUND-TRIP: (pivot, θ, s) then (pivot, −θ, 1/s) ≈ original. ---
@@ -121,7 +121,7 @@ int main()
         for (const DraftingGeometry &g : allKinds()) {
             const DraftingGeometry forward = transformGeometry(g, pivot, theta, scale);
             const DraftingGeometry back = transformGeometry(forward, pivot, -theta, 1.0 / scale);
-            assert(geometryNear(back, g));
+            EDI_CHECK(geometryNear(back, g));
         }
     }
 
@@ -129,7 +129,7 @@ int main()
     {
         const DraftingGeometry out = transformGeometry(PointGeometry{{2.0, 0.0}}, {0.0, 0.0}, 90.0, 1.0);
         const auto &p = std::get<PointGeometry>(out);
-        assert(pointsNear(p.point, {0.0, 2.0}));
+        EDI_CHECK(pointsNear(p.point, {0.0, 2.0}));
     }
 
     // --- Rectangle ORBITS the pivot (the center-anchor fix), accumulates angle. ---
@@ -139,13 +139,13 @@ int main()
         const DraftingGeometry out = transformGeometry(
             RectangleGeometry{{0.0, 0.0}, 2.0, 2.0, 0.0, 0.0, 0.0}, {0.0, 0.0}, 90.0, 1.0);
         const auto &r = std::get<RectangleGeometry>(out);
-        assert(nearlyEqual(r.rotationDeg, 90.0));
-        assert(nearlyEqual(r.width, 2.0) && nearlyEqual(r.height, 2.0));
+        EDI_CHECK(nearlyEqual(r.rotationDeg, 90.0));
+        EDI_CHECK(nearlyEqual(r.width, 2.0) && nearlyEqual(r.height, 2.0));
         const Bounds2D bounds = computeBounds(out);
-        assert(nearlyEqual(bounds.x, -2.0));
-        assert(nearlyEqual(bounds.y, 0.0));
-        assert(nearlyEqual(bounds.width, 2.0));
-        assert(nearlyEqual(bounds.height, 2.0));
+        EDI_CHECK(nearlyEqual(bounds.x, -2.0));
+        EDI_CHECK(nearlyEqual(bounds.y, 0.0));
+        EDI_CHECK(nearlyEqual(bounds.width, 2.0));
+        EDI_CHECK(nearlyEqual(bounds.height, 2.0));
     }
 
     // --- Rectangle rotationDeg accumulates (30° + 45° = 75°) and w/h scale. ---
@@ -153,11 +153,11 @@ int main()
         const DraftingGeometry out = transformGeometry(
             RectangleGeometry{{0.1, 0.1}, 1.0, 2.0, 30.0, 0.2, 0.1}, pivot, 45.0, 2.0);
         const auto &r = std::get<RectangleGeometry>(out);
-        assert(nearlyEqual(r.rotationDeg, 75.0));
-        assert(nearlyEqual(r.width, 2.0));
-        assert(nearlyEqual(r.height, 4.0));
-        assert(nearlyEqual(r.cornerRadius, 0.4));
-        assert(nearlyEqual(r.inset, 0.2));
+        EDI_CHECK(nearlyEqual(r.rotationDeg, 75.0));
+        EDI_CHECK(nearlyEqual(r.width, 2.0));
+        EDI_CHECK(nearlyEqual(r.height, 4.0));
+        EDI_CHECK(nearlyEqual(r.cornerRadius, 0.4));
+        EDI_CHECK(nearlyEqual(r.inset, 0.2));
     }
 
     // --- Arc: start/end shift by the angle, radius scales, center maps. ---
@@ -165,28 +165,33 @@ int main()
         const DraftingGeometry out = transformGeometry(
             ArcGeometry{{0.0, 0.0}, 2.0, 0.0, 90.0}, {0.0, 0.0}, 30.0, 2.0);
         const auto &arc = std::get<ArcGeometry>(out);
-        assert(nearlyEqual(arc.startAngleDeg, 30.0));
-        assert(nearlyEqual(arc.endAngleDeg, 120.0));
-        assert(nearlyEqual(arc.radius, 4.0));
-        assert(pointsNear(arc.center, {0.0, 0.0}));
+        EDI_CHECK(nearlyEqual(arc.startAngleDeg, 30.0));
+        EDI_CHECK(nearlyEqual(arc.endAngleDeg, 120.0));
+        EDI_CHECK(nearlyEqual(arc.radius, 4.0));
+        EDI_CHECK(pointsNear(arc.center, {0.0, 0.0}));
     }
 
     // --- Circle: radius scales, stays a Circle (no demotion). ---
     {
         const DraftingGeometry out = transformGeometry(CircleGeometry{{0.4, 0.4}, 2.0}, pivot, 33.0, 1.5);
         const auto &c = std::get<CircleGeometry>(out);
-        assert(nearlyEqual(c.radius, 3.0));
+        EDI_CHECK(nearlyEqual(c.radius, 3.0));
     }
 
     // --- Wall thickness scales; Dimension offset scales. ---
     {
-        const auto &wall = std::get<WallGeometry>(
+        // Bind BY VALUE, not by const ref: transformGeometry returns a prvalue
+        // DraftingGeometry temporary, and std::get<> on that prvalue yields a
+        // reference INTO the temporary — destroyed at the end of this full
+        // expression, so a `const auto &` dangles on the next line (D05;
+        // -Wdangling-reference). Copying the small geometry struct out is the fix.
+        const auto wall = std::get<WallGeometry>(
             transformGeometry(WallGeometry{{0.0, 0.0}, {1.0, 1.0}, 0.1}, pivot, 20.0, 3.0));
-        assert(nearlyEqual(wall.thickness, 0.3));
+        EDI_CHECK(nearlyEqual(wall.thickness, 0.3));
 
-        const auto &dim = std::get<DimensionGeometry>(
+        const auto dim = std::get<DimensionGeometry>(
             transformGeometry(DimensionGeometry{DimensionKind::Distance, {0.0, 0.0}, {1.0, 0.0}, 0.04}, pivot, 20.0, 2.0));
-        assert(nearlyEqual(dim.offset, 0.08));
+        EDI_CHECK(nearlyEqual(dim.offset, 0.08));
     }
 
     // --- PINNED v1 LIMITATION: Ellipse drops axis tilt — rotation only moves the
@@ -195,9 +200,9 @@ int main()
         const DraftingGeometry out = transformGeometry(
             EllipseGeometry{{1.0, 0.0}, 2.0, 1.0}, {0.0, 0.0}, 90.0, 1.0);
         const auto &e = std::get<EllipseGeometry>(out);
-        assert(pointsNear(e.center, {0.0, 1.0})); // center orbits the pivot
-        assert(nearlyEqual(e.rx, 2.0));           // rx unchanged (NOT tilted/swapped)
-        assert(nearlyEqual(e.ry, 1.0));           // ry unchanged
+        EDI_CHECK(pointsNear(e.center, {0.0, 1.0})); // center orbits the pivot
+        EDI_CHECK(nearlyEqual(e.rx, 2.0));           // rx unchanged (NOT tilted/swapped)
+        EDI_CHECK(nearlyEqual(e.ry, 1.0));           // ry unchanged
     }
 
     // --- PINNED v1 LIMITATION: TextAnnotation does NOT rotate — only the anchor
@@ -206,9 +211,9 @@ int main()
         const DraftingGeometry out = transformGeometry(
             TextAnnotationGeometry{{1.0, 0.0}, "label", 0.04}, {0.0, 0.0}, 90.0, 2.0);
         const auto &t = std::get<TextAnnotationGeometry>(out);
-        assert(pointsNear(t.position, {0.0, 2.0}));
-        assert(nearlyEqual(t.height, 0.08));
-        assert(t.content == "label");
+        EDI_CHECK(pointsNear(t.position, {0.0, 2.0}));
+        EDI_CHECK(nearlyEqual(t.height, 0.08));
+        EDI_CHECK(t.content == "label");
     }
 
     // --- PINNED: Guide is an IDENTITY no-op under any transform. ---
@@ -216,8 +221,8 @@ int main()
         const DraftingGeometry out = transformGeometry(
             GuideGeometry{GuideOrientation::Horizontal, 0.5}, {3.0, 3.0}, 37.0, 2.5);
         const auto &gd = std::get<GuideGeometry>(out);
-        assert(gd.orientation == GuideOrientation::Horizontal);
-        assert(nearlyEqual(gd.position, 0.5));
+        EDI_CHECK(gd.orientation == GuideOrientation::Horizontal);
+        EDI_CHECK(nearlyEqual(gd.position, 0.5));
     }
 
     return 0;

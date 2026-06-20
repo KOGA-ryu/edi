@@ -27,7 +27,7 @@
 
 #include <QCoreApplication>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 
@@ -54,19 +54,19 @@ int main(int argc, char **argv)
         // with scale=1.0 the base positions pass through unchanged.
         edi::drafting::MapSpec spec = edi::io::buildCryptMapSpec(1.0);
 
-        assert(spec.rooms.size() == 2);
-        assert(spec.rooms[0].name == "entrance");
-        assert(spec.rooms[1].name == "crypt");
-        assert(spec.connections.size() == 1);
-        assert(spec.blocks.size() == 3); // G2 adds sarcophagus / brazier / stair
+        EDI_CHECK(spec.rooms.size() == 2);
+        EDI_CHECK(spec.rooms[0].name == "entrance");
+        EDI_CHECK(spec.rooms[1].name == "crypt");
+        EDI_CHECK(spec.connections.size() == 1);
+        EDI_CHECK(spec.blocks.size() == 3); // G2 adds sarcophagus / brazier / stair
 
         // Step 2 — materialize the document at 1:1 (canvas unit = authored foot).
         DrawingDocumentController controller;
-        assert(controller.createMapFromSpec(spec, 1.0));
+        EDI_CHECK(controller.createMapFromSpec(spec, 1.0));
         const edi::drafting::DraftingDocument &doc = controller.draftingDocument();
-        assert(doc.rooms.size() == 2);
-        assert(doc.plugs.size() == 2);
-        assert(doc.connections.size() == 1);
+        EDI_CHECK(doc.rooms.size() == 2);
+        EDI_CHECK(doc.plugs.size() == 2);
+        EDI_CHECK(doc.connections.size() == 1);
 
         // Step 3 — Seam C export with sceneScale=1.0 → NO `scale:` header line.
         // WHY omit at S=1? Engine treats missing => 1; omitting keeps existing TOON
@@ -98,16 +98,16 @@ int main(int argc, char **argv)
             "  crypt,crypt.brazier,\"41,6\",1,0\n"
             "  crypt,crypt.stair,\"38,4\",1,0\n";
 
-        assert(toon == expected_s1);
+        EDI_CHECK(toon == expected_s1);
 
         // Step 5 — anchor geometry sanity: both plugs at y=12.5 (colinear → straight).
         for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
             if (plug.name == "entrance.to_crypt") {
-                assert(std::abs(plug.anchor.x - 15.0) < 1e-9);   // East wall at x=15
-                assert(std::abs(plug.anchor.y - expectedColinearY(1.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 15.0) < 1e-9);   // East wall at x=15
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(1.0)) < 1e-9);
             } else if (plug.name == "crypt.to_entrance") {
-                assert(std::abs(plug.anchor.x - 35.0) < 1e-9);   // West wall at x=35
-                assert(std::abs(plug.anchor.y - expectedColinearY(1.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 35.0) < 1e-9);   // West wall at x=35
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(1.0)) < 1e-9);
             }
         }
     }
@@ -121,16 +121,16 @@ int main(int argc, char **argv)
         // `at` re-derives from scaled room dims for free (h/2 = 30/2 = 15 → y=10+15=25).
         edi::drafting::MapSpec spec = edi::io::buildCryptMapSpec(2.0);
 
-        assert(spec.rooms.size() == 2);
-        assert(spec.connections.size() == 1);
-        assert(spec.blocks.size() == 3);
+        EDI_CHECK(spec.rooms.size() == 2);
+        EDI_CHECK(spec.connections.size() == 1);
+        EDI_CHECK(spec.blocks.size() == 3);
 
         // Verify one scaled room dim to prove the table is multiplied, not re-typed.
-        assert(std::abs(spec.rooms[0].spec.width  - 30.0) < 1e-9); // 15 * 2
-        assert(std::abs(spec.rooms[1].spec.origin.x - 70.0) < 1e-9); // 35 * 2
+        EDI_CHECK(std::abs(spec.rooms[0].spec.width  - 30.0) < 1e-9); // 15 * 2
+        EDI_CHECK(std::abs(spec.rooms[1].spec.origin.x - 70.0) < 1e-9); // 35 * 2
 
         DrawingDocumentController controller;
-        assert(controller.createMapFromSpec(spec, 1.0));
+        EDI_CHECK(controller.createMapFromSpec(spec, 1.0));
         const edi::drafting::DraftingDocument &doc = controller.draftingDocument();
 
         // sceneScale=2.0 → emits `scale: 2` (num(2.0) → "%g" → "2").
@@ -158,16 +158,16 @@ int main(int argc, char **argv)
             "  crypt,crypt.brazier,\"82,12\",1,0\n"
             "  crypt,crypt.stair,\"76,8\",1,0\n";
 
-        assert(toon == expected_s2);
+        EDI_CHECK(toon == expected_s2);
 
         // Colinear anchor check at S=2: both plugs at y=25.
         for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
             if (plug.name == "entrance.to_crypt") {
-                assert(std::abs(plug.anchor.x - 30.0) < 1e-9);  // East wall x=0+30
-                assert(std::abs(plug.anchor.y - expectedColinearY(2.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 30.0) < 1e-9);  // East wall x=0+30
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(2.0)) < 1e-9);
             } else if (plug.name == "crypt.to_entrance") {
-                assert(std::abs(plug.anchor.x - 70.0) < 1e-9);  // West wall x=70
-                assert(std::abs(plug.anchor.y - expectedColinearY(2.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 70.0) < 1e-9);  // West wall x=70
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(2.0)) < 1e-9);
             }
         }
     }
@@ -180,16 +180,16 @@ int main(int argc, char **argv)
         // S=4: entrance 60×60@(0,20), crypt 100×100@(140,0); colinear y=50.
         edi::drafting::MapSpec spec = edi::io::buildCryptMapSpec(4.0);
 
-        assert(spec.rooms.size() == 2);
-        assert(spec.connections.size() == 1);
-        assert(spec.blocks.size() == 3);
+        EDI_CHECK(spec.rooms.size() == 2);
+        EDI_CHECK(spec.connections.size() == 1);
+        EDI_CHECK(spec.blocks.size() == 3);
 
         // Verify one scaled room and one scaled block to prove uniform multiply.
-        assert(std::abs(spec.rooms[1].spec.width   - 100.0) < 1e-9); // 25 * 4
-        assert(std::abs(spec.blocks[0].position.x  - 190.0) < 1e-9); // 47.5 * 4
+        EDI_CHECK(std::abs(spec.rooms[1].spec.width   - 100.0) < 1e-9); // 25 * 4
+        EDI_CHECK(std::abs(spec.blocks[0].position.x  - 190.0) < 1e-9); // 47.5 * 4
 
         DrawingDocumentController controller;
-        assert(controller.createMapFromSpec(spec, 1.0));
+        EDI_CHECK(controller.createMapFromSpec(spec, 1.0));
         const edi::drafting::DraftingDocument &doc = controller.draftingDocument();
 
         // sceneScale=4.0 → emits `scale: 4` (num(4.0) → "%g" → "4").
@@ -217,16 +217,16 @@ int main(int argc, char **argv)
             "  crypt,crypt.brazier,\"164,24\",1,0\n"
             "  crypt,crypt.stair,\"152,16\",1,0\n";
 
-        assert(toon == expected_s4);
+        EDI_CHECK(toon == expected_s4);
 
         // Colinear anchor check at S=4: both plugs at y=50.
         for (const edi::drafting::DraftingPlug &plug : doc.plugs) {
             if (plug.name == "entrance.to_crypt") {
-                assert(std::abs(plug.anchor.x - 60.0) < 1e-9);   // East wall x=0+60
-                assert(std::abs(plug.anchor.y - expectedColinearY(4.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 60.0) < 1e-9);   // East wall x=0+60
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(4.0)) < 1e-9);
             } else if (plug.name == "crypt.to_entrance") {
-                assert(std::abs(plug.anchor.x - 140.0) < 1e-9);  // West wall x=140
-                assert(std::abs(plug.anchor.y - expectedColinearY(4.0)) < 1e-9);
+                EDI_CHECK(std::abs(plug.anchor.x - 140.0) < 1e-9);  // West wall x=140
+                EDI_CHECK(std::abs(plug.anchor.y - expectedColinearY(4.0)) < 1e-9);
             }
         }
     }

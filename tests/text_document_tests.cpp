@@ -1,6 +1,6 @@
 #include "text/TextDocumentStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <optional>
 #include <string>
 
@@ -9,85 +9,85 @@ using namespace edi::text;
 int main()
 {
     TextDocumentStore store;
-    assert(isValidTextDocumentId("text_1"));
-    assert(!isValidTextDocumentId(""));
+    EDI_CHECK(isValidTextDocumentId("text_1"));
+    EDI_CHECK(!isValidTextDocumentId(""));
     TextDocument fallbackTitle = makeTextDocument("text_fallback");
-    assert(fallbackTitle.title == "text_fallback");
+    EDI_CHECK(fallbackTitle.title == "text_fallback");
     TextDocument explicitTitle = makeTextDocument("text_explicit", "Notes");
-    assert(explicitTitle.title == "Notes");
+    EDI_CHECK(explicitTitle.title == "Notes");
     TextDocument emptyTextDocument = makeTextDocument("");
-    assert(emptyTextDocument.id.empty());
-    assert(emptyTextDocument.title.empty());
+    EDI_CHECK(emptyTextDocument.id.empty());
+    EDI_CHECK(emptyTextDocument.title.empty());
     TextDocument document = makeTextDocument("text_1", "Scratch");
     document.role = TextDocumentRole::Scratch;
 
     auto add = addDocument(store, document);
-    assert(add.ok);
-    assert(add.code == TextResultCode::None);
-    assert(store.activeDocumentId == "text_1");
-    assert(textDocumentIndexById(store, "text_1") == 0);
-    assert(findDocument(store, "text_1") == &store.documents[0]);
-    assert(containsDocument(store, "text_1"));
+    EDI_CHECK(add.ok);
+    EDI_CHECK(add.code == TextResultCode::None);
+    EDI_CHECK(store.activeDocumentId == "text_1");
+    EDI_CHECK(textDocumentIndexById(store, "text_1") == 0);
+    EDI_CHECK(findDocument(store, "text_1") == &store.documents[0]);
+    EDI_CHECK(containsDocument(store, "text_1"));
 
     auto addSecond = addDocument(store, makeTextDocument("text_2", "Reference"));
-    assert(addSecond.ok);
-    assert(store.documents.size() == 2);
-    assert(store.documents[0].id == "text_1");
-    assert(store.documents[1].id == "text_2");
-    assert(textDocumentIndexById(store, "text_2") == 1);
-    assert(findDocument(store, "text_2") == &store.documents[1]);
-    assert(containsDocument(store, "text_2"));
-    assert(textDocumentIndexById(store, "missing") == std::nullopt);
-    assert(findDocument(store, "missing") == nullptr);
-    assert(!containsDocument(store, "missing"));
+    EDI_CHECK(addSecond.ok);
+    EDI_CHECK(store.documents.size() == 2);
+    EDI_CHECK(store.documents[0].id == "text_1");
+    EDI_CHECK(store.documents[1].id == "text_2");
+    EDI_CHECK(textDocumentIndexById(store, "text_2") == 1);
+    EDI_CHECK(findDocument(store, "text_2") == &store.documents[1]);
+    EDI_CHECK(containsDocument(store, "text_2"));
+    EDI_CHECK(textDocumentIndexById(store, "missing") == std::nullopt);
+    EDI_CHECK(findDocument(store, "missing") == nullptr);
+    EDI_CHECK(!containsDocument(store, "missing"));
 
     auto duplicate = addDocument(store, document);
-    assert(!duplicate.ok);
-    assert(duplicate.code == TextResultCode::DuplicateDocumentId);
-    assert(store.documents.size() == 2);
-    assert(store.documents[0].id == "text_1");
-    assert(store.documents[1].id == "text_2");
+    EDI_CHECK(!duplicate.ok);
+    EDI_CHECK(duplicate.code == TextResultCode::DuplicateDocumentId);
+    EDI_CHECK(store.documents.size() == 2);
+    EDI_CHECK(store.documents[0].id == "text_1");
+    EDI_CHECK(store.documents[1].id == "text_2");
 
     TextDocument emptyId = makeTextDocument("");
     auto emptyIdResult = addDocument(store, emptyId);
-    assert(!emptyIdResult.ok);
-    assert(emptyIdResult.code == TextResultCode::EmptyDocumentId);
+    EDI_CHECK(!emptyIdResult.ok);
+    EDI_CHECK(emptyIdResult.code == TextResultCode::EmptyDocumentId);
 
     auto role = updateDocumentRole(store, "text_1", TextDocumentRole::Prompt);
-    assert(role.ok);
+    EDI_CHECK(role.ok);
     const TextDocument *updated = findDocument(store, "text_1");
-    assert(updated != nullptr);
-    assert(updated->role == TextDocumentRole::Prompt);
-    assert(updated->dirty);
+    EDI_CHECK(updated != nullptr);
+    EDI_CHECK(updated->role == TextDocumentRole::Prompt);
+    EDI_CHECK(updated->dirty);
 
     auto promptDocs = listDocumentsByRole(store, TextDocumentRole::Prompt);
-    assert(promptDocs.size() == 1);
+    EDI_CHECK(promptDocs.size() == 1);
 
     auto missingActive = setActiveDocument(store, "missing");
-    assert(!missingActive.ok);
-    assert(missingActive.code == TextResultCode::DocumentNotFound);
-    assert(store.activeDocumentId == "text_1");
+    EDI_CHECK(!missingActive.ok);
+    EDI_CHECK(missingActive.code == TextResultCode::DocumentNotFound);
+    EDI_CHECK(store.activeDocumentId == "text_1");
 
     auto missingRemove = removeDocument(store, "missing");
-    assert(!missingRemove.ok);
-    assert(missingRemove.code == TextResultCode::DocumentNotFound);
-    assert(store.activeDocumentId == "text_1");
-    assert(store.documents.size() == 2);
-    assert(store.documents[0].id == "text_1");
-    assert(store.documents[1].id == "text_2");
+    EDI_CHECK(!missingRemove.ok);
+    EDI_CHECK(missingRemove.code == TextResultCode::DocumentNotFound);
+    EDI_CHECK(store.activeDocumentId == "text_1");
+    EDI_CHECK(store.documents.size() == 2);
+    EDI_CHECK(store.documents[0].id == "text_1");
+    EDI_CHECK(store.documents[1].id == "text_2");
 
     auto removeFirst = removeDocument(store, "text_1");
-    assert(removeFirst.ok);
-    assert(store.documents.size() == 1);
-    assert(store.documents[0].id == "text_2");
-    assert(store.activeDocumentId == "text_2");
-    assert(textDocumentIndexById(store, "text_2") == 0);
+    EDI_CHECK(removeFirst.ok);
+    EDI_CHECK(store.documents.size() == 1);
+    EDI_CHECK(store.documents[0].id == "text_2");
+    EDI_CHECK(store.activeDocumentId == "text_2");
+    EDI_CHECK(textDocumentIndexById(store, "text_2") == 0);
 
-    assert(textResultCodeName(TextResultCode::InvalidRange) == std::string("invalid_range"));
-    assert(isValidTextDocumentTitle("Title"));
-    assert(!isValidTextDocumentTitle(""));
-    assert(isValidTitle("Title"));
-    assert(!isValidTitle(""));
+    EDI_CHECK(textResultCodeName(TextResultCode::InvalidRange) == std::string("invalid_range"));
+    EDI_CHECK(isValidTextDocumentTitle("Title"));
+    EDI_CHECK(!isValidTextDocumentTitle(""));
+    EDI_CHECK(isValidTitle("Title"));
+    EDI_CHECK(!isValidTitle(""));
 
     return 0;
 }

@@ -4,7 +4,7 @@
 #include "drafting/DraftingGeometry.h" // computeBounds, makeDraftingObject
 #include "drafting/DraftingLayerOps.h" // makeDefaultLayer (to hide layers)
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 
 using namespace edi::drafting;
@@ -47,8 +47,8 @@ int main()
         doc.objects.push_back(makeLine("l2", {0.5, 0.2}, {0.5, 0.8}));
 
         const auto pts = documentIntersectionPoints(doc);
-        assert(pts.size() == 1);
-        assert(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
+        EDI_CHECK(pts.size() == 1);
+        EDI_CHECK(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
     }
 
     // Three lines all passing through (0.5, 0.5):
@@ -61,8 +61,8 @@ int main()
         doc.objects.push_back(makeLine("l3", {0.2, 0.2}, {0.8, 0.8})); // diagonal through (0.5,0.5)
 
         const auto pts = documentIntersectionPoints(doc);
-        assert(pts.size() == 1);
-        assert(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
+        EDI_CHECK(pts.size() == 1);
+        EDI_CHECK(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
     }
 
     // Parallel lines: same slope → segmentIntersection returns nullopt → 0 points.
@@ -72,7 +72,7 @@ int main()
         doc.objects.push_back(makeLine("l2", {0.1, 0.6}, {0.7, 0.6})); // y=0.6
 
         const auto pts = documentIntersectionPoints(doc);
-        assert(pts.empty());
+        EDI_CHECK(pts.empty());
     }
 
     // Hidden line contributes nothing: the crossing with the visible line is absent.
@@ -82,7 +82,7 @@ int main()
         doc.objects.push_back(makeLine("l2", {0.5, 0.2}, {0.5, 0.8}, false));   // HIDDEN
 
         const auto pts = documentIntersectionPoints(doc);
-        assert(pts.empty()); // hidden line ignored, nothing crosses the one visible line
+        EDI_CHECK(pts.empty()); // hidden line ignored, nothing crosses the one visible line
     }
 
     // ConstructionLine participates like a Line segment.
@@ -92,8 +92,8 @@ int main()
         doc.objects.push_back(makeConstructionLine("cl1", {0.5, 0.2}, {0.5, 0.8}));
 
         const auto pts = documentIntersectionPoints(doc);
-        assert(pts.size() == 1);
-        assert(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
+        EDI_CHECK(pts.size() == 1);
+        EDI_CHECK(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
     }
 
     // --- subsetIntersectionPoints ---------------------------------------------
@@ -109,8 +109,8 @@ int main()
         doc.objects.push_back(makeLine("l3", {0.1, 0.1}, {0.9, 0.9})); // not selected
 
         const auto pts = subsetIntersectionPoints(doc, {"l1", "l2"});
-        assert(pts.size() == 1);
-        assert(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
+        EDI_CHECK(pts.size() == 1);
+        EDI_CHECK(near(pts[0].x, 0.5) && near(pts[0].y, 0.5));
     }
 
     // --- filterExistingIntersections ------------------------------------------
@@ -125,8 +125,8 @@ int main()
 
         const std::vector<Point2D> candidates = {{0.5, 0.5}, {0.3, 0.7}};
         const auto filtered = filterExistingIntersections(doc, candidates);
-        assert(filtered.size() == 1);
-        assert(near(filtered[0].x, 0.3) && near(filtered[0].y, 0.7));
+        EDI_CHECK(filtered.size() == 1);
+        EDI_CHECK(near(filtered[0].x, 0.3) && near(filtered[0].y, 0.7));
     }
 
     // No existing Point → all candidates pass through.
@@ -134,7 +134,7 @@ int main()
         DraftingDocument doc = makeDraftingDocument("d8");
         const std::vector<Point2D> candidates = {{0.1, 0.2}, {0.3, 0.4}};
         const auto filtered = filterExistingIntersections(doc, candidates);
-        assert(filtered.size() == 2);
+        EDI_CHECK(filtered.size() == 2);
     }
 
     return 0;

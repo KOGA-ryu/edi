@@ -3,7 +3,7 @@
 #include <QApplication>
 #include <QWidget>
 
-#include <cassert>
+#include "EdiAssert.h"
 
 using namespace edi::shell;
 
@@ -40,9 +40,9 @@ int main(int argc, char **argv)
     registry.features = {fake, broken};
 
     // Registry lookup is by id.
-    assert(findFeature(registry, QStringLiteral("fake")) != nullptr);
-    assert(findFeature(registry, QStringLiteral("fake"))->label == QStringLiteral("Fake feature"));
-    assert(findFeature(registry, QStringLiteral("missing")) == nullptr);
+    EDI_CHECK(findFeature(registry, QStringLiteral("fake")) != nullptr);
+    EDI_CHECK(findFeature(registry, QStringLiteral("fake"))->label == QStringLiteral("Fake feature"));
+    EDI_CHECK(findFeature(registry, QStringLiteral("missing")) == nullptr);
 
     // A layout exercising every skip rule alongside the two good bindings:
     // unknown feature, slot the feature cannot fill, feature with no factory.
@@ -60,15 +60,15 @@ int main(int argc, char **argv)
 
     // Only the two valid bindings produce widgets; bad bindings degrade to an
     // emptier shell instead of crashing.
-    assert(mounted.size() == 2);
-    assert(seenContext == &context); // the shared bus is passed through, not copied
+    EDI_CHECK(mounted.size() == 2);
+    EDI_CHECK(seenContext == &context); // the shared bus is passed through, not copied
 
     QWidget *left = mountedSlotWidget(mounted, ShellSlot::Left);
     QWidget *main = mountedSlotWidget(mounted, ShellSlot::Main);
-    assert(left != nullptr && left->objectName() == QStringLiteral("fakeLeft"));
-    assert(main != nullptr && main->objectName() == QStringLiteral("fakeMain"));
-    assert(mountedSlotWidget(mounted, ShellSlot::Right) == nullptr);
-    assert(mountedSlotWidget(mounted, ShellSlot::Bottom) == nullptr);
+    EDI_CHECK(left != nullptr && left->objectName() == QStringLiteral("fakeLeft"));
+    EDI_CHECK(main != nullptr && main->objectName() == QStringLiteral("fakeMain"));
+    EDI_CHECK(mountedSlotWidget(mounted, ShellSlot::Right) == nullptr);
+    EDI_CHECK(mountedSlotWidget(mounted, ShellSlot::Bottom) == nullptr);
 
     delete left;
     delete main;

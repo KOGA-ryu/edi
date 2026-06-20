@@ -3,7 +3,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 #include <utility>
@@ -17,7 +17,7 @@ bool near(double a, double b) { return std::abs(a - b) < 1e-9; }
 DraftingObject object(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     auto built = buildDraftingObject(std::move(id), kind, std::move(geometry));
-    assert(built.ok);
+    EDI_CHECK(built.ok);
     return built.object;
 }
 
@@ -35,34 +35,34 @@ int main()
     const DraftingPasteResult pasted = planDraftingPaste({point, line}, "paste", 10, 0.05, -0.05);
 
     // Source order preserved, serials minted in sequence from startSerial.
-    assert(pasted.objects.size() == 2);
-    assert(pasted.objects[0].id == "paste_0010");
-    assert(pasted.objects[1].id == "paste_0011");
-    assert(pasted.nextSerial == 12); // past the last minted
+    EDI_CHECK(pasted.objects.size() == 2);
+    EDI_CHECK(pasted.objects[0].id == "paste_0010");
+    EDI_CHECK(pasted.objects[1].id == "paste_0011");
+    EDI_CHECK(pasted.nextSerial == 12); // past the last minted
 
     // Fresh ids never collide with the originals.
-    assert(pasted.objects[0].id != point.id);
-    assert(pasted.objects[1].id != line.id);
+    EDI_CHECK(pasted.objects[0].id != point.id);
+    EDI_CHECK(pasted.objects[1].id != line.id);
 
     // Geometry translated by the offset; bounds recomputed to match.
     const auto *pastedPoint = std::get_if<PointGeometry>(&pasted.objects[0].geometry);
-    assert(pastedPoint != nullptr);
-    assert(near(pastedPoint->point.x, 0.25) && near(pastedPoint->point.y, 0.25));
+    EDI_CHECK(pastedPoint != nullptr);
+    EDI_CHECK(near(pastedPoint->point.x, 0.25) && near(pastedPoint->point.y, 0.25));
     const auto *pastedLine = std::get_if<LineGeometry>(&pasted.objects[1].geometry);
-    assert(pastedLine != nullptr);
-    assert(near(pastedLine->a.x, 0.15) && near(pastedLine->b.y, 0.45));
+    EDI_CHECK(pastedLine != nullptr);
+    EDI_CHECK(near(pastedLine->a.x, 0.15) && near(pastedLine->b.y, 0.45));
     const Bounds2D expected = computeBounds(pasted.objects[1].geometry);
-    assert(near(pasted.objects[1].bounds.x, expected.x) && near(pasted.objects[1].bounds.width, expected.width));
+    EDI_CHECK(near(pasted.objects[1].bounds.x, expected.x) && near(pasted.objects[1].bounds.width, expected.width));
 
     // Non-geometry attributes carry over verbatim — a paste is the same object
     // elsewhere, not a new kind of thing.
-    assert(pasted.objects[0].layerId == "annotations");
-    assert(pasted.objects[0].locked);
-    assert(pasted.objects[0].kind == DraftingShapeKind::Point);
+    EDI_CHECK(pasted.objects[0].layerId == "annotations");
+    EDI_CHECK(pasted.objects[0].locked);
+    EDI_CHECK(pasted.objects[0].kind == DraftingShapeKind::Point);
 
     // Empty clipboard: nothing minted, serial unmoved.
     const DraftingPasteResult none = planDraftingPaste({}, "paste", 10, 0.05, 0.05);
-    assert(none.objects.empty() && none.nextSerial == 10);
+    EDI_CHECK(none.objects.empty() && none.nextSerial == 10);
 
     return 0;
 }

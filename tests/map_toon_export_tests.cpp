@@ -8,7 +8,7 @@
 #include "drafting/DraftingRoom.h"
 #include "io/MapToonExport.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::drafting;
@@ -62,25 +62,25 @@ int main()
         "connections[1]{from,to,type}:\n"
         "  a.door1,b.in,corridor\n";
 
-    assert(toon == expected);
+    EDI_CHECK(toon == expected);
 
     // CONDITIONAL-ABSENCE PROOF (M3): the spec above has NO features, NO patrols, and
     // NO locked connection — so the export must carry NO markers[]/patrols[] section
     // and the connections header must stay exactly {from,to,type}. (The `expected`
     // golden above already pins this byte-for-byte; these spell out the invariant.)
-    assert(toon.find("markers[") == std::string::npos);
-    assert(toon.find("patrols[") == std::string::npos);
-    assert(toon.find("{from,to,type}") != std::string::npos);
-    assert(toon.find("locked") == std::string::npos);
+    EDI_CHECK(toon.find("markers[") == std::string::npos);
+    EDI_CHECK(toon.find("patrols[") == std::string::npos);
+    EDI_CHECK(toon.find("{from,to,type}") != std::string::npos);
+    EDI_CHECK(toon.find("locked") == std::string::npos);
 
     // Title omitted -> no title line; units still present.
     const std::string noTitle = edi::io::exportMapToToon(spec);
-    assert(noTitle.find("title:") == std::string::npos);
-    assert(noTitle.find("kind: map\nunits: feet\n") == 0);
+    EDI_CHECK(noTitle.find("title:") == std::string::npos);
+    EDI_CHECK(noTitle.find("kind: map\nunits: feet\n") == 0);
 
     // A coordinate cell with a comma is quoted; a bare token is not.
-    assert(toon.find("\"1,2\"") != std::string::npos);
-    assert(toon.find(",stone\n") != std::string::npos);
+    EDI_CHECK(toon.find("\"1,2\"") != std::string::npos);
+    EDI_CHECK(toon.find(",stone\n") != std::string::npos);
 
     // Seam C: the DOCUMENT-based export — same three arrays PLUS placed block
     // instances, with canvas coordinates converted to authored units via the stored
@@ -140,7 +140,7 @@ int main()
             "\n"
             "blocks[1]{room,asset,origin,scale,rotation}:\n"
             "  a,recipe.chair,\"6,8\",1,0\n";
-        assert(docToon == expectedDoc);
+        EDI_CHECK(docToon == expectedDoc);
     }
 
     // DM-08 export-fidelity (Seam C is not lossy vs Seam B for rooms). Build the SAME
@@ -171,7 +171,7 @@ int main()
         // Slice out the `rooms[...]:` header + rows, up to the blank line that ends it.
         const auto roomsSection = [](const std::string &toon) {
             const std::size_t start = toon.find("rooms[");
-            assert(start != std::string::npos);
+            EDI_CHECK(start != std::string::npos);
             const std::size_t end = toon.find("\n\n", start);
             return toon.substr(start, end == std::string::npos ? std::string::npos : end - start);
         };
@@ -179,13 +179,13 @@ int main()
         const std::string specRooms = roomsSection(edi::io::exportMapToToon(mspec));
         const std::string docRooms = roomsSection(edi::io::exportMapToToon(rdoc));
         // Seam C agrees with Seam B for the rooms section, byte-for-byte.
-        assert(specRooms == docRooms);
+        EDI_CHECK(specRooms == docRooms);
         // …and it actually carries the name + footprint + material (would fail if a
         // field stopped projecting).
-        assert(docRooms.find("hall") != std::string::npos);
-        assert(docRooms.find("\"3,4\"") != std::string::npos);   // origin, authored
-        assert(docRooms.find("\"10,6\"") != std::string::npos);  // size, authored
-        assert(docRooms.find("stone") != std::string::npos);     // material
+        EDI_CHECK(docRooms.find("hall") != std::string::npos);
+        EDI_CHECK(docRooms.find("\"3,4\"") != std::string::npos);   // origin, authored
+        EDI_CHECK(docRooms.find("\"10,6\"") != std::string::npos);  // size, authored
+        EDI_CHECK(docRooms.find("stone") != std::string::npos);     // material
     }
 
     // DM-13: the blocks[] scale/rotation columns read the placement's real
@@ -213,8 +213,8 @@ int main()
 
         const std::string toon = edi::io::exportMapToToon(doc, "spun");
         // The column order is {room,asset,origin,scale,rotation}: scale then rotation.
-        assert(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
-        assert(toon.find("  a,recipe.urn,\"5,5\",1.5,45\n") != std::string::npos);
+        EDI_CHECK(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
+        EDI_CHECK(toon.find("  a,recipe.urn,\"5,5\",1.5,45\n") != std::string::npos);
     }
 
     // 043: the M0 props critical path — an EMPTY-blockId carrier (a MapSpec-level
@@ -254,12 +254,12 @@ int main()
 
         const std::string toon = edi::io::exportMapToToon(doc, "crypt");
         // Exactly one block row despite empty blockId — grouping keys on instanceId.
-        assert(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
+        EDI_CHECK(toon.find("blocks[1]{room,asset,origin,scale,rotation}:\n") != std::string::npos);
         // room resolved by containment (tomb), asset = the raw ref, origin = AUTHORED
         // feet (6,8) NOT canvas (3,4), scale 2, rotation 90.
-        assert(toon.find("  tomb,crypt.sarcophagus,\"6,8\",2,90\n") != std::string::npos);
+        EDI_CHECK(toon.find("  tomb,crypt.sarcophagus,\"6,8\",2,90\n") != std::string::npos);
         // The canvas value must NOT leak into the row (would be "3,4" if unscaled).
-        assert(toon.find("\"3,4\"") == std::string::npos);
+        EDI_CHECK(toon.find("\"3,4\"") == std::string::npos);
     }
 
     // P2-A2 (brief 071): level column on rooms + plugs — CONDITIONAL per-section.
@@ -319,11 +319,11 @@ int main()
             "connections[0]{from,to,type}:\n"
             "\n"
             "blocks[0]{room,asset,origin,scale,rotation}:\n";
-        assert(lvlToon == expectedLvl);
+        EDI_CHECK(lvlToon == expectedLvl);
 
         // Column is LAST: level appears after material in rooms, after flags in plugs.
-        assert(lvlToon.find("{name,origin,size,material,level}") != std::string::npos);
-        assert(lvlToon.find("{room,name,edge,type,connected,flags,level}") != std::string::npos);
+        EDI_CHECK(lvlToon.find("{name,origin,size,material,level}") != std::string::npos);
+        EDI_CHECK(lvlToon.find("{room,name,edge,type,connected,flags,level}") != std::string::npos);
 
         // --- All-level-0 document: rooms/plugs headers are BYTE-IDENTICAL to pre-A2. ---
         // Conditional-emission guard: zero non-default values ⇒ no level column ⇒
@@ -335,10 +335,10 @@ int main()
 
         const std::string zeroToon = edi::io::exportMapToToon(zeroDoc, "zero-level");
         // No level column in rooms header.
-        assert(zeroToon.find("{name,origin,size,material,level}") == std::string::npos);
-        assert(zeroToon.find("{name,origin,size,material}") != std::string::npos);
+        EDI_CHECK(zeroToon.find("{name,origin,size,material,level}") == std::string::npos);
+        EDI_CHECK(zeroToon.find("{name,origin,size,material}") != std::string::npos);
         // No level column in plugs header (0 plugs, but still no level keyword).
-        assert(zeroToon.find("flags,level") == std::string::npos);
+        EDI_CHECK(zeroToon.find("flags,level") == std::string::npos);
     }
 
     // P2-A1 (brief 070): nodes[] section — CONDITIONAL, canonical position after
@@ -389,16 +389,16 @@ int main()
             "  node_0002,\"10,7.5\",\"\",0.5\n"          // id fallback; empty type; radius
             "\n"
             "blocks[0]{room,asset,origin,scale,rotation}:\n";
-        assert(nodeToon == expectedNodes);
+        EDI_CHECK(nodeToon == expectedNodes);
 
         // Canonical position: nodes section appears AFTER connections and BEFORE blocks.
         const std::size_t connPos  = nodeToon.find("connections[");
         const std::size_t nodesPos = nodeToon.find("nodes[");
         const std::size_t blocsPos = nodeToon.find("blocks[");
-        assert(connPos  != std::string::npos);
-        assert(nodesPos != std::string::npos);
-        assert(blocsPos != std::string::npos);
-        assert(connPos  < nodesPos && nodesPos < blocsPos);
+        EDI_CHECK(connPos  != std::string::npos);
+        EDI_CHECK(nodesPos != std::string::npos);
+        EDI_CHECK(blocsPos != std::string::npos);
+        EDI_CHECK(connPos  < nodesPos && nodesPos < blocsPos);
 
         // --- Node-LESS document: NO nodes[] section — not even a header line. ---
         // Conditional-emission invariant: empty nodes -> section ABSENT -> same
@@ -409,12 +409,12 @@ int main()
         // (nodes vector default-empty)
 
         const std::string noNodeToon = edi::io::exportMapToToon(noNodeDoc, "no-nodes");
-        assert(noNodeToon.find("nodes[") == std::string::npos);
+        EDI_CHECK(noNodeToon.find("nodes[") == std::string::npos);
         // And blocks section still immediately follows the connections blank line.
         const std::size_t connEnd   = noNodeToon.find("connections[");
         const std::size_t blocksPos = noNodeToon.find("blocks[");
-        assert(connEnd  != std::string::npos && blocksPos != std::string::npos);
-        assert(connEnd  < blocksPos); // no nodes[] in between
+        EDI_CHECK(connEnd  != std::string::npos && blocksPos != std::string::npos);
+        EDI_CHECK(connEnd  < blocksPos); // no nodes[] in between
     }
 
     // P2-A3 (brief 075): inverted-model wire — nodes radius column + rooms
@@ -484,11 +484,11 @@ int main()
             "  corner_b,\"4,4\",hub,0.5\n"
             "\n"
             "blocks[0]{room,asset,origin,scale,rotation}:\n";
-        assert(invToon == expectedInv);
+        EDI_CHECK(invToon == expectedInv);
 
         // bounded_by: node names joined with middle-dot, not ids.
-        assert(invToon.find("corner_a·corner_b") != std::string::npos);
-        assert(invToon.find("node_0001")          == std::string::npos); // id must not leak
+        EDI_CHECK(invToon.find("corner_a·corner_b") != std::string::npos);
+        EDI_CHECK(invToon.find("node_0001")          == std::string::npos); // id must not leak
 
         // --- Placed-only / node-less guard: NO derivation/bounded_by/nodes columns. ---
         DraftingDocument placedDoc = makeDraftingDocument("placed-only");
@@ -497,11 +497,11 @@ int main()
         // (all rooms Placed, all boundedBy empty, no nodes)
 
         const std::string placedToon = edi::io::exportMapToToon(placedDoc, "placed-only");
-        assert(placedToon.find("derivation") == std::string::npos);
-        assert(placedToon.find("bounded_by") == std::string::npos);
-        assert(placedToon.find("nodes[")     == std::string::npos);
+        EDI_CHECK(placedToon.find("derivation") == std::string::npos);
+        EDI_CHECK(placedToon.find("bounded_by") == std::string::npos);
+        EDI_CHECK(placedToon.find("nodes[")     == std::string::npos);
         // rooms section is byte-identical to pre-A3 (plain 4-column header).
-        assert(placedToon.find("{name,origin,size,material}") != std::string::npos);
+        EDI_CHECK(placedToon.find("{name,origin,size,material}") != std::string::npos);
     }
 
     // M3 (proving-ground): the Seam B MapSpec overload carries markers[], patrols[],
@@ -581,14 +581,14 @@ int main()
             "\n"
             "patrols[1]{id,closed,points}:\n"
             "  guard_loop,true,\"64,8·74,8·74,16·64,16\"\n";
-        assert(toon == expected);
+        EDI_CHECK(toon == expected);
 
         // The lock columns appear in the connections header ONLY because one is locked.
-        assert(toon.find("{from,to,type,locked,key_id}") != std::string::npos);
+        EDI_CHECK(toon.find("{from,to,type,locked,key_id}") != std::string::npos);
         // meta is a middle-dot-joined key=value run.
-        assert(toon.find("locked=true·key_id=gold_key") != std::string::npos);
+        EDI_CHECK(toon.find("locked=true·key_id=gold_key") != std::string::npos);
         // patrol points are middle-dot-joined x,y pairs, quoted as one cell.
-        assert(toon.find("\"64,8·74,8·74,16·64,16\"") != std::string::npos);
+        EDI_CHECK(toon.find("\"64,8·74,8·74,16·64,16\"") != std::string::npos);
     }
 
     // M3 conditional-column guard: a connection that is NOT locked and a room WITH a
@@ -627,11 +627,11 @@ int main()
         m.connections.push_back(c);
 
         const std::string toon = edi::io::exportMapToToon(m, "g");
-        assert(toon.find("{from,to,type}") != std::string::npos);    // no lock columns
-        assert(toon.find("locked") == std::string::npos);            // not even the word
-        assert(toon.find("markers[1]{room,id,role,x,y,meta}") != std::string::npos);
-        assert(toon.find("  spawn,player_spawn,spawn,\"5,5\",\"\"\n") != std::string::npos);
-        assert(toon.find("patrols[") == std::string::npos);          // no patrols here
+        EDI_CHECK(toon.find("{from,to,type}") != std::string::npos);    // no lock columns
+        EDI_CHECK(toon.find("locked") == std::string::npos);            // not even the word
+        EDI_CHECK(toon.find("markers[1]{room,id,role,x,y,meta}") != std::string::npos);
+        EDI_CHECK(toon.find("  spawn,player_spawn,spawn,\"5,5\",\"\"\n") != std::string::npos);
+        EDI_CHECK(toon.find("patrols[") == std::string::npos);          // no patrols here
     }
 
     return 0;

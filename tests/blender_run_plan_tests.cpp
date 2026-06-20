@@ -1,6 +1,6 @@
 #include "scripting/BlenderRunPlan.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 #include <vector>
 
@@ -15,27 +15,27 @@ int main()
             "/Applications/Blender.app/Contents/MacOS/Blender",
             "/tmp/scene.py",
             "/tmp/out.png");
-        assert(plan.ok);
-        assert(plan.executablePath == "/Applications/Blender.app/Contents/MacOS/Blender");
-        assert(plan.outputImagePath == "/tmp/out.png");
+        EDI_CHECK(plan.ok);
+        EDI_CHECK(plan.executablePath == "/Applications/Blender.app/Contents/MacOS/Blender");
+        EDI_CHECK(plan.outputImagePath == "/tmp/out.png");
         const std::vector<std::string> expected{
             "--background", "--python", "/tmp/scene.py", "--", "/tmp/out.png"};
-        assert(plan.args == expected);
+        EDI_CHECK(plan.args == expected);
     }
 
     // No Blender configured: refuse with the setting to fix (not a crash, not a
     // silent no-op) — the executable-empty case is the "not set up yet" path.
     {
         const BlenderRunPlan plan = planBlenderRender("", "/tmp/scene.py", "/tmp/out.png");
-        assert(!plan.ok);
-        assert(plan.args.empty());
-        assert(plan.message.find("blender.executable_path") != std::string::npos);
+        EDI_CHECK(!plan.ok);
+        EDI_CHECK(plan.args.empty());
+        EDI_CHECK(plan.message.find("blender.executable_path") != std::string::npos);
     }
 
     // No script / no output: each refuses with its own reason.
     {
-        assert(!planBlenderRender("/blender", "", "/tmp/out.png").ok);
-        assert(!planBlenderRender("/blender", "/tmp/scene.py", "").ok);
+        EDI_CHECK(!planBlenderRender("/blender", "", "/tmp/out.png").ok);
+        EDI_CHECK(!planBlenderRender("/blender", "/tmp/scene.py", "").ok);
     }
 
     // The '--' separator is present and SINGLE — Blender stops parsing its flags
@@ -50,8 +50,8 @@ int main()
                 dashIndex = i;
             }
         }
-        assert(dashes == 1);
-        assert(dashIndex + 1 < plan.args.size() && plan.args[dashIndex + 1] == "/o.png");
+        EDI_CHECK(dashes == 1);
+        EDI_CHECK(dashIndex + 1 < plan.args.size() && plan.args[dashIndex + 1] == "/o.png");
     }
 
     return 0;

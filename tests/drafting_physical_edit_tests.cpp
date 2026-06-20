@@ -1,7 +1,7 @@
 #include "drafting/DraftingPhysicalEdit.h"
 #include "drafting/DraftingStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <limits>
 #include <utility>
@@ -27,21 +27,21 @@ DraftingGridProjection grid(double width = 12.0, double height = 12.0)
 DraftingObject object(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     auto built = buildDraftingObject(std::move(id), kind, std::move(geometry));
-    assert(built.ok);
+    EDI_CHECK(built.ok);
     return built.object;
 }
 
 const NumericGeometryEditCommand *numericCommand(const DraftingPhysicalGeometryEditPlan &plan)
 {
-    assert(plan.ok);
-    assert(plan.command);
+    EDI_CHECK(plan.ok);
+    EDI_CHECK(plan.command);
     return std::get_if<NumericGeometryEditCommand>(&*plan.command);
 }
 
 const UpdateGeometryCommand *geometryCommand(const DraftingPhysicalGeometryEditPlan &plan)
 {
-    assert(plan.ok);
-    assert(plan.command);
+    EDI_CHECK(plan.ok);
+    EDI_CHECK(plan.command);
     return std::get_if<UpdateGeometryCommand>(&*plan.command);
 }
 
@@ -52,104 +52,104 @@ int main()
     DraftingObject point = object("point_1", DraftingShapeKind::Point, PointGeometry{{0.1, 0.2}});
     const DraftingPhysicalGeometryEditPlan pointX = planPhysicalGeometryEdit(point, grid(), "x", 6.0);
     const NumericGeometryEditCommand *pointXCommand = numericCommand(pointX);
-    assert(pointXCommand != nullptr);
-    assert(pointXCommand->objectId == "point_1");
-    assert(pointXCommand->fieldId == "x");
-    assert(near(pointXCommand->value, 0.5));
+    EDI_CHECK(pointXCommand != nullptr);
+    EDI_CHECK(pointXCommand->objectId == "point_1");
+    EDI_CHECK(pointXCommand->fieldId == "x");
+    EDI_CHECK(near(pointXCommand->value, 0.5));
 
     DraftingDocument document = makeDraftingDocument("physical_edit_doc");
-    assert(addObject(document, point).ok);
+    EDI_CHECK(addObject(document, point).ok);
     const auto revisionBeforePointEdit = document.revision;
-    assert(applyDraftingCommand(document, *pointX.command).ok);
+    EDI_CHECK(applyDraftingCommand(document, *pointX.command).ok);
     const auto *editedPointObject = findObject(document, "point_1");
-    assert(editedPointObject != nullptr);
+    EDI_CHECK(editedPointObject != nullptr);
     const auto *editedPoint = std::get_if<PointGeometry>(&editedPointObject->geometry);
-    assert(editedPoint != nullptr);
-    assert(near(editedPoint->point.x, 0.5));
-    assert(near(editedPoint->point.y, 0.2));
-    assert(document.revision == revisionBeforePointEdit + 1);
+    EDI_CHECK(editedPoint != nullptr);
+    EDI_CHECK(near(editedPoint->point.x, 0.5));
+    EDI_CHECK(near(editedPoint->point.y, 0.2));
+    EDI_CHECK(document.revision == revisionBeforePointEdit + 1);
 
     DraftingObject line = object("line_1", DraftingShapeKind::Line, LineGeometry{{0.1, 0.2}, {0.4, 0.6}});
     const DraftingPhysicalGeometryEditPlan lineLength = planPhysicalGeometryEdit(line, grid(), "line_length", 12.0);
     const UpdateGeometryCommand *lineLengthCommand = geometryCommand(lineLength);
-    assert(lineLengthCommand != nullptr);
-    assert(lineLengthCommand->objectId == "line_1");
+    EDI_CHECK(lineLengthCommand != nullptr);
+    EDI_CHECK(lineLengthCommand->objectId == "line_1");
     const auto *lineLengthGeometry = std::get_if<LineGeometry>(&lineLengthCommand->geometry);
-    assert(lineLengthGeometry != nullptr);
-    assert(near(lineLengthGeometry->a.x, 0.1));
-    assert(near(lineLengthGeometry->a.y, 0.2));
-    assert(near(lineLengthGeometry->b.x, 0.7));
-    assert(near(lineLengthGeometry->b.y, 1.0));
+    EDI_CHECK(lineLengthGeometry != nullptr);
+    EDI_CHECK(near(lineLengthGeometry->a.x, 0.1));
+    EDI_CHECK(near(lineLengthGeometry->a.y, 0.2));
+    EDI_CHECK(near(lineLengthGeometry->b.x, 0.7));
+    EDI_CHECK(near(lineLengthGeometry->b.y, 1.0));
 
     const DraftingPhysicalGeometryEditPlan lineAngle = planPhysicalGeometryEdit(line, grid(), "line_angle_deg", 0.0);
     const UpdateGeometryCommand *lineAngleCommand = geometryCommand(lineAngle);
-    assert(lineAngleCommand != nullptr);
+    EDI_CHECK(lineAngleCommand != nullptr);
     const auto *lineAngleGeometry = std::get_if<LineGeometry>(&lineAngleCommand->geometry);
-    assert(lineAngleGeometry != nullptr);
-    assert(near(lineAngleGeometry->b.y, 0.2));
+    EDI_CHECK(lineAngleGeometry != nullptr);
+    EDI_CHECK(near(lineAngleGeometry->b.y, 0.2));
 
     DraftingObject rect = object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.1, 0.2}, 0.3, 0.4});
     const DraftingPhysicalGeometryEditPlan rectWidth = planPhysicalGeometryEdit(rect, grid(), "width", 3.0);
     const NumericGeometryEditCommand *rectWidthCommand = numericCommand(rectWidth);
-    assert(rectWidthCommand != nullptr);
-    assert(rectWidthCommand->fieldId == "width");
-    assert(near(rectWidthCommand->value, 0.25));
+    EDI_CHECK(rectWidthCommand != nullptr);
+    EDI_CHECK(rectWidthCommand->fieldId == "width");
+    EDI_CHECK(near(rectWidthCommand->value, 0.25));
 
     const DraftingPhysicalGeometryEditPlan rectRotation = planPhysicalGeometryEdit(rect, grid(), "rotation_deg", 45.0);
     const NumericGeometryEditCommand *rectRotationCommand = numericCommand(rectRotation);
-    assert(rectRotationCommand != nullptr);
-    assert(rectRotationCommand->fieldId == "rotation_deg");
-    assert(near(rectRotationCommand->value, 45.0));
+    EDI_CHECK(rectRotationCommand != nullptr);
+    EDI_CHECK(rectRotationCommand->fieldId == "rotation_deg");
+    EDI_CHECK(near(rectRotationCommand->value, 45.0));
 
     // Arc angles are unit-independent: the physical edit passes the degrees
     // through unchanged (regression: these used to be rejected).
     DraftingObject arc = object("arc_1", DraftingShapeKind::Arc, ArcGeometry{{0.3, 0.3}, 0.1, 15.0, 120.0});
     const DraftingPhysicalGeometryEditPlan arcStart = planPhysicalGeometryEdit(arc, grid(), "start_angle_deg", 30.0);
     const NumericGeometryEditCommand *arcStartCommand = numericCommand(arcStart);
-    assert(arcStartCommand != nullptr);
-    assert(arcStartCommand->fieldId == "start_angle_deg");
-    assert(near(arcStartCommand->value, 30.0));
+    EDI_CHECK(arcStartCommand != nullptr);
+    EDI_CHECK(arcStartCommand->fieldId == "start_angle_deg");
+    EDI_CHECK(near(arcStartCommand->value, 30.0));
     const DraftingPhysicalGeometryEditPlan arcEnd = planPhysicalGeometryEdit(arc, grid(), "end_angle_deg", 200.0);
     const NumericGeometryEditCommand *arcEndCommand = numericCommand(arcEnd);
-    assert(arcEndCommand != nullptr);
-    assert(near(arcEndCommand->value, 200.0));
+    EDI_CHECK(arcEndCommand != nullptr);
+    EDI_CHECK(near(arcEndCommand->value, 200.0));
     const DraftingPhysicalGeometryEditPlan arcRadius = planPhysicalGeometryEdit(arc, grid(), "radius", 4.0);
-    assert(numericCommand(arcRadius) != nullptr); // radius still scales by unit
+    EDI_CHECK(numericCommand(arcRadius) != nullptr); // radius still scales by unit
 
     DraftingObject circle = object("circle_1", DraftingShapeKind::Circle, CircleGeometry{{0.25, 0.25}, 0.1});
     const DraftingPhysicalGeometryEditPlan circleRadius = planPhysicalGeometryEdit(circle, grid(), "radius", 3.0);
     const NumericGeometryEditCommand *circleRadiusCommand = numericCommand(circleRadius);
-    assert(circleRadiusCommand != nullptr);
-    assert(circleRadiusCommand->fieldId == "radius");
-    assert(near(circleRadiusCommand->value, 0.25));
+    EDI_CHECK(circleRadiusCommand != nullptr);
+    EDI_CHECK(circleRadiusCommand->fieldId == "radius");
+    EDI_CHECK(near(circleRadiusCommand->value, 0.25));
 
     const DraftingPhysicalGeometryEditPlan circleDiameter = planPhysicalGeometryEdit(circle, grid(), "diameter", 6.0);
     const NumericGeometryEditCommand *circleDiameterCommand = numericCommand(circleDiameter);
-    assert(circleDiameterCommand != nullptr);
-    assert(circleDiameterCommand->fieldId == "diameter");
-    assert(near(circleDiameterCommand->value, 0.5));
+    EDI_CHECK(circleDiameterCommand != nullptr);
+    EDI_CHECK(circleDiameterCommand->fieldId == "diameter");
+    EDI_CHECK(near(circleDiameterCommand->value, 0.5));
 
     DraftingObject guide = object("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Vertical, 0.25});
     const DraftingPhysicalGeometryEditPlan guidePosition = planPhysicalGeometryEdit(guide, grid(), "position", 6.0);
     const NumericGeometryEditCommand *guidePositionCommand = numericCommand(guidePosition);
-    assert(guidePositionCommand != nullptr);
-    assert(guidePositionCommand->fieldId == "position");
-    assert(near(guidePositionCommand->value, 0.5));
+    EDI_CHECK(guidePositionCommand != nullptr);
+    EDI_CHECK(guidePositionCommand->fieldId == "position");
+    EDI_CHECK(near(guidePositionCommand->value, 0.5));
 
     DraftingObject dimension = object("dimension_1", DraftingShapeKind::Dimension, DimensionGeometry{DimensionKind::Distance, {0.1, 0.2}, {0.5, 0.6}, 0.04});
     const DraftingPhysicalGeometryEditPlan dimensionLength = planPhysicalGeometryEdit(dimension, grid(), "dimension_length", 12.0);
     const UpdateGeometryCommand *dimensionLengthCommand = geometryCommand(dimensionLength);
-    assert(dimensionLengthCommand != nullptr);
+    EDI_CHECK(dimensionLengthCommand != nullptr);
     const auto *dimensionLengthGeometry = std::get_if<DimensionGeometry>(&dimensionLengthCommand->geometry);
-    assert(dimensionLengthGeometry != nullptr);
-    assert(near(dimensionLengthGeometry->b.x, 0.807106781186548));
-    assert(near(dimensionLengthGeometry->b.y, 0.907106781186548));
+    EDI_CHECK(dimensionLengthGeometry != nullptr);
+    EDI_CHECK(near(dimensionLengthGeometry->b.x, 0.807106781186548));
+    EDI_CHECK(near(dimensionLengthGeometry->b.y, 0.907106781186548));
 
     const DraftingPhysicalGeometryEditPlan dimensionOffset = planPhysicalGeometryEdit(dimension, grid(), "offset", 1.2);
     const NumericGeometryEditCommand *dimensionOffsetCommand = numericCommand(dimensionOffset);
-    assert(dimensionOffsetCommand != nullptr);
-    assert(dimensionOffsetCommand->fieldId == "offset");
-    assert(near(dimensionOffsetCommand->value, 0.1));
+    EDI_CHECK(dimensionOffsetCommand != nullptr);
+    EDI_CHECK(dimensionOffsetCommand->fieldId == "offset");
+    EDI_CHECK(near(dimensionOffsetCommand->value, 0.1));
 
     // Wall: the band's endpoints + thickness are physically editable. ax/bx
     // normalize by width, ay/by by height, and thickness by width (a width-kind
@@ -160,51 +160,51 @@ int main()
     DraftingObject wall = object("wall_1", DraftingShapeKind::Wall, WallGeometry{{0.2, 0.5}, {0.8, 0.5}, 0.1});
     const DraftingPhysicalGeometryEditPlan wallAx = planPhysicalGeometryEdit(wall, grid(), "ax", 6.0);
     const NumericGeometryEditCommand *wallAxCommand = numericCommand(wallAx);
-    assert(wallAxCommand != nullptr);
-    assert(wallAxCommand->fieldId == "ax");
-    assert(near(wallAxCommand->value, 0.5)); // 6.0 / width 12.0
+    EDI_CHECK(wallAxCommand != nullptr);
+    EDI_CHECK(wallAxCommand->fieldId == "ax");
+    EDI_CHECK(near(wallAxCommand->value, 0.5)); // 6.0 / width 12.0
 
     const DraftingPhysicalGeometryEditPlan wallBy = planPhysicalGeometryEdit(wall, grid(), "by", 3.0);
     const NumericGeometryEditCommand *wallByCommand = numericCommand(wallBy);
-    assert(wallByCommand != nullptr);
-    assert(wallByCommand->fieldId == "by");
-    assert(near(wallByCommand->value, 0.25)); // 3.0 / height 12.0
+    EDI_CHECK(wallByCommand != nullptr);
+    EDI_CHECK(wallByCommand->fieldId == "by");
+    EDI_CHECK(near(wallByCommand->value, 0.25)); // 3.0 / height 12.0
 
     const DraftingPhysicalGeometryEditPlan wallThickness = planPhysicalGeometryEdit(wall, grid(), "thickness", 1.2);
     const NumericGeometryEditCommand *wallThicknessCommand = numericCommand(wallThickness);
-    assert(wallThicknessCommand != nullptr);
-    assert(wallThicknessCommand->fieldId == "thickness");
-    assert(near(wallThicknessCommand->value, 0.1)); // 1.2 / width 12.0 (width-kind)
+    EDI_CHECK(wallThicknessCommand != nullptr);
+    EDI_CHECK(wallThicknessCommand->fieldId == "thickness");
+    EDI_CHECK(near(wallThicknessCommand->value, 0.1)); // 1.2 / width 12.0 (width-kind)
 
     // The plan applies cleanly to a real document, mutating the wall geometry.
     DraftingDocument wallDoc = makeDraftingDocument("wall_physical_doc");
-    assert(addObject(wallDoc, wall).ok);
-    assert(applyDraftingCommand(wallDoc, *wallThickness.command).ok);
+    EDI_CHECK(addObject(wallDoc, wall).ok);
+    EDI_CHECK(applyDraftingCommand(wallDoc, *wallThickness.command).ok);
     const auto *editedWall = findObject(wallDoc, "wall_1");
-    assert(editedWall != nullptr);
-    assert(near(std::get<WallGeometry>(editedWall->geometry).thickness, 0.1));
+    EDI_CHECK(editedWall != nullptr);
+    EDI_CHECK(near(std::get<WallGeometry>(editedWall->geometry).thickness, 0.1));
 
     const DraftingPhysicalGeometryEditPlan badField = planPhysicalGeometryEdit(circle, grid(), "missing", 1.0);
-    assert(!badField.ok);
-    assert(badField.code == DraftingResultCode::InvalidGeometry);
-    assert(!badField.command);
+    EDI_CHECK(!badField.ok);
+    EDI_CHECK(badField.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!badField.command);
 
     const DraftingPhysicalGeometryEditPlan badValue = planPhysicalGeometryEdit(circle, grid(), "radius", std::numeric_limits<double>::infinity());
-    assert(!badValue.ok);
-    assert(badValue.code == DraftingResultCode::InvalidGeometry);
-    assert(!badValue.command);
+    EDI_CHECK(!badValue.ok);
+    EDI_CHECK(badValue.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!badValue.command);
 
     const DraftingPhysicalGeometryEditPlan negativeRadius = planPhysicalGeometryEdit(circle, grid(), "radius", -1.0);
-    assert(!negativeRadius.ok);
-    assert(negativeRadius.code == DraftingResultCode::InvalidGeometry);
-    assert(!negativeRadius.command);
+    EDI_CHECK(!negativeRadius.ok);
+    EDI_CHECK(negativeRadius.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!negativeRadius.command);
 
     DraftingGridProjection badGrid = grid();
     badGrid.settings.width = 0.0;
     const DraftingPhysicalGeometryEditPlan invalidGrid = planPhysicalGeometryEdit(point, badGrid, "x", 1.0);
-    assert(!invalidGrid.ok);
-    assert(invalidGrid.code == DraftingResultCode::InvalidGeometry);
-    assert(!invalidGrid.command);
+    EDI_CHECK(!invalidGrid.ok);
+    EDI_CHECK(invalidGrid.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!invalidGrid.command);
 
     return 0;
 }

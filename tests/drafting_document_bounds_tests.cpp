@@ -4,7 +4,7 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGeometry.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <optional>
 
 using namespace edi::drafting;
@@ -30,7 +30,7 @@ int main()
     // Empty document -> nullopt (no extent to fit).
     {
         DraftingDocument doc = makeDraftingDocument("empty");
-        assert(!documentObjectsBounds(doc).has_value());
+        EDI_CHECK(!documentObjectsBounds(doc).has_value());
     }
 
     // A single object -> its own bounds.
@@ -41,9 +41,9 @@ int main()
         rect.bounds = computeBounds(rect.geometry);
         doc.objects = {rect};
         const auto bounds = documentObjectsBounds(doc);
-        assert(bounds.has_value());
-        assert(nearlyEqual(bounds->x, rect.bounds.x) && nearlyEqual(bounds->y, rect.bounds.y));
-        assert(nearlyEqual(bounds->width, rect.bounds.width) && nearlyEqual(bounds->height, rect.bounds.height));
+        EDI_CHECK(bounds.has_value());
+        EDI_CHECK(nearlyEqual(bounds->x, rect.bounds.x) && nearlyEqual(bounds->y, rect.bounds.y));
+        EDI_CHECK(nearlyEqual(bounds->width, rect.bounds.width) && nearlyEqual(bounds->height, rect.bounds.height));
     }
 
     // N objects -> the union min/max across all of them.
@@ -55,11 +55,11 @@ int main()
             pointAt("c", {0.4, 0.05}),
         };
         const auto bounds = documentObjectsBounds(doc);
-        assert(bounds.has_value());
+        EDI_CHECK(bounds.has_value());
         // min x = 0.1, min y = 0.05; max x = 0.7, max y = 0.9.
-        assert(nearlyEqual(bounds->x, 0.1) && nearlyEqual(bounds->y, 0.05));
-        assert(nearlyEqual(bounds->x + bounds->width, 0.7));
-        assert(nearlyEqual(bounds->y + bounds->height, 0.9));
+        EDI_CHECK(nearlyEqual(bounds->x, 0.1) && nearlyEqual(bounds->y, 0.05));
+        EDI_CHECK(nearlyEqual(bounds->x + bounds->width, 0.7));
+        EDI_CHECK(nearlyEqual(bounds->y + bounds->height, 0.9));
     }
 
     return 0;

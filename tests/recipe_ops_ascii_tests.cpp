@@ -7,7 +7,7 @@
 
 #include "recipe_doric_fixture.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -19,7 +19,7 @@ namespace {
 std::string slurp(const std::string &path)
 {
     std::ifstream in(path, std::ios::binary);
-    assert(in.is_open());
+    EDI_CHECK(in.is_open());
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
@@ -28,21 +28,21 @@ std::string slurp(const std::string &path)
 int main()
 {
     const RecipeCompileResult compiled = compileRecipeOps(doricColumnOpStream().ops);
-    assert(compiled.ok);
+    EDI_CHECK(compiled.ok);
 
     // ---- The three byte-goldens: front (X/Z), side (Y/Z), top (X/Y). ----
     {
         const AsciiRenderResult front = renderOpsProjection(compiled.ops, AsciiProjection::Front);
-        assert(front.ok);
-        assert(front.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_front_preview.txt"));
+        EDI_CHECK(front.ok);
+        EDI_CHECK(front.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_front_preview.txt"));
 
         const AsciiRenderResult side = renderOpsProjection(compiled.ops, AsciiProjection::Side);
-        assert(side.ok);
-        assert(side.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_side_preview.txt"));
+        EDI_CHECK(side.ok);
+        EDI_CHECK(side.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_side_preview.txt"));
 
         const AsciiRenderResult top = renderOpsProjection(compiled.ops, AsciiProjection::Top);
-        assert(top.ok);
-        assert(top.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_top_preview.txt"));
+        EDI_CHECK(top.ok);
+        EDI_CHECK(top.text == slurp(EDI_SAMPLES_DIR "/doric_column/previews/doric_top_preview.txt"));
     }
 
     // ---- The glyph vocabulary is data: swapping the table changes the
@@ -58,12 +58,12 @@ int main()
         custom.capBottom = "_";
         custom.fluteMark = "'";
         const AsciiRenderResult render = renderOpsProjection(compiled.ops, AsciiProjection::Front, 96, 72, custom);
-        assert(render.ok);
-        assert(render.text.find("#") != std::string::npos);
-        assert(render.text.find("o") != std::string::npos);
-        assert(render.text.find("█") == std::string::npos); // defaults fully replaced
-        assert(render.text.find("░") == std::string::npos);
-        assert(render.text.find("FRONT PROJECTION") != std::string::npos); // title intact
+        EDI_CHECK(render.ok);
+        EDI_CHECK(render.text.find("#") != std::string::npos);
+        EDI_CHECK(render.text.find("o") != std::string::npos);
+        EDI_CHECK(render.text.find("█") == std::string::npos); // defaults fully replaced
+        EDI_CHECK(render.text.find("░") == std::string::npos);
+        EDI_CHECK(render.text.find("FRONT PROJECTION") != std::string::npos); // title intact
     }
 
     // ---- Port divergence pinned: an UNCOMPILED stream is refused by name.
@@ -71,9 +71,9 @@ int main()
     // parts without saying so proves nothing. ----
     {
         const AsciiRenderResult refused = renderOpsProjection(doricColumnOpStream().ops, AsciiProjection::Front);
-        assert(!refused.ok);
-        assert(refused.message.find("base.torus_scotia_moulding") != std::string::npos);
-        assert(refused.text.empty());
+        EDI_CHECK(!refused.ok);
+        EDI_CHECK(refused.message.find("base.torus_scotia_moulding") != std::string::npos);
+        EDI_CHECK(refused.text.empty());
     }
 
     // ---- Same contract for the lathe reference (R1-B04): an UNRESOLVED
@@ -84,17 +84,17 @@ int main()
         unresolved.profile = "shaft";
         const AsciiRenderResult refused =
             renderOpsProjection({RecipeOp{unresolved}}, AsciiProjection::Front);
-        assert(!refused.ok);
-        assert(refused.message == "AddRevolvedProfile must be resolved before preview: shaft.turned");
-        assert(refused.text.empty());
+        EDI_CHECK(!refused.ok);
+        EDI_CHECK(refused.message == "AddRevolvedProfile must be resolved before preview: shaft.turned");
+        EDI_CHECK(refused.text.empty());
     }
 
     // ---- An empty stream still renders the titled frame (v0's default
     // bounds), so a blank recipe previews as blank, not as an error. ----
     {
         const AsciiRenderResult empty = renderOpsProjection({}, AsciiProjection::Top);
-        assert(empty.ok);
-        assert(empty.text.find("TOP PROJECTION") != std::string::npos);
+        EDI_CHECK(empty.ok);
+        EDI_CHECK(empty.text.find("TOP PROJECTION") != std::string::npos);
     }
 
     // ---- M1 (roadmap): a Script op now draws a unit-bbox OUTLINE as a
@@ -110,9 +110,9 @@ int main()
         // Lone Script: NOT refused, and the bbox outline IS visible now.
         const AsciiRenderResult lone =
             renderOpsProjection({RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
-        assert(lone.ok); // proved, not refused
-        assert(lone.text.find("FRONT PROJECTION") != std::string::npos);
-        assert(lone.text.find("█") != std::string::npos); // bbox border is visible
+        EDI_CHECK(lone.ok); // proved, not refused
+        EDI_CHECK(lone.text.find("FRONT PROJECTION") != std::string::npos);
+        EDI_CHECK(lone.text.find("█") != std::string::npos); // bbox border is visible
 
         AddBoxOp slab;
         slab.name = "slab";
@@ -121,10 +121,10 @@ int main()
             renderOpsProjection({RecipeOp{slab}}, AsciiProjection::Front, 24, 16);
         const AsciiRenderResult boxAndScript =
             renderOpsProjection({RecipeOp{slab}, RecipeOp{twist}}, AsciiProjection::Front, 24, 16);
-        assert(withBox.ok && boxAndScript.ok);
+        EDI_CHECK(withBox.ok && boxAndScript.ok);
         // The Script's unit bbox draws border edges over the scene — the
         // renders now differ (the Script is no longer a visual no-op).
-        assert(withBox.text != boxAndScript.text);
+        EDI_CHECK(withBox.text != boxAndScript.text);
     }
 
     // ---- M1: ScriptOp at a known placement renders a non-empty bbox in ALL
@@ -139,18 +139,18 @@ int main()
         marker.z = 2.0;
         const AsciiRenderResult front =
             renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Front, 20, 12);
-        assert(front.ok);
-        assert(front.text.find("█") != std::string::npos); // x/z outline present
+        EDI_CHECK(front.ok);
+        EDI_CHECK(front.text.find("█") != std::string::npos); // x/z outline present
 
         const AsciiRenderResult side =
             renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Side, 20, 12);
-        assert(side.ok);
-        assert(side.text.find("█") != std::string::npos); // y/z outline present
+        EDI_CHECK(side.ok);
+        EDI_CHECK(side.text.find("█") != std::string::npos); // y/z outline present
 
         const AsciiRenderResult top =
             renderOpsProjection({RecipeOp{marker}}, AsciiProjection::Top, 20, 12);
-        assert(top.ok);
-        assert(top.text.find("█") != std::string::npos); // x/y outline present
+        EDI_CHECK(top.ok);
+        EDI_CHECK(top.text.find("█") != std::string::npos); // x/y outline present
     }
 
     // ---- Top-projection subset golden. The doric top golden above is 100%
@@ -163,7 +163,7 @@ int main()
     {
         const std::vector<RecipeOp> subset{compiled.ops[2], compiled.ops[3], compiled.ops[4]};
         const AsciiRenderResult top = renderOpsProjection(subset, AsciiProjection::Top, 48, 36);
-        assert(top.ok);
+        EDI_CHECK(top.ok);
         const std::string golden = R"GOLD(                        █
  TOP PROJECTION    █████▓█████
                 ███▓▓▓▓▓▓▓▓▓▓▓███
@@ -200,7 +200,7 @@ int main()
                █▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█
                 ███▓▓▓▓▓▓▓▓▓▓▓███
                    █████▓█████)GOLD";
-        assert(top.text == golden);
+        EDI_CHECK(top.text == golden);
     }
 
     // ---- A lone plain drum: both caps must be visible. The doric goldens
@@ -216,9 +216,9 @@ int main()
         plain.z = 5.0;
         const AsciiRenderResult render =
             renderOpsProjection({RecipeOp{plain}}, AsciiProjection::Front, 24, 16);
-        assert(render.ok);
-        assert(render.text.find("▀") != std::string::npos); // capTop row visible
-        assert(render.text.find("▄") != std::string::npos); // capBottom row visible
+        EDI_CHECK(render.ok);
+        EDI_CHECK(render.text.find("▀") != std::string::npos); // capTop row visible
+        EDI_CHECK(render.text.find("▄") != std::string::npos); // capBottom row visible
     }
 
     // ---- CutFlutes front-marker edge guards. count=1 pins the
@@ -234,9 +234,9 @@ int main()
         lone.depth = 0.1;
         const AsciiRenderResult single =
             renderOpsProjection({RecipeOp{lone}}, AsciiProjection::Front, 24, 16);
-        assert(single.ok);
+        EDI_CHECK(single.ok);
         // A marker-only row: exactly seven leading spaces, then the glyph.
-        assert(single.text.find("\n       ░") != std::string::npos);
+        EDI_CHECK(single.text.find("\n       ░") != std::string::npos);
 
         // The 32 clamp makes count=40 and count=32 byte-identical — but
         // only at a width where their column sets differ unclamped. At the
@@ -251,8 +251,8 @@ int main()
             renderOpsProjection({RecipeOp{forty}}, AsciiProjection::Front);
         const AsciiRenderResult clampedRender =
             renderOpsProjection({RecipeOp{clamped}}, AsciiProjection::Front);
-        assert(fortyRender.ok && clampedRender.ok);
-        assert(fortyRender.text == clampedRender.text);
+        EDI_CHECK(fortyRender.ok && clampedRender.ok);
+        EDI_CHECK(fortyRender.text == clampedRender.text);
     }
 
     return 0;

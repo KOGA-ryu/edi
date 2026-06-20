@@ -1,6 +1,6 @@
 #include "drafting/DraftingHpglOut.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::drafting;
@@ -64,16 +64,16 @@ int main()
         "PU;\n"
         "SP0;\n"
         "IN;\n";
-    assert(hpgl == expected);
+    EDI_CHECK(hpgl == expected);
 
     // returnHome=false omits the trailing IN;.
     {
         DraftingHpglSettings noHome;
         noHome.returnHome = false;
         const std::string noHomeHpgl = hpglFromPlotJob(sampleJob(), page(), noHome);
-        assert(noHomeHpgl.find("SP0;\n") != std::string::npos);
+        EDI_CHECK(noHomeHpgl.find("SP0;\n") != std::string::npos);
         // The string ends right after SP0; (no trailing IN;).
-        assert(noHomeHpgl.substr(noHomeHpgl.size() - 5) == "SP0;\n");
+        EDI_CHECK(noHomeHpgl.substr(noHomeHpgl.size() - 5) == "SP0;\n");
     }
 
     // Pen mapping follows penStats order: reversing it swaps SP indices.
@@ -87,10 +87,10 @@ int main()
         // pen_blue is now SP1 and appears first; pen_black is SP2.
         const std::size_t blue = swapped.find("SP1;");
         const std::size_t black = swapped.find("SP2;");
-        assert(blue != std::string::npos && black != std::string::npos);
-        assert(blue < black);
+        EDI_CHECK(blue != std::string::npos && black != std::string::npos);
+        EDI_CHECK(blue < black);
         // pen_blue's chain (PD with two points) now sits under SP1.
-        assert(swapped.find("SP1;\nPU4000,0;\nPD4000,2000,2000,2000;") != std::string::npos);
+        EDI_CHECK(swapped.find("SP1;\nPU4000,0;\nPD4000,2000,2000,2000;") != std::string::npos);
     }
 
     // Y is genuinely flipped: a segment at the top of the page (y=0) maps to the
@@ -100,7 +100,7 @@ int main()
         job.strokeSegments = {segment({0.0, 0.0}, {1.0, 0.0}, "pen_black")};
         job.penStats = {{"pen_black", "#000000", 1.0}};
         const std::string topEdge = hpglFromPlotJob(job, page(), {});
-        assert(topEdge.find("PU0,4000;") != std::string::npos); // y=0 -> 4000
+        EDI_CHECK(topEdge.find("PU0,4000;") != std::string::npos); // y=0 -> 4000
     }
 
     return 0;

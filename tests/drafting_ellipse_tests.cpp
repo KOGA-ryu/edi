@@ -5,7 +5,7 @@
 #include "drafting/DraftingObjectEdit.h"
 #include "drafting/DraftingToolCreation.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <limits>
 #include <string>
@@ -41,52 +41,52 @@ int main()
 
     // validate: well-formed accepted; negative radius / non-finite rejected.
     {
-        assert(validateGeometry(ellipse).ok);
+        EDI_CHECK(validateGeometry(ellipse).ok);
         EllipseGeometry bad = ellipse;
         bad.rx = -1.0;
-        assert(!validateGeometry(bad).ok);
+        EDI_CHECK(!validateGeometry(bad).ok);
         bad = ellipse;
         bad.ry = std::numeric_limits<double>::quiet_NaN();
-        assert(!validateGeometry(bad).ok);
+        EDI_CHECK(!validateGeometry(bad).ok);
     }
 
     // shape kind round-trips through the variant and the name maps.
-    assert(geometryKind(ellipse) == DraftingShapeKind::Ellipse);
-    assert(std::string(shapeKindName(DraftingShapeKind::Ellipse)) == "ellipse");
-    assert(shapeKindFromName("ellipse") == DraftingShapeKind::Ellipse);
+    EDI_CHECK(geometryKind(ellipse) == DraftingShapeKind::Ellipse);
+    EDI_CHECK(std::string(shapeKindName(DraftingShapeKind::Ellipse)) == "ellipse");
+    EDI_CHECK(shapeKindFromName("ellipse") == DraftingShapeKind::Ellipse);
 
     // bounds: axis-aligned box centre +/- (rx, ry). rx != ry, so a swap fails.
     {
         const Bounds2D b = computeBounds(DraftingGeometry{ellipse});
-        assert(nearlyEqual(b.x, 0.2));
-        assert(nearlyEqual(b.y, 0.3));
-        assert(nearlyEqual(b.width, 0.6));
-        assert(nearlyEqual(b.height, 0.4));
+        EDI_CHECK(nearlyEqual(b.x, 0.2));
+        EDI_CHECK(nearlyEqual(b.y, 0.3));
+        EDI_CHECK(nearlyEqual(b.width, 0.6));
+        EDI_CHECK(nearlyEqual(b.height, 0.4));
     }
 
     // area = pi * rx * ry.
-    assert(nearlyEqual(area(DraftingGeometry{ellipse}), 3.14159265358979323846 * 0.3 * 0.2, 0.0001));
+    EDI_CHECK(nearlyEqual(area(DraftingGeometry{ellipse}), 3.14159265358979323846 * 0.3 * 0.2, 0.0001));
 
     // translate moves the centre; radii unchanged.
     {
         const auto moved = std::get<EllipseGeometry>(translateGeometry(DraftingGeometry{ellipse}, 0.1, -0.2));
-        assert(nearlyEqual(moved.center.x, 0.6));
-        assert(nearlyEqual(moved.center.y, 0.3));
-        assert(nearlyEqual(moved.rx, 0.3));
-        assert(nearlyEqual(moved.ry, 0.2));
+        EDI_CHECK(nearlyEqual(moved.center.x, 0.6));
+        EDI_CHECK(nearlyEqual(moved.center.y, 0.3));
+        EDI_CHECK(nearlyEqual(moved.rx, 0.3));
+        EDI_CHECK(nearlyEqual(moved.ry, 0.2));
     }
 
     // flatten: a closed perimeter loop; first point at angle 0 is (cx+rx, cy);
     // every sample lies on the ellipse.
     {
         const auto points = sampleEllipse(ellipse);
-        assert(points.size() == 64);
-        assert(nearlyEqual(points.front().x, 0.8)); // cx + rx
-        assert(nearlyEqual(points.front().y, 0.5));
+        EDI_CHECK(points.size() == 64);
+        EDI_CHECK(nearlyEqual(points.front().x, 0.8)); // cx + rx
+        EDI_CHECK(nearlyEqual(points.front().y, 0.5));
         for (const Point2D &p : points) {
             const double nx = (p.x - ellipse.center.x) / ellipse.rx;
             const double ny = (p.y - ellipse.center.y) / ellipse.ry;
-            assert(nearlyEqual(nx * nx + ny * ny, 1.0, 0.0001));
+            EDI_CHECK(nearlyEqual(nx * nx + ny * ny, 1.0, 0.0001));
         }
     }
 
@@ -94,44 +94,44 @@ int main()
     // from the nearest perimeter point.
     {
         const DraftingObject object = ellipseObject(ellipse);
-        assert(hitDistance(object.geometry, {0.8, 0.5}) < 0.01); // on the perimeter
-        assert(nearlyEqual(hitDistance(object.geometry, ellipse.center), 0.2, 0.01));
+        EDI_CHECK(hitDistance(object.geometry, {0.8, 0.5}) < 0.01); // on the perimeter
+        EDI_CHECK(nearlyEqual(hitDistance(object.geometry, ellipse.center), 0.2, 0.01));
     }
 
     // handles: centre, rx (on +x), ry (on +y).
     {
         const DraftingObject object = ellipseObject(ellipse);
         const auto handles = draftingHandlesForObject(object);
-        assert(handles.size() == 3);
-        assert(handles[0].id == "ellipse_center");
-        assert(handles[1].id == "ellipse_rx");
-        assert(handles[2].id == "ellipse_ry");
-        assert(nearlyEqual(handles[1].point.x, 0.8) && nearlyEqual(handles[1].point.y, 0.5));
-        assert(nearlyEqual(handles[2].point.x, 0.5) && nearlyEqual(handles[2].point.y, 0.7));
+        EDI_CHECK(handles.size() == 3);
+        EDI_CHECK(handles[0].id == "ellipse_center");
+        EDI_CHECK(handles[1].id == "ellipse_rx");
+        EDI_CHECK(handles[2].id == "ellipse_ry");
+        EDI_CHECK(nearlyEqual(handles[1].point.x, 0.8) && nearlyEqual(handles[1].point.y, 0.5));
+        EDI_CHECK(nearlyEqual(handles[2].point.x, 0.5) && nearlyEqual(handles[2].point.y, 0.7));
     }
 
     // handle edits: dragging the rx / ry handles sets the radii to the offset.
     {
         const DraftingObject object = ellipseObject(ellipse);
         const DraftingHandleEditPlan rxPlan = handleEditPlan(object, "ellipse_rx", {0.9, 0.5}); // dx 0.4
-        assert(rxPlan.ok);
+        EDI_CHECK(rxPlan.ok);
         const DraftingObjectEditResult rxEdit = applyObjectEdit(object, rxPlan.edit);
-        assert(rxEdit.ok);
-        assert(nearlyEqual(std::get<EllipseGeometry>(rxEdit.geometry).rx, 0.4));
+        EDI_CHECK(rxEdit.ok);
+        EDI_CHECK(nearlyEqual(std::get<EllipseGeometry>(rxEdit.geometry).rx, 0.4));
 
         const DraftingHandleEditPlan ryPlan = handleEditPlan(object, "ellipse_ry", {0.5, 0.95}); // dy 0.45
-        assert(ryPlan.ok);
+        EDI_CHECK(ryPlan.ok);
         const DraftingObjectEditResult ryEdit = applyObjectEdit(object, ryPlan.edit);
-        assert(ryEdit.ok);
-        assert(nearlyEqual(std::get<EllipseGeometry>(ryEdit.geometry).ry, 0.45));
+        EDI_CHECK(ryEdit.ok);
+        EDI_CHECK(nearlyEqual(std::get<EllipseGeometry>(ryEdit.geometry).ry, 0.45));
     }
 
     // numeric edit: setting rx by field id.
     {
         const DraftingObject object = ellipseObject(ellipse);
         const DraftingNumericEditResult edit = applyNumericGeometryEdit(object, "rx", 0.42);
-        assert(edit.ok);
-        assert(nearlyEqual(std::get<EllipseGeometry>(edit.geometry).rx, 0.42));
+        EDI_CHECK(edit.ok);
+        EDI_CHECK(nearlyEqual(std::get<EllipseGeometry>(edit.geometry).rx, 0.42));
     }
 
     // tool creation: two clicks (centre, then a corner) give rx/ry from the
@@ -143,12 +143,12 @@ int main()
         request.start = {0.3, 0.3};
         request.end = {0.5, 0.45};
         const DraftingObjectBuildResult built = buildDraftingObjectForTool(request);
-        assert(built.ok);
-        assert(built.object.kind == DraftingShapeKind::Ellipse);
+        EDI_CHECK(built.ok);
+        EDI_CHECK(built.object.kind == DraftingShapeKind::Ellipse);
         const auto geo = std::get<EllipseGeometry>(built.object.geometry);
-        assert(nearlyEqual(geo.center.x, 0.3) && nearlyEqual(geo.center.y, 0.3));
-        assert(nearlyEqual(geo.rx, 0.2));
-        assert(nearlyEqual(geo.ry, 0.15));
+        EDI_CHECK(nearlyEqual(geo.center.x, 0.3) && nearlyEqual(geo.center.y, 0.3));
+        EDI_CHECK(nearlyEqual(geo.rx, 0.2));
+        EDI_CHECK(nearlyEqual(geo.ry, 0.15));
     }
 
     return 0;

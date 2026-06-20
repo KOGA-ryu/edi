@@ -2,7 +2,7 @@
 
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <limits>
 
 using namespace drawing_canvas;
@@ -27,7 +27,7 @@ QVariantMap snapped(double x, double y)
 int main()
 {
     const DrawingCanvasProjectedPointer missing = projectedPointer({});
-    assert(!missing.visible);
+    EDI_CHECK(!missing.visible);
 
     const DrawingCanvasProjectedPointer valid = projectedPointer(modelWithPointer(QVariantMap{
         {QStringLiteral("snapped"), snapped(0.25, 0.75)},
@@ -37,14 +37,14 @@ int main()
         {QStringLiteral("label"), QStringLiteral("endpoint")},
         {QStringLiteral("source_object_id"), QStringLiteral("line_1")},
     }));
-    assert(valid.visible);
-    assert(valid.snappedX == 0.25);
-    assert(valid.snappedY == 0.75);
-    assert(valid.kind == QStringLiteral("object"));
-    assert(valid.source == QStringLiteral("endpoint"));
-    assert(valid.insideDrawable);
-    assert(valid.label == QStringLiteral("endpoint"));
-    assert(valid.sourceObjectId == QStringLiteral("line_1"));
+    EDI_CHECK(valid.visible);
+    EDI_CHECK(valid.snappedX == 0.25);
+    EDI_CHECK(valid.snappedY == 0.75);
+    EDI_CHECK(valid.kind == QStringLiteral("object"));
+    EDI_CHECK(valid.source == QStringLiteral("endpoint"));
+    EDI_CHECK(valid.insideDrawable);
+    EDI_CHECK(valid.label == QStringLiteral("endpoint"));
+    EDI_CHECK(valid.sourceObjectId == QStringLiteral("line_1"));
 
     const DrawingCanvasProjectedPointer badX = projectedPointer(modelWithPointer(QVariantMap{
         {QStringLiteral("snapped"), QVariantMap{
@@ -52,7 +52,7 @@ int main()
             {QStringLiteral("y"), 0.5},
         }},
     }));
-    assert(!badX.visible);
+    EDI_CHECK(!badX.visible);
 
     const DrawingCanvasProjectedPointer badY = projectedPointer(modelWithPointer(QVariantMap{
         {QStringLiteral("snapped"), QVariantMap{
@@ -60,20 +60,20 @@ int main()
             {QStringLiteral("y"), QStringLiteral("bad")},
         }},
     }));
-    assert(!badY.visible);
+    EDI_CHECK(!badY.visible);
 
     const DrawingCanvasProjectedPointer missingInside = projectedPointer(modelWithPointer(QVariantMap{
         {QStringLiteral("snapped"), snapped(0.1, 0.2)},
     }));
-    assert(missingInside.visible);
-    assert(!missingInside.insideDrawable);
-    assert(missingInside.kind.isEmpty());
-    assert(missingInside.source.isEmpty());
-    assert(missingInside.label.isEmpty());
-    assert(missingInside.sourceObjectId.isEmpty());
+    EDI_CHECK(missingInside.visible);
+    EDI_CHECK(!missingInside.insideDrawable);
+    EDI_CHECK(missingInside.kind.isEmpty());
+    EDI_CHECK(missingInside.source.isEmpty());
+    EDI_CHECK(missingInside.label.isEmpty());
+    EDI_CHECK(missingInside.sourceObjectId.isEmpty());
 
     const DrawingCanvasProjectedGuideDragSnapIntent missingGuide = projectedGuideDragSnapIntent({});
-    assert(!missingGuide.visible);
+    EDI_CHECK(!missingGuide.visible);
 
     const DrawingCanvasProjectedGuideDragSnapIntent validGuide = projectedGuideDragSnapIntent(QVariantMap{
         {QStringLiteral("guide_drag_snap"), QVariantMap{
@@ -84,14 +84,14 @@ int main()
             {QStringLiteral("intersection"), true},
         }},
     });
-    assert(validGuide.visible);
-    assert(validGuide.rawX == 0.34);
-    assert(validGuide.rawY == 0.74);
-    assert(validGuide.snappedX == 0.33);
-    assert(validGuide.snappedY == 0.75);
-    assert(validGuide.label == QStringLiteral("point"));
-    assert(validGuide.sourceObjectId == QStringLiteral("point_1"));
-    assert(validGuide.intersection);
+    EDI_CHECK(validGuide.visible);
+    EDI_CHECK(validGuide.rawX == 0.34);
+    EDI_CHECK(validGuide.rawY == 0.74);
+    EDI_CHECK(validGuide.snappedX == 0.33);
+    EDI_CHECK(validGuide.snappedY == 0.75);
+    EDI_CHECK(validGuide.label == QStringLiteral("point"));
+    EDI_CHECK(validGuide.sourceObjectId == QStringLiteral("point_1"));
+    EDI_CHECK(validGuide.intersection);
 
     const DrawingCanvasProjectedGuideDragSnapIntent defaultGuide = projectedGuideDragSnapIntent(QVariantMap{
         {QStringLiteral("guide_drag_snap"), QVariantMap{
@@ -100,10 +100,10 @@ int main()
             {QStringLiteral("anchor_label"), QString()},
         }},
     });
-    assert(defaultGuide.visible);
-    assert(defaultGuide.label == QStringLiteral("anchor"));
-    assert(defaultGuide.sourceObjectId.isEmpty());
-    assert(!defaultGuide.intersection);
+    EDI_CHECK(defaultGuide.visible);
+    EDI_CHECK(defaultGuide.label == QStringLiteral("anchor"));
+    EDI_CHECK(defaultGuide.sourceObjectId.isEmpty());
+    EDI_CHECK(!defaultGuide.intersection);
 
     const DrawingCanvasProjectedGuideDragSnapIntent badRawGuide = projectedGuideDragSnapIntent(QVariantMap{
         {QStringLiteral("guide_drag_snap"), QVariantMap{
@@ -114,7 +114,7 @@ int main()
             {QStringLiteral("snapped_anchor"), snapped(0.3, 0.4)},
         }},
     });
-    assert(!badRawGuide.visible);
+    EDI_CHECK(!badRawGuide.visible);
 
     const DrawingCanvasProjectedGuideDragSnapIntent badSnappedGuide = projectedGuideDragSnapIntent(QVariantMap{
         {QStringLiteral("guide_drag_snap"), QVariantMap{
@@ -125,7 +125,7 @@ int main()
             }},
         }},
     });
-    assert(!badSnappedGuide.visible);
+    EDI_CHECK(!badSnappedGuide.visible);
 
     return 0;
 }

@@ -1,6 +1,6 @@
 #include "drafting/DraftingGrid.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 
@@ -17,28 +17,28 @@ bool nearlyEqual(double a, double b)
 
 int main()
 {
-    assert(std::string(draftingGridUnitName(DraftingGridUnit::Millimeter)) == "millimeter");
-    assert(std::string(draftingGridUnitLabel(DraftingGridUnit::Inch)) == "in");
-    assert(draftingGridUnitFromName("millimeter") == DraftingGridUnit::Millimeter);
-    assert(draftingGridUnitFromName("centimeter") == DraftingGridUnit::Centimeter);
-    assert(draftingGridUnitFromName("inch") == DraftingGridUnit::Inch);
-    assert(draftingGridUnitFromName("foot") == DraftingGridUnit::Foot);
-    assert(draftingGridUnitFromName("missing") == DraftingGridUnit::CanvasUnit);
-    assert(std::string(draftingGridPresetName(DraftingGridPreset::SquareArtBoard)) == "square_art_board");
-    assert(std::string(draftingGridPresetLabel(DraftingGridPreset::Letter)) == "Letter");
-    assert(draftingGridPresetFromName("a4") == DraftingGridPreset::A4);
-    assert(draftingGridPresetFromName("missing") == DraftingGridPreset::Custom);
+    EDI_CHECK(std::string(draftingGridUnitName(DraftingGridUnit::Millimeter)) == "millimeter");
+    EDI_CHECK(std::string(draftingGridUnitLabel(DraftingGridUnit::Inch)) == "in");
+    EDI_CHECK(draftingGridUnitFromName("millimeter") == DraftingGridUnit::Millimeter);
+    EDI_CHECK(draftingGridUnitFromName("centimeter") == DraftingGridUnit::Centimeter);
+    EDI_CHECK(draftingGridUnitFromName("inch") == DraftingGridUnit::Inch);
+    EDI_CHECK(draftingGridUnitFromName("foot") == DraftingGridUnit::Foot);
+    EDI_CHECK(draftingGridUnitFromName("missing") == DraftingGridUnit::CanvasUnit);
+    EDI_CHECK(std::string(draftingGridPresetName(DraftingGridPreset::SquareArtBoard)) == "square_art_board");
+    EDI_CHECK(std::string(draftingGridPresetLabel(DraftingGridPreset::Letter)) == "Letter");
+    EDI_CHECK(draftingGridPresetFromName("a4") == DraftingGridPreset::A4);
+    EDI_CHECK(draftingGridPresetFromName("missing") == DraftingGridPreset::Custom);
 
     DraftingGridSettings letter = draftingGridPresetSettings(DraftingGridPreset::Letter);
-    assert(letter.unit == DraftingGridUnit::Inch);
-    assert(nearlyEqual(letter.width, 8.5));
-    assert(nearlyEqual(letter.height, 11.0));
+    EDI_CHECK(letter.unit == DraftingGridUnit::Inch);
+    EDI_CHECK(nearlyEqual(letter.width, 8.5));
+    EDI_CHECK(nearlyEqual(letter.height, 11.0));
 
     DraftingGridProjection projectedLetter = projectDraftingGrid(letter);
-    assert(nearlyEqual(projectedLetter.drawableBounds.x, 0.25 / 8.5));
-    assert(nearlyEqual(projectedLetter.drawableBounds.y, 0.25 / 11.0));
-    assert(!projectedLetter.lines.empty());
-    assert(projectedLetter.lines.front().major);
+    EDI_CHECK(nearlyEqual(projectedLetter.drawableBounds.x, 0.25 / 8.5));
+    EDI_CHECK(nearlyEqual(projectedLetter.drawableBounds.y, 0.25 / 11.0));
+    EDI_CHECK(!projectedLetter.lines.empty());
+    EDI_CHECK(projectedLetter.lines.front().major);
 
     DraftingGridSettings unsafe = letter;
     unsafe.width = -1.0;
@@ -47,16 +47,16 @@ int main()
     unsafe.minorStep = -5.0;
     unsafe.majorLineEvery = 0;
     DraftingGridSettings safe = sanitizeDraftingGridSettings(unsafe);
-    assert(safe.width > 0.0);
-    assert(safe.height > 0.0);
-    assert(safe.marginLeft <= safe.width);
-    assert(safe.minorStep > 0.0);
-    assert(safe.majorLineEvery == 1);
+    EDI_CHECK(safe.width > 0.0);
+    EDI_CHECK(safe.height > 0.0);
+    EDI_CHECK(safe.marginLeft <= safe.width);
+    EDI_CHECK(safe.minorStep > 0.0);
+    EDI_CHECK(safe.majorLineEvery == 1);
 
     DraftingGridProjection square = projectDraftingGrid(draftingGridPresetSettings(DraftingGridPreset::SquareArtBoard));
-    assert(!boundsOutsideDrawableArea({0.1, 0.1, 0.2, 0.2}, square));
-    assert(boundsOutsideDrawableArea({0.0, 0.1, 0.2, 0.2}, square));
-    assert(boundsOutsideDrawableArea({0.9, 0.9, 0.2, 0.2}, square));
+    EDI_CHECK(!boundsOutsideDrawableArea({0.1, 0.1, 0.2, 0.2}, square));
+    EDI_CHECK(boundsOutsideDrawableArea({0.0, 0.1, 0.2, 0.2}, square));
+    EDI_CHECK(boundsOutsideDrawableArea({0.9, 0.9, 0.2, 0.2}, square));
 
     return 0;
 }

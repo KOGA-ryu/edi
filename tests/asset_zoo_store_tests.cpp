@@ -5,7 +5,7 @@
 #include <QString>
 #include <QTemporaryDir>
 
-#include <cassert>
+#include "EdiAssert.h"
 
 using namespace edi::io;
 using edi::zoo::AssetRecord;
@@ -16,7 +16,7 @@ int main()
     // Round-trip: a populated catalog survives save -> load field-for-field.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path = tempDir.filePath(QStringLiteral("edi-zoo.edizoo"));
 
         AssetZoo zoo;
@@ -41,69 +41,69 @@ int main()
         zoo.assets = {wall, door};
 
         const auto saved = saveAssetZoo(path, zoo);
-        assert(saved.ok);
+        EDI_CHECK(saved.ok);
 
         const auto loaded = loadAssetZoo(path);
-        assert(loaded.ok);
-        assert(loaded.value.has_value());
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.value.has_value());
         const AssetZoo &back = *loaded.value;
-        assert(back.assets.size() == 2);
+        EDI_CHECK(back.assets.size() == 2);
 
         const auto eq = [](const AssetRecord &a, const AssetRecord &b) {
             return a.id == b.id && a.name == b.name && a.category == b.category
                 && a.meshRef == b.meshRef && a.proxyRef == b.proxyRef && a.curated == b.curated
                 && a.textureRefs == b.textureRefs;
         };
-        assert(eq(back.assets[0], wall));
-        assert(eq(back.assets[1], door));
+        EDI_CHECK(eq(back.assets[0], wall));
+        EDI_CHECK(eq(back.assets[1], door));
     }
 
     // Missing file => empty zoo + ok ("no catalog yet" baseline).
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString missing = tempDir.filePath(QStringLiteral("nope.edizoo"));
         const auto loaded = loadAssetZoo(missing);
-        assert(loaded.ok);
-        assert(loaded.value.has_value());
-        assert(loaded.value->assets.empty());
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.value.has_value());
+        EDI_CHECK(loaded.value->assets.empty());
     }
 
     // Zero-byte EXISTING file => decode error (exists-but-empty == corruption).
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path = tempDir.filePath(QStringLiteral("empty.edizoo"));
         {
             QFile file(path);
-            assert(file.open(QIODevice::WriteOnly));
+            EDI_CHECK(file.open(QIODevice::WriteOnly));
             file.close(); // wrote zero bytes
         }
         const auto loaded = loadAssetZoo(path);
-        assert(!loaded.ok);
-        assert(loaded.code == edi::formats::FormatResultCode::EmptyBuffer);
+        EDI_CHECK(!loaded.ok);
+        EDI_CHECK(loaded.code == edi::formats::FormatResultCode::EmptyBuffer);
     }
 
     // Corrupt (bad magic) existing file => decode error.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path = tempDir.filePath(QStringLiteral("junk.edizoo"));
         {
             QFile file(path);
-            assert(file.open(QIODevice::WriteOnly));
+            EDI_CHECK(file.open(QIODevice::WriteOnly));
             const QByteArray junk("\x01\x02\x03\x04\x05\x06", 6); // >=5 bytes, wrong magic
             file.write(junk);
             file.close();
         }
         const auto loaded = loadAssetZoo(path);
-        assert(!loaded.ok);
+        EDI_CHECK(!loaded.ok);
     }
 
     // mkpath: saving into a not-yet-existing subdir creates the parent.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path =
             tempDir.filePath(QStringLiteral("nested/catalog/edi-zoo.edizoo"));
         AssetZoo zoo;
@@ -113,11 +113,11 @@ int main()
         zoo.assets = {rec};
 
         const auto saved = saveAssetZoo(path, zoo);
-        assert(saved.ok);
+        EDI_CHECK(saved.ok);
         const auto loaded = loadAssetZoo(path);
-        assert(loaded.ok);
-        assert(loaded.value->assets.size() == 1);
-        assert(loaded.value->assets[0].id == "asset_0001");
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.value->assets.size() == 1);
+        EDI_CHECK(loaded.value->assets[0].id == "asset_0001");
     }
 
     return 0;

@@ -32,7 +32,7 @@
 
 #include <QCoreApplication>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <fstream>
 #include <string>
 
@@ -43,7 +43,7 @@
 static std::string readFile(const std::string &path)
 {
     std::ifstream f(path);
-    assert(f.is_open() && "test fixture file not found — check EDI_TESTS_DATA_DIR");
+    EDI_CHECK(f.is_open() && "test fixture file not found — check EDI_TESTS_DATA_DIR");
     return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
@@ -58,14 +58,14 @@ int main(int argc, char **argv)
     // Parse ONCE — the spec itself is deterministic (a std::vector of NamedRoomSpec
     // in TOML order); both controllers will receive identical input.
     const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(toml, 1.0);
-    assert(parsed.ok && "dungeon.map.toml must parse without errors");
+    EDI_CHECK(parsed.ok && "dungeon.map.toml must parse without errors");
 
     // -------------------------------------------------------------------------
     // Run 1: fresh controller A.
     // -------------------------------------------------------------------------
     DrawingDocumentController ctrlA;
     const bool okA = ctrlA.createMapFromSpec(parsed.spec, 1.0);
-    assert(okA && "run A: createMapFromSpec must succeed");
+    EDI_CHECK(okA && "run A: createMapFromSpec must succeed");
 
     const std::string toonA = edi::io::exportMapToToon(ctrlA.draftingDocument(), "dungeon");
     const std::size_t countA = ctrlA.draftingDocument().objects.size();
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
     // -------------------------------------------------------------------------
     DrawingDocumentController ctrlB;
     const bool okB = ctrlB.createMapFromSpec(parsed.spec, 1.0);
-    assert(okB && "run B: createMapFromSpec must succeed");
+    EDI_CHECK(okB && "run B: createMapFromSpec must succeed");
 
     const std::string toonB = edi::io::exportMapToToon(ctrlB.draftingDocument(), "dungeon");
     const std::size_t countB = ctrlB.draftingDocument().objects.size();
@@ -91,8 +91,8 @@ int main(int argc, char **argv)
     // counts would differ.  The primary check catches ordering non-determinism;
     // the count check catches creation non-determinism — they are complementary.
     // -------------------------------------------------------------------------
-    assert(countA == countB && "object counts differ between run A and run B — non-deterministic creation");
-    assert(toonA  == toonB  && "TOON output differs between run A and run B — non-deterministic ordering");
+    EDI_CHECK(countA == countB && "object counts differ between run A and run B — non-deterministic creation");
+    EDI_CHECK(toonA  == toonB  && "TOON output differs between run A and run B — non-deterministic ordering");
 
     return 0;
 }

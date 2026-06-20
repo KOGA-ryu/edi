@@ -327,8 +327,17 @@ target_include_directories(edi_scripting_core PUBLIC
 function(add_edi_contract_test test_name test_source)
     add_executable(${test_name} ${test_source})
     target_link_libraries(${test_name} PRIVATE ${ARGN})
+    # The test suite's shared EDI_CHECK header (tests/EdiAssert.h) lives in tests/,
+    # which is NOT on the include path the linked cores export (they export src/).
+    # Add it here so every contract test can #include "EdiAssert.h".
+    target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endfunction()
+
+# Lint (D03): forbid bare assert() in the test suite — it elides under -DNDEBUG,
+# which is what caused the Release segfaults. Runs as a normal ctest case.
+add_test(NAME lint_no_bare_assert
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/scripts/lint_no_bare_assert.sh ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_edi_contract_test(drafting_store_tests tests/drafting_store_tests.cpp edi_drafting_core)
 add_edi_contract_test(drafting_serialize_tests tests/drafting_serialize_tests.cpp edi_drafting_core)
@@ -816,6 +825,21 @@ target_link_libraries(drawing_canvas_widget_tests PRIVATE
     Qt6::Widgets
 )
 add_test(NAME drawing_canvas_widget_tests COMMAND drawing_canvas_widget_tests)
+
+# The raw add_executable() test targets above are not built through
+# add_edi_contract_test(), so they don't get the tests/ include from the helper.
+# Give them the shared EDI_CHECK header (tests/EdiAssert.h) explicitly.
+foreach(raw_test
+    belt_cross_widget_tests
+    crypt_generator_tests
+    map_regression_lock_tests
+    map_determinism_tests
+    drafting_graph_sync_tests
+    drawing_document_controller_tests
+    edi_shell_window_tests
+    drawing_canvas_widget_tests)
+    target_include_directories(${raw_test} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
+endforeach()
 
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp

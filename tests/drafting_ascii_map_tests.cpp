@@ -1,7 +1,7 @@
 #include "drafting/DraftingAsciiMap.h"
 #include "drafting/DraftingGeometry.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -35,25 +35,25 @@ const std::string kMap =
 int main()
 {
     const AsciiMapParseResult parsed = parseAsciiMap(kMap);
-    assert(parsed.ok);
+    EDI_CHECK(parsed.ok);
     const AsciiMap &map = parsed.map;
-    assert(map.rows == 5 && map.cols == 6);
+    EDI_CHECK(map.rows == 5 && map.cols == 6);
 
     // The glyphs resolved to kinds + neutral tags.
-    assert(map.at(0, 0).kind == AsciiCellKind::Wall);
-    assert(map.at(1, 1).kind == AsciiCellKind::Floor);
-    assert(map.at(2, 2).kind == AsciiCellKind::Feature && map.at(2, 2).tag == "monster");
-    assert(map.at(2, 5).kind == AsciiCellKind::Door && map.at(2, 5).tag == "door");
+    EDI_CHECK(map.at(0, 0).kind == AsciiCellKind::Wall);
+    EDI_CHECK(map.at(1, 1).kind == AsciiCellKind::Floor);
+    EDI_CHECK(map.at(2, 2).kind == AsciiCellKind::Feature && map.at(2, 2).tag == "monster");
+    EDI_CHECK(map.at(2, 5).kind == AsciiCellKind::Door && map.at(2, 5).tag == "door");
 
     // THE CONTROL GATE: the parsed map re-renders to exactly what was authored —
     // "what you see is what gets built". A wrong parse would diverge here.
-    assert(renderAsciiMap(map) == kMap);
+    EDI_CHECK(renderAsciiMap(map) == kMap);
 
     // Geometry: walls from runs (the door splits the right wall into two), plus a
     // tagged marker for the door and the monster.
     {
         const AsciiMapBuildResult plan = planAsciiMapGeometry(map, {0.0, 0.0}, 0.1, counter());
-        assert(plan.ok);
+        EDI_CHECK(plan.ok);
 
         int walls = 0, doors = 0, features = 0;
         DraftingObject doorObj, featureObj;
@@ -71,22 +71,22 @@ int main()
             }
         }
         // top, bottom, left column, right-upper, right-lower (split by the door) = 5.
-        assert(walls == 5);
-        assert(doors == 1 && features == 1);
+        EDI_CHECK(walls == 5);
+        EDI_CHECK(doors == 1 && features == 1);
 
         // The door marker sits at the centre of its cell (2,5): (5.5, 2.5) * 0.1.
-        assert(doorObj.metadata.tags.size() == 1 && doorObj.metadata.tags[0] == "door");
+        EDI_CHECK(doorObj.metadata.tags.size() == 1 && doorObj.metadata.tags[0] == "door");
         const auto doorPt = std::get<PointGeometry>(doorObj.geometry).point;
-        assert(nearlyEqual(doorPt.x, 0.55) && nearlyEqual(doorPt.y, 0.25));
+        EDI_CHECK(nearlyEqual(doorPt.x, 0.55) && nearlyEqual(doorPt.y, 0.25));
         // The monster marker at cell (2,2): (2.5, 2.5) * 0.1.
-        assert(featureObj.metadata.tags.size() == 1 && featureObj.metadata.tags[0] == "monster");
+        EDI_CHECK(featureObj.metadata.tags.size() == 1 && featureObj.metadata.tags[0] == "monster");
         const auto featPt = std::get<PointGeometry>(featureObj.geometry).point;
-        assert(nearlyEqual(featPt.x, 0.25) && nearlyEqual(featPt.y, 0.25));
+        EDI_CHECK(nearlyEqual(featPt.x, 0.25) && nearlyEqual(featPt.y, 0.25));
 
         // A wall band is one cell THICK (so corners fill by overlap).
         for (const DraftingObject &obj : plan.objects) {
             if (obj.kind == DraftingShapeKind::Wall) {
-                assert(nearlyEqual(std::get<WallGeometry>(obj.geometry).thickness, 0.1));
+                EDI_CHECK(nearlyEqual(std::get<WallGeometry>(obj.geometry).thickness, 0.1));
             }
         }
     }
@@ -94,18 +94,18 @@ int main()
     // An isolated wall glyph (no run) still builds as a single-cell square.
     {
         const AsciiMapParseResult lone = parseAsciiMap(".#.\n...");
-        assert(lone.ok);
+        EDI_CHECK(lone.ok);
         const AsciiMapBuildResult plan = planAsciiMapGeometry(lone.map, {0.0, 0.0}, 0.1, counter());
-        assert(plan.ok && plan.objects.size() == 1);
-        assert(plan.objects[0].kind == DraftingShapeKind::Wall);
+        EDI_CHECK(plan.ok && plan.objects.size() == 1);
+        EDI_CHECK(plan.objects[0].kind == DraftingShapeKind::Wall);
     }
 
     // Empty input is refused; a map with only floor builds nothing.
     {
-        assert(!parseAsciiMap("").ok);
+        EDI_CHECK(!parseAsciiMap("").ok);
         const AsciiMapParseResult floors = parseAsciiMap("...\n...");
-        assert(floors.ok);
-        assert(!planAsciiMapGeometry(floors.map, {0.0, 0.0}, 0.1, counter()).ok);
+        EDI_CHECK(floors.ok);
+        EDI_CHECK(!planAsciiMapGeometry(floors.map, {0.0, 0.0}, 0.1, counter()).ok);
     }
 
     return 0;

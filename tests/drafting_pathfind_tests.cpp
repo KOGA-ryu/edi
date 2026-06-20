@@ -3,7 +3,7 @@
 // (paths route around rooms but may cut through if forced).
 #include "drafting/DraftingPathfind.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cstddef>
 #include <vector>
 
@@ -49,13 +49,13 @@ int main()
     {
         const DraftingPathGrid g = freeGrid(5, 5);
         const std::vector<GridCell> path = findGridPath(g, {0, 0}, {4, 0}, 1.0);
-        assert(path.size() == 5);
-        assert(path.front().col == 0 && path.front().row == 0);
-        assert(path.back().col == 4 && path.back().row == 0);
+        EDI_CHECK(path.size() == 5);
+        EDI_CHECK(path.front().col == 0 && path.front().row == 0);
+        EDI_CHECK(path.back().col == 4 && path.back().row == 0);
         for (const GridCell &c : path) {
-            assert(c.row == 0);
+            EDI_CHECK(c.row == 0);
         }
-        assert(turns(path) == 0);
+        EDI_CHECK(turns(path) == 0);
     }
 
     // A wall across the direct line forces a detour around it.
@@ -65,23 +65,23 @@ int main()
         block(g, 2, 1);
         block(g, 2, 2);
         const std::vector<GridCell> path = findGridPath(g, {0, 0}, {4, 0}, 1.0);
-        assert(!path.empty());
-        assert(path.front().col == 0 && path.front().row == 0);
-        assert(path.back().col == 4 && path.back().row == 0);
+        EDI_CHECK(!path.empty());
+        EDI_CHECK(path.front().col == 0 && path.front().row == 0);
+        EDI_CHECK(path.back().col == 4 && path.back().row == 0);
         for (const GridCell &c : path) {
             const bool onWall = c.col == 2 && c.row <= 2;
-            assert(!onWall); // never steps on the wall
+            EDI_CHECK(!onWall); // never steps on the wall
         }
-        assert(path.size() > 5); // longer than the blocked straight line
+        EDI_CHECK(path.size() > 5); // longer than the blocked straight line
     }
 
     // Turn penalty yields a clean L (one corner), not a staircase.
     {
         const DraftingPathGrid g = freeGrid(5, 5);
         const std::vector<GridCell> path = findGridPath(g, {0, 0}, {4, 4}, 5.0);
-        assert(!path.empty());
-        assert(path.back().col == 4 && path.back().row == 4);
-        assert(turns(path) <= 1);
+        EDI_CHECK(!path.empty());
+        EDI_CHECK(path.back().col == 4 && path.back().row == 4);
+        EDI_CHECK(turns(path) <= 1);
     }
 
     // Goal walled off on every side is unreachable.
@@ -90,7 +90,7 @@ int main()
         block(g, 3, 4);
         block(g, 4, 3);
         // goal (4,4) is enclosed by walls + the grid corner.
-        assert(findGridPath(g, {0, 0}, {4, 4}, 1.0).empty());
+        EDI_CHECK(findGridPath(g, {0, 0}, {4, 4}, 1.0).empty());
     }
 
     // A room cell is expensive but passable: with no alternative the path uses it.
@@ -98,7 +98,7 @@ int main()
         DraftingPathGrid g = freeGrid(3, 1);
         g.cellCost[1] = 10.0; // middle cell is a "room"
         const std::vector<GridCell> path = findGridPath(g, {0, 0}, {2, 0}, 1.0);
-        assert(path.size() == 3); // forced straight through the expensive cell
+        EDI_CHECK(path.size() == 3); // forced straight through the expensive cell
     }
 
     return 0;

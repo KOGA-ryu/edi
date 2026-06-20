@@ -13,7 +13,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::io;
@@ -24,7 +24,7 @@ namespace {
 void writeFile(const QString &path, const std::string &content)
 {
     QFile file(path);
-    assert(file.open(QIODevice::WriteOnly));
+    EDI_CHECK(file.open(QIODevice::WriteOnly));
     file.write(content.data(), static_cast<qint64>(content.size()));
 }
 
@@ -34,7 +34,7 @@ int main(int argc, char **argv)
 {
     QCoreApplication app(argc, argv);
     QTemporaryDir dir;
-    assert(dir.isValid());
+    EDI_CHECK(dir.isValid());
 
     // ---- Round trip: scratch text with NEWLINES and QUOTES, two roles, an
     // active document. The writer emits text-form; the load brings it all back
@@ -44,31 +44,31 @@ int main(int argc, char **argv)
         TextDocument notes = makeTextDocument("scratch", "Scratch");
         notes.role = TextDocumentRole::Scratch;
         notes.text = "line one\nline two with a \"quote\"\nthird";
-        assert(addDocument(store, notes).ok);
+        EDI_CHECK(addDocument(store, notes).ok);
         TextDocument brief = makeTextDocument("brief", "Brief");
         brief.role = TextDocumentRole::Prompt;
         brief.text = "do the thing";
-        assert(addDocument(store, brief).ok);
-        assert(setActiveDocument(store, "brief").ok);
+        EDI_CHECK(addDocument(store, brief).ok);
+        EDI_CHECK(setActiveDocument(store, "brief").ok);
 
         const QString path = dir.filePath(QStringLiteral("session.toml"));
         const TextSessionResult saved = saveTextSessionToPath(store, path);
-        assert(saved.ok);
+        EDI_CHECK(saved.ok);
 
         const TextSessionLoad loaded = loadTextSessionFromPath(path);
-        assert(loaded.ok);
-        assert(loaded.skipped.empty());
-        assert(loaded.store.documents.size() == 2);
-        assert(loaded.store.activeDocumentId.has_value()
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.skipped.empty());
+        EDI_CHECK(loaded.store.documents.size() == 2);
+        EDI_CHECK(loaded.store.activeDocumentId.has_value()
                && *loaded.store.activeDocumentId == "brief");
         const TextDocument *scratchBack = findDocument(loaded.store, "scratch");
-        assert(scratchBack != nullptr);
-        assert(scratchBack->title == "Scratch");
-        assert(scratchBack->role == TextDocumentRole::Scratch);
+        EDI_CHECK(scratchBack != nullptr);
+        EDI_CHECK(scratchBack->title == "Scratch");
+        EDI_CHECK(scratchBack->role == TextDocumentRole::Scratch);
         // The newlines and the quote survived the manifest round trip.
-        assert(scratchBack->text == "line one\nline two with a \"quote\"\nthird");
+        EDI_CHECK(scratchBack->text == "line one\nline two with a \"quote\"\nthird");
         const TextDocument *briefBack = findDocument(loaded.store, "brief");
-        assert(briefBack != nullptr && briefBack->role == TextDocumentRole::Prompt);
+        EDI_CHECK(briefBack != nullptr && briefBack->role == TextDocumentRole::Prompt);
     }
 
     // ---- File-backed: the content comes from the referenced file at load (the
@@ -83,11 +83,11 @@ int main(int argc, char **argv)
                   "doc.0.role = \"reference\"\n"
                   "doc.0.path = \"" + contentPath.toStdString() + "\"\n");
         const TextSessionLoad loaded = loadTextSessionFromPath(manifest);
-        assert(loaded.ok && loaded.skipped.empty());
-        assert(loaded.store.documents.size() == 1);
+        EDI_CHECK(loaded.ok && loaded.skipped.empty());
+        EDI_CHECK(loaded.store.documents.size() == 1);
         const TextDocument *doc = findDocument(loaded.store, "readme");
-        assert(doc != nullptr && doc->role == TextDocumentRole::Reference);
-        assert(doc->text == "from the file\nsecond line"); // content, not the path
+        EDI_CHECK(doc != nullptr && doc->role == TextDocumentRole::Reference);
+        EDI_CHECK(doc->text == "from the file\nsecond line"); // content, not the path
     }
 
     // ---- Missing backing file DEGRADES: that document is skipped and noted by
@@ -104,12 +104,12 @@ int main(int argc, char **argv)
                   "doc.1.role = \"scratch\"\n"
                   "doc.1.text = \"survivor\"\n");
         const TextSessionLoad loaded = loadTextSessionFromPath(manifest);
-        assert(loaded.ok); // degrade, NOT refusal
-        assert(loaded.store.documents.size() == 1);
-        assert(findDocument(loaded.store, "gone") == nullptr);
-        assert(findDocument(loaded.store, "keep") != nullptr);
-        assert(loaded.skipped.size() == 1);
-        assert(loaded.skipped[0] == "session: could not read " + missing.toStdString());
+        EDI_CHECK(loaded.ok); // degrade, NOT refusal
+        EDI_CHECK(loaded.store.documents.size() == 1);
+        EDI_CHECK(findDocument(loaded.store, "gone") == nullptr);
+        EDI_CHECK(findDocument(loaded.store, "keep") != nullptr);
+        EDI_CHECK(loaded.skipped.size() == 1);
+        EDI_CHECK(loaded.skipped[0] == "session: could not read " + missing.toStdString());
     }
 
     // ---- Strict refusals, each naming its offender. ----
@@ -118,8 +118,8 @@ int main(int argc, char **argv)
         const QString p1 = dir.filePath(QStringLiteral("unknown.toml"));
         writeFile(p1, "doc.0.id = \"a\"\ndoc.0.role = \"scratch\"\ndoc.0.text = \"x\"\nstray.key = \"y\"\n");
         const TextSessionLoad r1 = loadTextSessionFromPath(p1);
-        assert(!r1.ok);
-        assert(r1.message == "unknown session key: stray.key");
+        EDI_CHECK(!r1.ok);
+        EDI_CHECK(r1.message == "unknown session key: stray.key");
 
         // gapped doc index (doc.0 then doc.2 — doc.1 is missing)
         const QString p2 = dir.filePath(QStringLiteral("gapped.toml"));
@@ -127,23 +127,23 @@ int main(int argc, char **argv)
                   "doc.0.id = \"a\"\ndoc.0.role = \"scratch\"\ndoc.0.text = \"x\"\n"
                   "doc.2.id = \"c\"\ndoc.2.role = \"scratch\"\ndoc.2.text = \"z\"\n");
         const TextSessionLoad r2 = loadTextSessionFromPath(p2);
-        assert(!r2.ok);
-        assert(r2.message == "doc.2.id: gapped or unknown document index");
+        EDI_CHECK(!r2.ok);
+        EDI_CHECK(r2.message == "doc.2.id: gapped or unknown document index");
 
         // bad role name (FromName silently defaults to Scratch; the reader
         // round-trip-validates and refuses the unknown name).
         const QString p3 = dir.filePath(QStringLiteral("badrole.toml"));
         writeFile(p3, "doc.0.id = \"a\"\ndoc.0.role = \"wizard\"\ndoc.0.text = \"x\"\n");
         const TextSessionLoad r3 = loadTextSessionFromPath(p3);
-        assert(!r3.ok);
-        assert(r3.message == "doc.0.role: unknown role 'wizard'");
+        EDI_CHECK(!r3.ok);
+        EDI_CHECK(r3.message == "doc.0.role: unknown role 'wizard'");
 
         // both .text and .path (house both-sources rule)
         const QString p4 = dir.filePath(QStringLiteral("both.toml"));
         writeFile(p4, "doc.0.id = \"a\"\ndoc.0.role = \"scratch\"\ndoc.0.text = \"x\"\ndoc.0.path = \"/tmp/x\"\n");
         const TextSessionLoad r4 = loadTextSessionFromPath(p4);
-        assert(!r4.ok);
-        assert(r4.message == "doc.0: has both .text and .path");
+        EDI_CHECK(!r4.ok);
+        EDI_CHECK(r4.message == "doc.0: has both .text and .path");
     }
 
     // ---- Empty manifest: a valid (here, empty) file loads an EMPTY store — not
@@ -152,9 +152,9 @@ int main(int argc, char **argv)
         const QString empty = dir.filePath(QStringLiteral("empty.toml"));
         writeFile(empty, "");
         const TextSessionLoad loaded = loadTextSessionFromPath(empty);
-        assert(loaded.ok);
-        assert(loaded.store.documents.empty());
-        assert(!loaded.store.activeDocumentId.has_value());
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.store.documents.empty());
+        EDI_CHECK(!loaded.store.activeDocumentId.has_value());
     }
 
     // ---- E3: a FILE-BACKED document (metadata.fields["path"] — the core's
@@ -163,46 +163,46 @@ int main(int argc, char **argv)
     // Scratch documents still ride the manifest. ----
     {
         QTemporaryDir dir;
-        assert(dir.isValid());
+        EDI_CHECK(dir.isValid());
         const QString backing = dir.filePath(QStringLiteral("notes.txt"));
         {
             QFile file(backing);
-            assert(file.open(QIODevice::WriteOnly));
+            EDI_CHECK(file.open(QIODevice::WriteOnly));
             file.write("first version");
         }
         edi::text::TextDocumentStore store;
         edi::text::TextDocument fileDoc = edi::text::makeTextDocument("notes.txt", "notes");
         fileDoc.text = "first version";
         fileDoc.metadata.fields["path"] = backing.toStdString();
-        assert(edi::text::addDocument(store, std::move(fileDoc)).ok);
-        assert(edi::text::addDocument(store, edi::text::makeTextDocument("scratch", "Scratch")).ok);
+        EDI_CHECK(edi::text::addDocument(store, std::move(fileDoc)).ok);
+        EDI_CHECK(edi::text::addDocument(store, edi::text::makeTextDocument("scratch", "Scratch")).ok);
         edi::text::setActiveDocument(store, "notes.txt");
 
         const QString manifest = dir.filePath(QStringLiteral("session.toml"));
-        assert(edi::io::saveTextSessionToPath(store, manifest).ok);
+        EDI_CHECK(edi::io::saveTextSessionToPath(store, manifest).ok);
         {
             QFile file(manifest);
-            assert(file.open(QIODevice::ReadOnly));
+            EDI_CHECK(file.open(QIODevice::ReadOnly));
             const QString written = QString::fromUtf8(file.readAll());
-            assert(written.contains(QStringLiteral(".path")));      // the path rode along
-            assert(!written.contains(QStringLiteral("first version"))); // the TEXT did not
+            EDI_CHECK(written.contains(QStringLiteral(".path")));      // the path rode along
+            EDI_CHECK(!written.contains(QStringLiteral("first version"))); // the TEXT did not
         }
 
         // The world changes behind edi's back; the session must SEE it.
         {
             QFile file(backing);
-            assert(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            EDI_CHECK(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
             file.write("second version");
         }
         const edi::io::TextSessionLoad loaded = edi::io::loadTextSessionFromPath(manifest);
-        assert(loaded.ok);
+        EDI_CHECK(loaded.ok);
         const edi::text::TextDocument *restored =
             edi::text::findDocument(loaded.store, "notes.txt");
-        assert(restored != nullptr);
-        assert(restored->text == "second version"); // the FILE is the truth
+        EDI_CHECK(restored != nullptr);
+        EDI_CHECK(restored->text == "second version"); // the FILE is the truth
         // The path survived the round trip — the NEXT save stays file-backed
         // instead of silently demoting to a snapshot.
-        assert(restored->metadata.fields.at("path") == backing.toStdString());
+        EDI_CHECK(restored->metadata.fields.at("path") == backing.toStdString());
     }
 
     return 0;

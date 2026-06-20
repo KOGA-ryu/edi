@@ -2,7 +2,7 @@
 
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <limits>
 
 using namespace drawing_canvas;
@@ -10,12 +10,12 @@ using namespace drawing_canvas;
 int main()
 {
     const DrawingCanvasProjectedStatus missing = projectedCanvasStatus({});
-    assert(missing.gridWidth == 0.0);
-    assert(missing.gridHeight == 0.0);
-    assert(missing.gridUnitLabel.isEmpty());
-    assert(missing.plotStatus == QStringLiteral("blocked"));
-    assert(missing.plotWarningCount == 0);
-    assert(missing.firstWarningKind.isEmpty());
+    EDI_CHECK(missing.gridWidth == 0.0);
+    EDI_CHECK(missing.gridHeight == 0.0);
+    EDI_CHECK(missing.gridUnitLabel.isEmpty());
+    EDI_CHECK(missing.plotStatus == QStringLiteral("blocked"));
+    EDI_CHECK(missing.plotWarningCount == 0);
+    EDI_CHECK(missing.firstWarningKind.isEmpty());
 
     const DrawingCanvasProjectedStatus parsed = projectedCanvasStatus(QVariantMap{
         {QStringLiteral("grid"), QVariantMap{
@@ -29,12 +29,12 @@ int main()
             {QStringLiteral("first_warning_kind"), QStringLiteral("outside_drawable")},
         }},
     });
-    assert(parsed.gridWidth == 11.0);
-    assert(parsed.gridHeight == 8.5);
-    assert(parsed.gridUnitLabel == QStringLiteral("in"));
-    assert(parsed.plotStatus == QStringLiteral("ready"));
-    assert(parsed.plotWarningCount == 2);
-    assert(parsed.firstWarningKind == QStringLiteral("outside_drawable"));
+    EDI_CHECK(parsed.gridWidth == 11.0);
+    EDI_CHECK(parsed.gridHeight == 8.5);
+    EDI_CHECK(parsed.gridUnitLabel == QStringLiteral("in"));
+    EDI_CHECK(parsed.plotStatus == QStringLiteral("ready"));
+    EDI_CHECK(parsed.plotWarningCount == 2);
+    EDI_CHECK(parsed.firstWarningKind == QStringLiteral("outside_drawable"));
 
     const DrawingCanvasProjectedStatus malformed = projectedCanvasStatus(QVariantMap{
         {QStringLiteral("grid"), QVariantMap{
@@ -48,12 +48,12 @@ int main()
             {QStringLiteral("first_warning_kind"), QStringLiteral("kept")},
         }},
     });
-    assert(malformed.gridWidth == 0.0);
-    assert(malformed.gridHeight == 0.0);
-    assert(malformed.gridUnitLabel == QStringLiteral("mm"));
-    assert(malformed.plotStatus == QStringLiteral("blocked"));
-    assert(malformed.plotWarningCount == 0);
-    assert(malformed.firstWarningKind == QStringLiteral("kept"));
+    EDI_CHECK(malformed.gridWidth == 0.0);
+    EDI_CHECK(malformed.gridHeight == 0.0);
+    EDI_CHECK(malformed.gridUnitLabel == QStringLiteral("mm"));
+    EDI_CHECK(malformed.plotStatus == QStringLiteral("blocked"));
+    EDI_CHECK(malformed.plotWarningCount == 0);
+    EDI_CHECK(malformed.firstWarningKind == QStringLiteral("kept"));
 
     return 0;
 }

@@ -5,7 +5,7 @@
 // what "port" means.
 #include "recipe/RecipeMouldings.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 #include <vector>
@@ -21,9 +21,9 @@ bool near(double a, double b)
 
 void assertPoint(const MouldingPoint &point, const char *term, double z, double radius)
 {
-    assert(point.term == term);
-    assert(near(point.z, z));
-    assert(near(point.radius, radius));
+    EDI_CHECK(point.term == term);
+    EDI_CHECK(near(point.z, z));
+    EDI_CHECK(near(point.radius, radius));
 }
 
 } // namespace
@@ -37,11 +37,11 @@ int main()
             {"torus", 0.75, {}, 3.0, {}, {}},
             {"scotia", 0.5, {}, 2.4, {}, {}},
         });
-        assert(compiled.ok);
+        EDI_CHECK(compiled.ok);
         assertPoint(compiled.points.front(), "fillet_start", 0.0, 2.0);
-        assert(near(compiled.points.back().z, 1.5));
-        assert(near(compiled.points.back().radius, 2.4));
-        assert(compiled.points.size() > 3);
+        EDI_CHECK(near(compiled.points.back().z, 1.5));
+        EDI_CHECK(near(compiled.points.back().radius, 2.4));
+        EDI_CHECK(compiled.points.size() > 3);
     }
 
     // ---- base.torus_scotia_moulding: the doric base, every point as the
@@ -53,8 +53,8 @@ int main()
             {"scotia", 0.3, {}, 6.05, {}, {}},
             {"fillet", 0.16, {}, 5.12, {}, {}},
         });
-        assert(base.ok);
-        assert(base.points.size() == 11);
+        EDI_CHECK(base.ok);
+        EDI_CHECK(base.points.size() == 11);
         assertPoint(base.points[0], "fillet_start", 0.0, 5.55);
         assertPoint(base.points[1], "fillet_01", 0.08, 5.55);
         assertPoint(base.points[2], "torus_01", 0.195, 5.7219);
@@ -76,8 +76,8 @@ int main()
             {"annulet", 0.38, {}, 5.4, {}, {}},
             {"fillet", 0.3, {}, 5.0, {}, {}},
         });
-        assert(necking.ok);
-        assert(necking.points.size() == 8);
+        EDI_CHECK(necking.ok);
+        EDI_CHECK(necking.points.size() == 8);
         assertPoint(necking.points[0], "fillet_start", 0.0, 4.4);
         assertPoint(necking.points[1], "fillet_01", 0.25, 5.2);
         assertPoint(necking.points[2], "scotia_01", 0.3175, 5.1772);
@@ -96,8 +96,8 @@ int main()
             {"echinus", 2.35, {}, 7.9, {}, {}},
             {"fillet", 0.95, {}, 6.9, {}, {}},
         });
-        assert(echinus.ok);
-        assert(echinus.points.size() == 12);
+        EDI_CHECK(echinus.ok);
+        EDI_CHECK(echinus.points.size() == 12);
         assertPoint(echinus.points[0], "cavetto_start", 0.0, 5.0);
         assertPoint(echinus.points[1], "cavetto_01", 0.175, 5.0761);
         assertPoint(echinus.points[2], "cavetto_02", 0.35, 5.2929);
@@ -121,14 +121,14 @@ int main()
         delta.startRadius = 2.0;
         delta.radiusDelta = 0.5;
         const MouldingCompileResult chained = compileMouldingSequence("delta.profile", {delta});
-        assert(chained.ok);
-        assert(near(chained.points.back().radius, 2.5));
+        EDI_CHECK(chained.ok);
+        EDI_CHECK(near(chained.points.back().radius, 2.5));
 
         MouldingSegment both = delta;
         both.endRadius = 3.0; // absolute beats relative
         const MouldingCompileResult absolute = compileMouldingSequence("delta.profile", {both});
-        assert(absolute.ok);
-        assert(near(absolute.points.back().radius, 3.0));
+        EDI_CHECK(absolute.ok);
+        EDI_CHECK(near(absolute.points.back().radius, 3.0));
     }
 
     // ---- Vocabulary rows the doric never exercises: one single-segment
@@ -139,15 +139,15 @@ int main()
         const MouldingCompileResult cyma = compileMouldingSequence("term.cyma", {
             {"cyma", 1.0, 2.0, 3.0, {}, {}},
         });
-        assert(cyma.ok);
-        assert(cyma.points.size() == 6);
+        EDI_CHECK(cyma.ok);
+        EDI_CHECK(cyma.points.size() == 6);
         assertPoint(cyma.points[2], "cyma_02", 0.4, 2.352);
 
         const MouldingCompileResult cymaRecta = compileMouldingSequence("term.cyma_recta", {
             {"cyma_recta", 1.0, 2.0, 3.0, {}, {}},
         });
-        assert(cymaRecta.ok);
-        assert(cymaRecta.points.size() == 6);
+        EDI_CHECK(cymaRecta.ok);
+        EDI_CHECK(cymaRecta.points.size() == 6);
         assertPoint(cymaRecta.points[2], "cyma_recta_02", 0.4, 2.352);
 
         // cyma_reversa's MirroredSmoothstep is algebraically the SAME curve:
@@ -157,8 +157,8 @@ int main()
         const MouldingCompileResult cymaReversa = compileMouldingSequence("term.cyma_reversa", {
             {"cyma_reversa", 1.0, 2.0, 3.0, {}, {}},
         });
-        assert(cymaReversa.ok);
-        assert(cymaReversa.points.size() == 6);
+        EDI_CHECK(cymaReversa.ok);
+        EDI_CHECK(cymaReversa.points.size() == 6);
         assertPoint(cymaReversa.points[2], "cyma_reversa_02", 0.4, 2.352);
 
         // bead has 4 default steps → 5 points. Assert points[1], NOT the
@@ -169,8 +169,8 @@ int main()
         const MouldingCompileResult bead = compileMouldingSequence("term.bead", {
             {"bead", 1.0, 2.0, 3.0, {}, {}},
         });
-        assert(bead.ok);
-        assert(bead.points.size() == 5);
+        EDI_CHECK(bead.ok);
+        EDI_CHECK(bead.points.size() == 5);
         assertPoint(bead.points[1], "bead_01", 0.25, 2.1562);
     }
 
@@ -181,45 +181,45 @@ int main()
         const MouldingCompileResult padded = compileMouldingSequence("pad.profile", {
             {" torus ", 0.5, 1.0, 2.0, {}, {}},
         });
-        assert(padded.ok);
-        assert(padded.points[1].term == "torus_01");
+        EDI_CHECK(padded.ok);
+        EDI_CHECK(padded.points[1].term == "torus_01");
 
         const MouldingCompileResult wrapped = compileMouldingSequence("pad.profile", {
             {"\ttorus\n", 0.5, 1.0, 2.0, {}, {}},
         });
-        assert(wrapped.ok);
-        assert(wrapped.points[1].term == "torus_01");
+        EDI_CHECK(wrapped.ok);
+        EDI_CHECK(wrapped.points[1].term == "torus_01");
     }
 
     // ---- Failure wording matches v0 (the messages are the diagnosis) ----
     {
-        assert(compileMouldingSequence("empty.profile", {}).message
+        EDI_CHECK(compileMouldingSequence("empty.profile", {}).message
                == "empty.profile needs at least one profile segment.");
 
         const MouldingCompileResult badTerm = compileMouldingSequence("bad.profile", {
             {"ovolo_misspelt", 0.1, 1.0, {}, {}, {}},
         });
-        assert(!badTerm.ok);
-        assert(badTerm.message.find("unsupported term") != std::string::npos);
-        assert(badTerm.message.find("ovolo_misspelt") != std::string::npos);
+        EDI_CHECK(!badTerm.ok);
+        EDI_CHECK(badTerm.message.find("unsupported term") != std::string::npos);
+        EDI_CHECK(badTerm.message.find("ovolo_misspelt") != std::string::npos);
 
         const MouldingCompileResult noStart = compileMouldingSequence("bad.profile", {
             {"torus", 1.0, {}, 3.0, {}, {}},
         });
-        assert(!noStart.ok);
-        assert(noStart.message == "bad.profile first segment needs start_radius.");
+        EDI_CHECK(!noStart.ok);
+        EDI_CHECK(noStart.message == "bad.profile first segment needs start_radius.");
 
         const MouldingCompileResult flatBand = compileMouldingSequence("bad.profile", {
             {"fillet", 0.0, 1.0, {}, {}, {}},
         });
-        assert(!flatBand.ok);
-        assert(flatBand.message.find("height must be positive") != std::string::npos);
+        EDI_CHECK(!flatBand.ok);
+        EDI_CHECK(flatBand.message.find("height must be positive") != std::string::npos);
 
         const MouldingCompileResult negativeRadius = compileMouldingSequence("bad.profile", {
             {"fillet", 0.1, 1.0, -2.0, {}, {}},
         });
-        assert(!negativeRadius.ok);
-        assert(negativeRadius.message.find("radii must be positive") != std::string::npos);
+        EDI_CHECK(!negativeRadius.ok);
+        EDI_CHECK(negativeRadius.message.find("radii must be positive") != std::string::npos);
 
         // Negative START with a positive end: only the startRadius half of
         // the radii check can reject this (the case above re-trips via the
@@ -227,8 +227,8 @@ int main()
         const MouldingCompileResult negativeStart = compileMouldingSequence("bad.profile", {
             {"fillet", 0.1, -1.0, 2.0, {}, {}},
         });
-        assert(!negativeStart.ok);
-        assert(negativeStart.message.find("radii must be positive") != std::string::npos);
+        EDI_CHECK(!negativeStart.ok);
+        EDI_CHECK(negativeStart.message.find("radii must be positive") != std::string::npos);
 
         MouldingSegment zeroSteps;
         zeroSteps.term = "torus";
@@ -237,13 +237,13 @@ int main()
         zeroSteps.endRadius = 2.0;
         zeroSteps.steps = 0;
         const MouldingCompileResult badSteps = compileMouldingSequence("bad.profile", {zeroSteps});
-        assert(!badSteps.ok);
-        assert(badSteps.message.find("steps must be at least 1") != std::string::npos);
+        EDI_CHECK(!badSteps.ok);
+        EDI_CHECK(badSteps.message.find("steps must be at least 1") != std::string::npos);
     }
 
     // The vocabulary answers membership as data.
-    assert(mouldingTermSupported("cyma_reversa"));
-    assert(!mouldingTermSupported("ovolo"));
+    EDI_CHECK(mouldingTermSupported("cyma_reversa"));
+    EDI_CHECK(!mouldingTermSupported("ovolo"));
 
     return 0;
 }

@@ -41,7 +41,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 
 namespace {
@@ -106,7 +106,7 @@ QDoubleSpinBox *geometryFieldSpin(const QWidget &root, const QString &fieldId, c
     for (QDoubleSpinBox *spin : root.findChildren<QDoubleSpinBox *>()) {
         if (spin->property("fieldId").toString() == fieldId
             && spin->property("fieldMode").toString() == fieldMode) {
-            assert(match == nullptr);
+            EDI_CHECK(match == nullptr);
             match = spin;
         }
     }
@@ -145,52 +145,52 @@ int main(int argc, char **argv)
 
     EdiShellWindow window;
     auto *controller = window.findChild<DrawingDocumentController *>();
-    assert(controller != nullptr);
+    EDI_CHECK(controller != nullptr);
 
     // Initial sync: factory-built controls reflect controller state at construction.
     QComboBox *gridPreset = comboWithFirstItemData(window, QStringLiteral("square_art_board"));
-    assert(gridPreset != nullptr);
-    assert(gridPreset->currentData().toString() == controller->gridPresetId());
+    EDI_CHECK(gridPreset != nullptr);
+    EDI_CHECK(gridPreset->currentData().toString() == controller->gridPresetId());
 
     QComboBox *tolerance = comboWithFirstItemData(window, QStringLiteral("tight"));
-    assert(tolerance != nullptr);
-    assert(tolerance->currentData().toString() == controller->objectSnapTolerancePresetId());
+    EDI_CHECK(tolerance != nullptr);
+    EDI_CHECK(tolerance->currentData().toString() == controller->objectSnapTolerancePresetId());
 
     QCheckBox *gridSnap = toggleWithLabel(window, QStringLiteral("Grid snap"));
-    assert(gridSnap != nullptr);
-    assert(gridSnap->isChecked() == controller->gridSnapEnabled());
+    EDI_CHECK(gridSnap != nullptr);
+    EDI_CHECK(gridSnap->isChecked() == controller->gridSnapEnabled());
     QCheckBox *guideMoveSnap = toggleWithLabel(window, QStringLiteral("Guide move snap"));
-    assert(guideMoveSnap != nullptr);
-    assert(guideMoveSnap->isChecked() == controller->guideMoveSnapEnabled());
+    EDI_CHECK(guideMoveSnap != nullptr);
+    EDI_CHECK(guideMoveSnap->isChecked() == controller->guideMoveSnapEnabled());
 
     // Toggle wiring: flipping the checkbox reaches the controller.
     {
         const bool before = controller->gridSnapEnabled();
         gridSnap->setChecked(!before);
-        assert(controller->gridSnapEnabled() == !before);
+        EDI_CHECK(controller->gridSnapEnabled() == !before);
         gridSnap->setChecked(before);
-        assert(controller->gridSnapEnabled() == before);
+        EDI_CHECK(controller->gridSnapEnabled() == before);
     }
 
     // Data-combo wiring: selecting an entry reaches the controller with item data.
     {
         QComboBox *plotOrder = comboWithFirstItemData(window, QStringLiteral("layer_order"));
-        assert(plotOrder != nullptr);
-        assert(plotOrder->currentData().toString() == controller->plotOrderModeId());
+        EDI_CHECK(plotOrder != nullptr);
+        EDI_CHECK(plotOrder->currentData().toString() == controller->plotOrderModeId());
         plotOrder->setCurrentIndex(1);
-        assert(controller->plotOrderModeId() == QStringLiteral("nearest_next"));
+        EDI_CHECK(controller->plotOrderModeId() == QStringLiteral("nearest_next"));
         plotOrder->setCurrentIndex(0);
-        assert(controller->plotOrderModeId() == QStringLiteral("layer_order"));
+        EDI_CHECK(controller->plotOrderModeId() == QStringLiteral("layer_order"));
     }
 
     // Action-button wiring: a click runs the controller action.
     {
         const int layersBefore = controller->modelDocument().value(QStringLiteral("layers")).toList().size();
         QPushButton *addLayer = buttonNamed(window, QStringLiteral("addLayerButton"));
-        assert(addLayer != nullptr);
+        EDI_CHECK(addLayer != nullptr);
         addLayer->click();
         const int layersAfter = controller->modelDocument().value(QStringLiteral("layers")).toList().size();
-        assert(layersAfter == layersBefore + 1);
+        EDI_CHECK(layersAfter == layersBefore + 1);
     }
 
     // Conditional buttons: disabled without a selection, enabled by the matching
@@ -198,17 +198,17 @@ int main(int argc, char **argv)
     QPushButton *fitToDrawable = buttonNamed(window, QStringLiteral("fitToDrawableButton"));
     QPushButton *guideToOrigin = buttonNamed(window, QStringLiteral("guideToDrawableOriginButton"));
     QPushButton *deleteSelectedGuide = buttonNamed(window, QStringLiteral("deleteSelectedGuideButton"));
-    assert(fitToDrawable != nullptr && guideToOrigin != nullptr && deleteSelectedGuide != nullptr);
-    assert(!fitToDrawable->isEnabled());
-    assert(!guideToOrigin->isEnabled());
+    EDI_CHECK(fitToDrawable != nullptr && guideToOrigin != nullptr && deleteSelectedGuide != nullptr);
+    EDI_CHECK(!fitToDrawable->isEnabled());
+    EDI_CHECK(!guideToOrigin->isEnabled());
 
     // Create and select a point object through the controller; refreshInspector
     // runs via the modelChanged connection.
     controller->setSelectedToolId(QStringLiteral("point_tool"));
     controller->clickCanvasNormalized(0.5, 0.5);
-    assert(!controller->modelDocument().value(QStringLiteral("active_object_id")).toString().isEmpty());
-    assert(fitToDrawable->isEnabled());
-    assert(!guideToOrigin->isEnabled());
+    EDI_CHECK(!controller->modelDocument().value(QStringLiteral("active_object_id")).toString().isEmpty());
+    EDI_CHECK(fitToDrawable->isEnabled());
+    EDI_CHECK(!guideToOrigin->isEnabled());
 
     // N3: the inspector's metadata controls drive role/material/group/tags on
     // the selected object, and surface back through the projection.
@@ -217,68 +217,68 @@ int main(int argc, char **argv)
         auto *materialField = window.findChild<QLineEdit *>(QStringLiteral("objectMaterialField"));
         auto *groupField = window.findChild<QLineEdit *>(QStringLiteral("objectExportGroupField"));
         auto *tagsField = window.findChild<QLineEdit *>(QStringLiteral("objectTagsField"));
-        assert(roleCombo != nullptr && materialField != nullptr && groupField != nullptr && tagsField != nullptr);
+        EDI_CHECK(roleCombo != nullptr && materialField != nullptr && groupField != nullptr && tagsField != nullptr);
 
         roleCombo->setCurrentIndex(roleCombo->findData(QStringLiteral("wall")));
-        assert(activeObject(*controller).value(QStringLiteral("role")).toString() == QStringLiteral("wall"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("role")).toString() == QStringLiteral("wall"));
 
         materialField->setText(QStringLiteral("concrete"));
         QMetaObject::invokeMethod(materialField, "editingFinished");
-        assert(activeObject(*controller).value(QStringLiteral("material")).toString() == QStringLiteral("concrete"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("material")).toString() == QStringLiteral("concrete"));
 
         groupField->setText(QStringLiteral("shell"));
         QMetaObject::invokeMethod(groupField, "editingFinished");
-        assert(activeObject(*controller).value(QStringLiteral("export_group")).toString() == QStringLiteral("shell"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("export_group")).toString() == QStringLiteral("shell"));
 
         tagsField->setText(QStringLiteral("a, b,c"));
         QMetaObject::invokeMethod(tagsField, "editingFinished");
-        assert(activeObject(*controller).value(QStringLiteral("tags")).toString() == QStringLiteral("a, b, c"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("tags")).toString() == QStringLiteral("a, b, c"));
 
         // The combo mirrors live state after a refresh (the role we set).
-        assert(roleCombo->currentData().toString() == QStringLiteral("wall"));
+        EDI_CHECK(roleCombo->currentData().toString() == QStringLiteral("wall"));
     }
 
     // M1.3: the wall-type combo drives the selected wall's neutral render type,
     // and is gated to walls (disabled for the non-wall selected above).
     {
         QComboBox *wallTypeCombo = window.findChild<QComboBox *>(QStringLiteral("wallTypeCombo"));
-        assert(wallTypeCombo != nullptr);
-        assert(!wallTypeCombo->isEnabled()); // a point is selected — not a wall
+        EDI_CHECK(wallTypeCombo != nullptr);
+        EDI_CHECK(!wallTypeCombo->isEnabled()); // a point is selected — not a wall
 
         controller->setSelectedToolId(QStringLiteral("wall_tool"));
         controller->clickCanvasNormalized(0.3, 0.4);
         controller->clickCanvasNormalized(0.7, 0.4);
-        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
-        assert(wallTypeCombo->isEnabled()); // a wall is selected — gate opens
-        assert(wallTypeCombo->currentData().toString() == QStringLiteral("solid"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        EDI_CHECK(wallTypeCombo->isEnabled()); // a wall is selected — gate opens
+        EDI_CHECK(wallTypeCombo->currentData().toString() == QStringLiteral("solid"));
 
         wallTypeCombo->setCurrentIndex(wallTypeCombo->findData(QStringLiteral("secret")));
-        assert(activeObject(*controller).value(QStringLiteral("wall_type")).toString() == QStringLiteral("secret"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("wall_type")).toString() == QStringLiteral("secret"));
     }
 
     // Create and select a guide; guide-conditional buttons flip on.
     controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
     controller->clickCanvasNormalized(0.5, 0.25);
-    assert(guideToOrigin->isEnabled());
-    assert(deleteSelectedGuide->isEnabled());
+    EDI_CHECK(guideToOrigin->isEnabled());
+    EDI_CHECK(deleteSelectedGuide->isEnabled());
 
     // Registry-driven click path end to end: delete the selected guide.
     {
         const int guidesBefore = controller->modelDocument().value(QStringLiteral("guide_count")).toInt();
-        assert(guidesBefore > 0);
+        EDI_CHECK(guidesBefore > 0);
         deleteSelectedGuide->click();
         const int guidesAfter = controller->modelDocument().value(QStringLiteral("guide_count")).toInt();
-        assert(guidesAfter == guidesBefore - 1);
+        EDI_CHECK(guidesAfter == guidesBefore - 1);
     }
 
     // Guide preset button creates guides through the spec-table wiring.
     {
         const int guidesBefore = controller->modelDocument().value(QStringLiteral("guide_count")).toInt();
         QPushButton *presetBounds = buttonNamed(window, QStringLiteral("guidePreset_drawable_bounds"));
-        assert(presetBounds != nullptr);
+        EDI_CHECK(presetBounds != nullptr);
         presetBounds->click();
         const int guidesAfter = controller->modelDocument().value(QStringLiteral("guide_count")).toInt();
-        assert(guidesAfter > guidesBefore);
+        EDI_CHECK(guidesAfter > guidesBefore);
     }
 
     // Guide visuals: create and select a fresh guide, then drive label, color,
@@ -287,25 +287,25 @@ int main(int argc, char **argv)
     controller->clickCanvasNormalized(0.5, 0.62);
     {
         auto *guideLabel = window.findChild<QLineEdit *>(QStringLiteral("guideLabelField"));
-        assert(guideLabel != nullptr && guideLabel->isEnabled());
+        EDI_CHECK(guideLabel != nullptr && guideLabel->isEnabled());
         guideLabel->setText(QStringLiteral("datum"));
         QMetaObject::invokeMethod(guideLabel, "editingFinished");
-        assert(activeObject(*controller).value(QStringLiteral("guide_custom_label")).toString() == QStringLiteral("datum"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("guide_custom_label")).toString() == QStringLiteral("datum"));
 
         QComboBox *guideColor = window.findChild<QComboBox *>(QStringLiteral("guideColorCombo"));
-        assert(guideColor != nullptr && guideColor->isEnabled());
+        EDI_CHECK(guideColor != nullptr && guideColor->isEnabled());
         guideColor->setCurrentIndex(1);
-        assert(activeObject(*controller).value(QStringLiteral("guide_color")).toString() == QStringLiteral("#54d2c6"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("guide_color")).toString() == QStringLiteral("#54d2c6"));
 
         QComboBox *guideDash = window.findChild<QComboBox *>(QStringLiteral("guideDashStyleCombo"));
-        assert(guideDash != nullptr);
+        EDI_CHECK(guideDash != nullptr);
         guideDash->setCurrentIndex(1);
-        assert(activeObject(*controller).value(QStringLiteral("guide_dash_style")).toString() == QStringLiteral("solid"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("guide_dash_style")).toString() == QStringLiteral("solid"));
 
         auto *guideShowLabel = window.findChild<QCheckBox *>(QStringLiteral("guideShowLabelCheckbox"));
-        assert(guideShowLabel != nullptr && guideShowLabel->isChecked());
+        EDI_CHECK(guideShowLabel != nullptr && guideShowLabel->isChecked());
         guideShowLabel->setChecked(false);
-        assert(!activeObject(*controller).value(QStringLiteral("guide_show_label"), true).toBool());
+        EDI_CHECK(!activeObject(*controller).value(QStringLiteral("guide_show_label"), true).toBool());
     }
 
     // Dimension controls: create a distance dimension, switch kind and label
@@ -314,16 +314,16 @@ int main(int argc, char **argv)
     controller->clickCanvasNormalized(0.3, 0.4);
     controller->clickCanvasNormalized(0.6, 0.4);
     {
-        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("dimension"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("dimension"));
         QComboBox *dimensionKind = window.findChild<QComboBox *>(QStringLiteral("dimensionKindCombo"));
-        assert(dimensionKind != nullptr && dimensionKind->isEnabled());
+        EDI_CHECK(dimensionKind != nullptr && dimensionKind->isEnabled());
         dimensionKind->setCurrentIndex(1);
-        assert(activeObject(*controller).value(QStringLiteral("dimension_kind")).toString() == QStringLiteral("width"));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("dimension_kind")).toString() == QStringLiteral("width"));
 
         auto *dimensionShowLabel = window.findChild<QCheckBox *>(QStringLiteral("dimensionShowLabelCheckbox"));
-        assert(dimensionShowLabel != nullptr && dimensionShowLabel->isChecked());
+        EDI_CHECK(dimensionShowLabel != nullptr && dimensionShowLabel->isChecked());
         dimensionShowLabel->setChecked(false);
-        assert(!activeObject(*controller).value(QStringLiteral("dimension_show_label"), true).toBool());
+        EDI_CHECK(!activeObject(*controller).value(QStringLiteral("dimension_show_label"), true).toBool());
     }
 
     // Geometry editor spins: select a line; the rebuilt editor carries tagged
@@ -333,20 +333,20 @@ int main(int argc, char **argv)
     controller->clickCanvasNormalized(0.4, 0.2);
     {
         QDoubleSpinBox *x1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("normalized"));
-        assert(x1 != nullptr);
+        EDI_CHECK(x1 != nullptr);
         x1->setValue(0.25);
         QMetaObject::invokeMethod(x1, "editingFinished");
-        assert(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.25));
+        EDI_CHECK(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.25));
 
         QDoubleSpinBox *physicalX1 = geometryFieldSpin(window, QStringLiteral("x1"), QStringLiteral("physical"));
-        assert(physicalX1 != nullptr);
+        EDI_CHECK(physicalX1 != nullptr);
         const double gridWidth = controller->modelDocument()
             .value(QStringLiteral("grid")).toMap().value(QStringLiteral("width")).toDouble();
-        assert(gridWidth > 0.0);
+        EDI_CHECK(gridWidth > 0.0);
         // Move the physical X1 to 30% of the bed width; normalized x1 follows.
         physicalX1->setValue(0.3 * gridWidth);
         QMetaObject::invokeMethod(physicalX1, "editingFinished");
-        assert(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.3, 0.001));
+        EDI_CHECK(near(activeObject(*controller).value(QStringLiteral("x1")).toDouble(), 0.3, 0.001));
     }
 
     // Transform buttons: nudge moves the selection, offset/mirror/repeat create
@@ -354,25 +354,25 @@ int main(int argc, char **argv)
     {
         const QVariantMap before = activeObject(*controller);
         QPushButton *nudgeUp = buttonWithText(window, QStringLiteral("Grid Up"));
-        assert(nudgeUp != nullptr);
+        EDI_CHECK(nudgeUp != nullptr);
         nudgeUp->click();
-        assert(activeObject(*controller).value(QStringLiteral("y1")).toDouble()
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("y1")).toDouble()
             < before.value(QStringLiteral("y1")).toDouble());
     }
     {
         const int before = objectCount(*controller);
         buttonWithText(window, QStringLiteral("Right +0.05"))->click();
-        assert(objectCount(*controller) == before + 1);
+        EDI_CHECK(objectCount(*controller) == before + 1);
     }
     {
         const int before = objectCount(*controller);
         buttonWithText(window, QStringLiteral("Mirror H"))->click();
-        assert(objectCount(*controller) == before + 1);
+        EDI_CHECK(objectCount(*controller) == before + 1);
     }
     {
         const int before = objectCount(*controller);
         buttonWithText(window, QStringLiteral("Repeat X"))->click();
-        assert(objectCount(*controller) > before);
+        EDI_CHECK(objectCount(*controller) > before);
     }
     {
         // Align Left: select everything, then the left edges should match after.
@@ -395,7 +395,7 @@ int main(int argc, char **argv)
                 ++aligned;
             }
         }
-        assert(aligned >= 2);
+        EDI_CHECK(aligned >= 2);
     }
 
     // F2: the inspector is a context-keyed stack — planDraftingInspector
@@ -403,7 +403,7 @@ int main(int argc, char **argv)
     {
         auto groupVisible = [&window](const QString &groupId) {
             QWidget *group = window.findChild<QWidget *>(QStringLiteral("inspectorGroup_") + groupId);
-            assert(group != nullptr);
+            EDI_CHECK(group != nullptr);
             // isHidden() reads the group's own flag — the right panel starts
             // collapsed, so ancestor-aware isVisibleTo() would see nothing.
             return !group->isHidden();
@@ -413,54 +413,54 @@ int main(int argc, char **argv)
         controller->setSelectedToolId(QStringLiteral("line_tool"));
         controller->clickCanvasNormalized(0.22, 0.72);
         controller->clickCanvasNormalized(0.42, 0.72);
-        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-        assert(groupVisible(QStringLiteral("selection_summary")));
-        assert(groupVisible(QStringLiteral("geometry")));
-        assert(groupVisible(QStringLiteral("transform")));
-        assert(groupVisible(QStringLiteral("object_guides")));
-        assert(!groupVisible(QStringLiteral("guide_position")));
-        assert(!groupVisible(QStringLiteral("guide_visuals")));
-        assert(!groupVisible(QStringLiteral("dimension")));
-        assert(!groupVisible(QStringLiteral("tool_polygon")));
-        assert(!groupVisible(QStringLiteral("layers_document")));
-        assert(!groupVisible(QStringLiteral("canvas_state")));
-        assert(!groupVisible(QStringLiteral("empty_state")));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        EDI_CHECK(groupVisible(QStringLiteral("selection_summary")));
+        EDI_CHECK(groupVisible(QStringLiteral("geometry")));
+        EDI_CHECK(groupVisible(QStringLiteral("transform")));
+        EDI_CHECK(groupVisible(QStringLiteral("object_guides")));
+        EDI_CHECK(!groupVisible(QStringLiteral("guide_position")));
+        EDI_CHECK(!groupVisible(QStringLiteral("guide_visuals")));
+        EDI_CHECK(!groupVisible(QStringLiteral("dimension")));
+        EDI_CHECK(!groupVisible(QStringLiteral("tool_polygon")));
+        EDI_CHECK(!groupVisible(QStringLiteral("layers_document")));
+        EDI_CHECK(!groupVisible(QStringLiteral("canvas_state")));
+        EDI_CHECK(!groupVisible(QStringLiteral("empty_state")));
 
         // A selected guide swaps in the guide groups.
         controller->setSelectedToolId(QStringLiteral("horizontal_guide_tool"));
         controller->clickCanvasNormalized(0.5, 0.77);
-        assert(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("guide"));
-        assert(groupVisible(QStringLiteral("guide_position")));
-        assert(groupVisible(QStringLiteral("guide_visuals")));
-        assert(groupVisible(QStringLiteral("geometry")));
-        assert(!groupVisible(QStringLiteral("transform")));
-        assert(!groupVisible(QStringLiteral("object_guides")));
+        EDI_CHECK(activeObject(*controller).value(QStringLiteral("kind")).toString() == QStringLiteral("guide"));
+        EDI_CHECK(groupVisible(QStringLiteral("guide_position")));
+        EDI_CHECK(groupVisible(QStringLiteral("guide_visuals")));
+        EDI_CHECK(groupVisible(QStringLiteral("geometry")));
+        EDI_CHECK(!groupVisible(QStringLiteral("transform")));
+        EDI_CHECK(!groupVisible(QStringLiteral("object_guides")));
 
         // Tool options ride along with any selection: creation auto-selects,
         // so hiding them would break the set-sides-then-draw loop.
         controller->setSelectedToolId(QStringLiteral("regular_polygon_tool"));
-        assert(groupVisible(QStringLiteral("tool_polygon")));
-        assert(groupVisible(QStringLiteral("guide_position")));
+        EDI_CHECK(groupVisible(QStringLiteral("tool_polygon")));
+        EDI_CHECK(groupVisible(QStringLiteral("guide_position")));
 
         // Drawing tool with no options, no selection -> quiet empty state.
         controller->setSelectedToolId(QStringLiteral("line_tool"));
         controller->selectObjectsInBoundsNormalized(0.001, 0.001, 0.002, 0.002);
-        assert(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
-        assert(groupVisible(QStringLiteral("empty_state")));
-        assert(!groupVisible(QStringLiteral("selection_summary")));
-        assert(!groupVisible(QStringLiteral("tool_polygon")));
-        assert(!groupVisible(QStringLiteral("layers_document")));
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        EDI_CHECK(groupVisible(QStringLiteral("empty_state")));
+        EDI_CHECK(!groupVisible(QStringLiteral("selection_summary")));
+        EDI_CHECK(!groupVisible(QStringLiteral("tool_polygon")));
+        EDI_CHECK(!groupVisible(QStringLiteral("layers_document")));
 
         // Neutral select tool, no selection -> document configuration groups
         // (interim home until F4/F5 relocate them).
         controller->setSelectedToolId(QStringLiteral("select_move"));
-        assert(groupVisible(QStringLiteral("layers_document")));
-        assert(groupVisible(QStringLiteral("guides_document")));
-        assert(groupVisible(QStringLiteral("calibration_document")));
-        assert(groupVisible(QStringLiteral("document_info")));
-        assert(groupVisible(QStringLiteral("canvas_state")));
-        assert(!groupVisible(QStringLiteral("empty_state")));
-        assert(!groupVisible(QStringLiteral("selection_summary")));
+        EDI_CHECK(groupVisible(QStringLiteral("layers_document")));
+        EDI_CHECK(groupVisible(QStringLiteral("guides_document")));
+        EDI_CHECK(groupVisible(QStringLiteral("calibration_document")));
+        EDI_CHECK(groupVisible(QStringLiteral("document_info")));
+        EDI_CHECK(groupVisible(QStringLiteral("canvas_state")));
+        EDI_CHECK(!groupVisible(QStringLiteral("empty_state")));
+        EDI_CHECK(!groupVisible(QStringLiteral("selection_summary")));
     }
 
     // Inspector de-bloat: heavy sections are disclosures. Defaults are data
@@ -478,31 +478,31 @@ int main(int argc, char **argv)
                 nudgeToggle = toggle;
             }
         }
-        assert(canvasStateToggle != nullptr && !canvasStateToggle->isChecked());  // folded by default
-        assert(selectedObjectToggle != nullptr && selectedObjectToggle->isChecked()); // open by default
-        assert(nudgeToggle != nullptr && !nudgeToggle->isChecked());
+        EDI_CHECK(canvasStateToggle != nullptr && !canvasStateToggle->isChecked());  // folded by default
+        EDI_CHECK(selectedObjectToggle != nullptr && selectedObjectToggle->isChecked()); // open by default
+        EDI_CHECK(nudgeToggle != nullptr && !nudgeToggle->isChecked());
 
         // Toggling shows the content. The fold hides the CONTENT BOX (the
         // grid panel the buttons live in), not each button — so the hidden
         // flag to read is the parent's.
         QPushButton *nudgeUp = buttonWithText(window, QStringLiteral("Grid Up"));
-        assert(nudgeUp != nullptr && nudgeUp->parentWidget() != nullptr);
-        assert(nudgeUp->parentWidget()->isHidden());
+        EDI_CHECK(nudgeUp != nullptr && nudgeUp->parentWidget() != nullptr);
+        EDI_CHECK(nudgeUp->parentWidget()->isHidden());
         nudgeToggle->click();
-        assert(!nudgeUp->parentWidget()->isHidden());
+        EDI_CHECK(!nudgeUp->parentWidget()->isHidden());
         nudgeToggle->click();
-        assert(nudgeUp->parentWidget()->isHidden());
+        EDI_CHECK(nudgeUp->parentWidget()->isHidden());
     }
 
     // F3: the weapon-cross tool belt drives the controller and follows it.
     {
         auto *belt = window.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
-        assert(belt != nullptr);
+        EDI_CHECK(belt != nullptr);
         // The block above left select_move active; the default belt has it
         // at the origin, so belt and controller agree from the start.
-        assert(belt->activeItemId() == controller->selectedToolId());
+        EDI_CHECK(belt->activeItemId() == controller->selectedToolId());
         // One row per tool, six columns of sub-feature room.
-        assert(belt->beltState().rows == 10 && belt->beltState().columns == 6);
+        EDI_CHECK(belt->beltState().rows == 10 && belt->beltState().columns == 6);
 
         // Belt -> controller: click the bottom peek — one step down the tool
         // carousel, from select_move's row to the point tool's row.
@@ -510,17 +510,17 @@ int main(int argc, char **argv)
         QMouseEvent press(QEvent::MouseButtonPress, bottomPeek, belt->mapToGlobal(bottomPeek),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(belt, &press);
-        assert(controller->selectedToolId() == QStringLiteral("point_tool"));
-        assert(belt->activeItemId() == QStringLiteral("point_tool"));
+        EDI_CHECK(controller->selectedToolId() == QStringLiteral("point_tool"));
+        EDI_CHECK(belt->activeItemId() == QStringLiteral("point_tool"));
 
         // Controller -> belt: a tool change from any path re-aims the cross
         // (and lands on the dimension tool's row of the default belt).
         controller->setSelectedToolId(QStringLiteral("distance_dimension_tool"));
-        assert(belt->activeItemId() == QStringLiteral("distance_dimension_tool"));
-        assert(belt->beltState().activeRow == 9);
+        EDI_CHECK(belt->activeItemId() == QStringLiteral("distance_dimension_tool"));
+        EDI_CHECK(belt->beltState().activeRow == 9);
 
         controller->setSelectedToolId(QStringLiteral("select_move"));
-        assert(belt->activeItemId() == QStringLiteral("select_move"));
+        EDI_CHECK(belt->activeItemId() == QStringLiteral("select_move"));
     }
 
     // F4: the belt floats in a palette over the main area — draggable by its
@@ -531,21 +531,21 @@ int main(int argc, char **argv)
         QApplication::processEvents();
 
         auto *palette = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
-        assert(palette != nullptr);
-        assert(palette->paletteId() == QStringLiteral("tool_belt"));
+        EDI_CHECK(palette != nullptr);
+        EDI_CHECK(palette->paletteId() == QStringLiteral("tool_belt"));
 
         // The belt lives inside the palette frame now, not in the left panel.
         auto *belt = window.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
-        assert(belt != nullptr && palette->isAncestorOf(belt));
+        EDI_CHECK(belt != nullptr && palette->isAncestorOf(belt));
         QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
-        assert(leftPanel != nullptr && !leftPanel->isAncestorOf(belt));
+        EDI_CHECK(leftPanel != nullptr && !leftPanel->isAncestorOf(belt));
 
         // Default placement, clamped against a real-sized main area.
-        assert(palette->pos() == QPoint(12, 12));
+        EDI_CHECK(palette->pos() == QPoint(12, 12));
 
         // Drag by the grab nub: press, move (+30,+20), release.
         QWidget *grip = palette->findChild<QWidget *>(QStringLiteral("paletteGrip"));
-        assert(grip != nullptr);
+        EDI_CHECK(grip != nullptr);
         const QPointF gripPoint(QRectF(grip->geometry()).center());
         QMouseEvent press(QEvent::MouseButtonPress, gripPoint, palette->mapToGlobal(gripPoint),
                           Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
@@ -557,19 +557,19 @@ int main(int argc, char **argv)
         QMouseEvent release(QEvent::MouseButtonRelease, dragTo, palette->mapToGlobal(dragTo),
                             Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
         QApplication::sendEvent(palette, &release);
-        assert(palette->pos() == QPoint(42, 32));
+        EDI_CHECK(palette->pos() == QPoint(42, 32));
 
         // The drag landed in the layout: saving writes palette.0.* rows.
         {
             QTemporaryDir tempDir;
-            assert(tempDir.isValid());
+            EDI_CHECK(tempDir.isValid());
             const QString path = tempDir.filePath(QStringLiteral("palette_workspace.toml"));
-            assert(window.saveWorkspaceLayout(path));
+            EDI_CHECK(window.saveWorkspaceLayout(path));
             const edi::io::ShellLayoutData saved = edi::io::loadShellLayoutFromPath(path);
-            assert(saved.ok);
+            EDI_CHECK(saved.ok);
             const edi::shell::PalettePlacement stored =
                 edi::shell::palettePlacement(saved.layout, QStringLiteral("tool_belt"));
-            assert(stored.x == 42 && stored.y == 32);
+            EDI_CHECK(stored.x == 42 && stored.y == 32);
         }
 
         // Workspace switch: a layout without the drafting feature has no
@@ -580,7 +580,7 @@ int main(int argc, char **argv)
         settingsJob.label = QStringLiteral("Settings");
         settingsJob.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("settings")}};
         window.switchWorkspaceLayout(settingsJob);
-        assert(window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette")) == nullptr);
+        EDI_CHECK(window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette")) == nullptr);
 
         edi::shell::WorkspaceLayout draftingJob;
         draftingJob.id = QStringLiteral("drafting");
@@ -596,8 +596,8 @@ int main(int argc, char **argv)
         window.switchWorkspaceLayout(draftingJob);
         QApplication::processEvents();
         auto *rebuilt = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
-        assert(rebuilt != nullptr);
-        assert(rebuilt->pos() == QPoint(60, 44));
+        EDI_CHECK(rebuilt != nullptr);
+        EDI_CHECK(rebuilt->pos() == QPoint(60, 44));
 
         // A stored position far off-screen clamps back into the main area.
         edi::shell::WorkspaceLayout farJob = draftingJob;
@@ -605,11 +605,11 @@ int main(int argc, char **argv)
         window.switchWorkspaceLayout(farJob);
         QApplication::processEvents();
         auto *clamped = window.findChild<FloatingPalette *>(QStringLiteral("floatingPalette"));
-        assert(clamped != nullptr);
+        EDI_CHECK(clamped != nullptr);
         QWidget *mainArea = window.findChild<QWidget *>(QStringLiteral("workspaceColumn"));
-        assert(mainArea != nullptr);
-        assert(clamped->geometry().right() <= mainArea->width());
-        assert(clamped->geometry().bottom() <= mainArea->height());
+        EDI_CHECK(mainArea != nullptr);
+        EDI_CHECK(clamped->geometry().right() <= mainArea->width());
+        EDI_CHECK(clamped->geometry().bottom() <= mainArea->height());
     }
 
     // Snap settings live behind a chrome "Snap" button now: the popup holds
@@ -617,25 +617,25 @@ int main(int argc, char **argv)
     // wiring), and the button tears down with workspaces that lack drafting.
     {
         auto *snapButton = window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap"));
-        assert(snapButton != nullptr);
+        EDI_CHECK(snapButton != nullptr);
         auto *snapPopup = window.findChild<QWidget *>(QStringLiteral("chromePopup_snap"));
-        assert(snapPopup != nullptr);
+        EDI_CHECK(snapPopup != nullptr);
         QCheckBox *popupGridSnap = toggleWithLabel(*snapPopup, QStringLiteral("Grid snap"));
-        assert(popupGridSnap != nullptr); // the controls moved INTO the popup
+        EDI_CHECK(popupGridSnap != nullptr); // the controls moved INTO the popup
         QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
-        assert(leftPanel != nullptr && toggleWithLabel(*leftPanel, QStringLiteral("Grid snap")) == nullptr);
+        EDI_CHECK(leftPanel != nullptr && toggleWithLabel(*leftPanel, QStringLiteral("Grid snap")) == nullptr);
 
         // The left panel kept only navigation: no undo/redo buttons, no
         // project-file buttons, no placeholder sections.
-        assert(leftPanel->findChild<QPushButton *>(QStringLiteral("undoButton")) == nullptr);
-        assert(leftPanel->findChild<QPushButton *>(QStringLiteral("openDrawingButton")) == nullptr);
+        EDI_CHECK(leftPanel->findChild<QPushButton *>(QStringLiteral("undoButton")) == nullptr);
+        EDI_CHECK(leftPanel->findChild<QPushButton *>(QStringLiteral("openDrawingButton")) == nullptr);
 
         edi::shell::WorkspaceLayout settingsOnly;
         settingsOnly.id = QStringLiteral("settings");
         settingsOnly.label = QStringLiteral("Settings");
         settingsOnly.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("settings")}};
         window.switchWorkspaceLayout(settingsOnly);
-        assert(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) == nullptr);
+        EDI_CHECK(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) == nullptr);
 
         edi::shell::WorkspaceLayout draftingBack;
         draftingBack.id = QStringLiteral("drafting");
@@ -648,7 +648,7 @@ int main(int argc, char **argv)
         };
         draftingBack.belt = DraftingFeature::defaultBeltLayout();
         window.switchWorkspaceLayout(draftingBack);
-        assert(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) != nullptr);
+        EDI_CHECK(window.findChild<QPushButton *>(QStringLiteral("chromePanel_snap")) != nullptr);
     }
 
     // Calibration row: pattern button creates objects, record captures a
@@ -656,31 +656,31 @@ int main(int argc, char **argv)
     {
         const int before = objectCount(*controller);
         QPushButton *testSquare = buttonWithText(window, QStringLiteral("Test square"));
-        assert(testSquare != nullptr);
+        EDI_CHECK(testSquare != nullptr);
         testSquare->click();
-        assert(objectCount(*controller) > before);
+        EDI_CHECK(objectCount(*controller) > before);
 
         auto *calibrationPanel = window.findChild<QWidget *>(QStringLiteral("calibrationControls"));
-        assert(calibrationPanel != nullptr);
+        EDI_CHECK(calibrationPanel != nullptr);
         auto *calibrationValue = calibrationPanel->findChild<QDoubleSpinBox *>();
-        assert(calibrationValue != nullptr);
+        EDI_CHECK(calibrationValue != nullptr);
         calibrationValue->setValue(0.25);
         buttonWithText(window, QStringLiteral("Record"))->click();
-        assert(!controller->modelDocument().value(QStringLiteral("calibration_measurement")).toMap().isEmpty());
+        EDI_CHECK(!controller->modelDocument().value(QStringLiteral("calibration_measurement")).toMap().isEmpty());
         buttonWithText(window, QStringLiteral("Apply scale"))->click();
-        assert(!controller->modelDocument().value(QStringLiteral("calibration_correction")).toMap().isEmpty());
+        EDI_CHECK(!controller->modelDocument().value(QStringLiteral("calibration_correction")).toMap().isEmpty());
     }
 
     // Project Files: the buttons exist and the save/open seam round-trips the
     // document while keeping window-title dirty state in sync.
     {
         // Project-file verbs live in the File menu now (left panel slimmed).
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save As…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save As…")) != nullptr);
 
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path = tempDir.filePath(QStringLiteral("shell_roundtrip.edidraw"));
 
         controller->setSelectedToolId(QStringLiteral("line_tool"));
@@ -688,35 +688,35 @@ int main(int argc, char **argv)
         controller->clickCanvasNormalized(0.75, 0.85);
         const QVariantMap savedModel = controller->modelDocument();
         const QVariantList savedObjects = savedModel.value(QStringLiteral("drawing_objects")).toList();
-        assert(!savedObjects.isEmpty());
+        EDI_CHECK(!savedObjects.isEmpty());
 
         // Unsaved edits mark the title dirty; saving clears it and adopts the path.
-        assert(window.isDocumentDirty());
-        assert(window.saveDrawingToPath(path));
-        assert(window.currentDrawingPath() == path);
-        assert(!window.isDocumentDirty());
-        assert(window.windowTitle().contains(QStringLiteral("shell_roundtrip.edidraw")));
-        assert(!window.windowTitle().contains(QStringLiteral("•")));
+        EDI_CHECK(window.isDocumentDirty());
+        EDI_CHECK(window.saveDrawingToPath(path));
+        EDI_CHECK(window.currentDrawingPath() == path);
+        EDI_CHECK(!window.isDocumentDirty());
+        EDI_CHECK(window.windowTitle().contains(QStringLiteral("shell_roundtrip.edidraw")));
+        EDI_CHECK(!window.windowTitle().contains(QStringLiteral("•")));
 
         // Mutate after save: dirty again.
         controller->setSelectedToolId(QStringLiteral("point_tool"));
         controller->clickCanvasNormalized(0.4, 0.4);
-        assert(window.isDocumentDirty());
-        assert(window.windowTitle().contains(QStringLiteral("•")));
+        EDI_CHECK(window.isDocumentDirty());
+        EDI_CHECK(window.windowTitle().contains(QStringLiteral("•")));
 
         // Reopen the saved file: projection matches the saved state and title is clean.
-        assert(window.openDrawingFromPath(path));
-        assert(!window.isDocumentDirty());
+        EDI_CHECK(window.openDrawingFromPath(path));
+        EDI_CHECK(!window.isDocumentDirty());
         const QVariantList reopenedObjects = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList();
-        assert(reopenedObjects.size() == savedObjects.size());
+        EDI_CHECK(reopenedObjects.size() == savedObjects.size());
         for (int i = 0; i < savedObjects.size(); ++i) {
-            assert(reopenedObjects[i].toMap().value(QStringLiteral("id")).toString()
+            EDI_CHECK(reopenedObjects[i].toMap().value(QStringLiteral("id")).toString()
                    == savedObjects[i].toMap().value(QStringLiteral("id")).toString());
         }
 
         // Opening a missing path fails and leaves the document untouched.
-        assert(!window.openDrawingFromPath(tempDir.filePath(QStringLiteral("missing.edidraw"))));
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+        EDI_CHECK(!window.openDrawingFromPath(tempDir.filePath(QStringLiteral("missing.edidraw"))));
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
                == reopenedObjects.size());
     }
 
@@ -724,34 +724,34 @@ int main(int argc, char **argv)
     {
         QAction *undoButton = window.findChild<QAction *>(QStringLiteral("undoAction"));
         QAction *redoButton = window.findChild<QAction *>(QStringLiteral("redoAction"));
-        assert(undoButton != nullptr);
-        assert(redoButton != nullptr);
+        EDI_CHECK(undoButton != nullptr);
+        EDI_CHECK(redoButton != nullptr);
 
         const int before = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
         controller->setSelectedToolId(QStringLiteral("point_tool"));
         controller->clickCanvasNormalized(0.33, 0.33);
         const int afterCreate = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
-        assert(afterCreate == before + 1);
+        EDI_CHECK(afterCreate == before + 1);
         // The create's modelChanged already refreshed the buttons via canUndo().
-        assert(undoButton->isEnabled());
-        assert(!redoButton->isEnabled());
+        EDI_CHECK(undoButton->isEnabled());
+        EDI_CHECK(!redoButton->isEnabled());
 
         undoButton->trigger();
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == before);
-        assert(redoButton->isEnabled());
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == before);
+        EDI_CHECK(redoButton->isEnabled());
 
         redoButton->trigger();
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == afterCreate);
-        assert(!redoButton->isEnabled());
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == afterCreate);
+        EDI_CHECK(!redoButton->isEnabled());
     }
 
     // Tool Options: the Sides spin drives the controller's polygon side count.
     {
         auto *sidesSpin = window.findChild<QSpinBox *>(QStringLiteral("polygonSidesSpin"));
-        assert(sidesSpin != nullptr);
-        assert(sidesSpin->value() == controller->polygonSides());
+        EDI_CHECK(sidesSpin != nullptr);
+        EDI_CHECK(sidesSpin->value() == controller->polygonSides());
         sidesSpin->setValue(8);
-        assert(controller->polygonSides() == 8);
+        EDI_CHECK(controller->polygonSides() == 8);
     }
 
     // N4 rectangle tool options: radius / inset spins and the aspect-lock
@@ -760,14 +760,14 @@ int main(int argc, char **argv)
         auto *radiusSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("rectCornerRadiusSpin"));
         auto *insetSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("rectInsetSpin"));
         auto *aspectLock = window.findChild<QCheckBox *>(QStringLiteral("aspectLockCheckbox"));
-        assert(radiusSpin != nullptr && insetSpin != nullptr && aspectLock != nullptr);
+        EDI_CHECK(radiusSpin != nullptr && insetSpin != nullptr && aspectLock != nullptr);
         radiusSpin->setValue(0.06);
-        assert(near(controller->rectCornerRadius(), 0.06));
+        EDI_CHECK(near(controller->rectCornerRadius(), 0.06));
         insetSpin->setValue(0.03);
-        assert(near(controller->rectInset(), 0.03));
-        assert(!controller->aspectLockEnabled());
+        EDI_CHECK(near(controller->rectInset(), 0.03));
+        EDI_CHECK(!controller->aspectLockEnabled());
         aspectLock->setChecked(true);
-        assert(controller->aspectLockEnabled());
+        EDI_CHECK(controller->aspectLockEnabled());
     }
 
     // #30 parametric creation + arrays: the radius option group shows for
@@ -776,7 +776,7 @@ int main(int argc, char **argv)
     {
         auto groupVisible = [&window](const QString &groupId) {
             QWidget *group = window.findChild<QWidget *>(QStringLiteral("inspectorGroup_") + groupId);
-            assert(group != nullptr);
+            EDI_CHECK(group != nullptr);
             return !group->isHidden();
         };
 
@@ -784,28 +784,28 @@ int main(int argc, char **argv)
         // (no options) hides it again.
         controller->setSelectedToolId(QStringLiteral("line_tool"));
         controller->selectObjectsInBoundsNormalized(0.0001, 0.0001, 0.0002, 0.0002);
-        assert(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
-        assert(!groupVisible(QStringLiteral("tool_radius")));
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        EDI_CHECK(!groupVisible(QStringLiteral("tool_radius")));
         controller->setSelectedToolId(QStringLiteral("circle_tool"));
-        assert(groupVisible(QStringLiteral("tool_radius")));
+        EDI_CHECK(groupVisible(QStringLiteral("tool_radius")));
 
         auto *fixedRadiusSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("fixedRadiusSpin"));
-        assert(fixedRadiusSpin != nullptr);
+        EDI_CHECK(fixedRadiusSpin != nullptr);
         fixedRadiusSpin->setValue(0.07);
-        assert(near(controller->fixedRadius(), 0.07));
+        EDI_CHECK(near(controller->fixedRadius(), 0.07));
 
         // Array option spins mirror controller state.
         auto *countSpin = window.findChild<QSpinBox *>(QStringLiteral("arrayCountSpin"));
         auto *stepXSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("arraySpacingXSpin"));
         auto *stepYSpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("arraySpacingYSpin"));
-        assert(countSpin != nullptr && stepXSpin != nullptr && stepYSpin != nullptr);
-        assert(countSpin->value() == controller->arrayCount());
+        EDI_CHECK(countSpin != nullptr && stepXSpin != nullptr && stepYSpin != nullptr);
+        EDI_CHECK(countSpin->value() == controller->arrayCount());
         countSpin->setValue(2);
-        assert(controller->arrayCount() == 2);
+        EDI_CHECK(controller->arrayCount() == 2);
         stepXSpin->setValue(0.05);
-        assert(near(controller->arraySpacingX(), 0.05));
+        EDI_CHECK(near(controller->arraySpacingX(), 0.05));
         stepYSpin->setValue(-0.04); // negative spacing is a legal direction
-        assert(near(controller->arraySpacingY(), -0.04));
+        EDI_CHECK(near(controller->arraySpacingY(), -0.04));
 
         // The grid button stamps count x count cells from the selection.
         controller->setSelectedToolId(QStringLiteral("line_tool"));
@@ -814,19 +814,19 @@ int main(int argc, char **argv)
         const int beforeGrid = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
         QPushButton *gridButton = window.findChild<QPushButton *>(QStringLiteral("gridArrayButton"));
         QPushButton *radialButton = window.findChild<QPushButton *>(QStringLiteral("radialArrayButton"));
-        assert(gridButton != nullptr && radialButton != nullptr);
+        EDI_CHECK(gridButton != nullptr && radialButton != nullptr);
         gridButton->click();
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
                == beforeGrid + 3); // 2x2 grid: source + 3 copies
 
         // Radial now PICKS its centre: the button arms a pick-a-point capture,
         // and the next canvas click sets the ring centre. The fresh copies ring
         // that picked point (away from the source so the arm is non-zero).
         radialButton->click();
-        assert(controller->isAwaitingPointCapture());
+        EDI_CHECK(controller->isAwaitingPointCapture());
         controller->clickCanvasNormalized(0.3, 0.3);
-        assert(!controller->isAwaitingPointCapture());
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
+        EDI_CHECK(!controller->isAwaitingPointCapture());
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size()
                == beforeGrid + 3 + 2); // arrayCount 2 -> 2 ring copies around the picked centre
 
         // Reset shared tool-option state so later blocks see defaults.
@@ -844,8 +844,8 @@ int main(int argc, char **argv)
         controller->clickCanvasNormalized(0.72, 0.72);
         controller->clickCanvasNormalized(0.78, 0.72);
         auto *opacitySpin = window.findChild<QDoubleSpinBox *>(QStringLiteral("styleOpacitySpin"));
-        assert(opacitySpin != nullptr);
-        assert(opacitySpin->value() == 1.0); // fresh object: fully opaque
+        EDI_CHECK(opacitySpin != nullptr);
+        EDI_CHECK(opacitySpin->value() == 1.0); // fresh object: fully opaque
         opacitySpin->setValue(0.3);
         QMetaObject::invokeMethod(opacitySpin, "editingFinished");
         const QVariantList styledObjects = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList();
@@ -853,11 +853,11 @@ int main(int argc, char **argv)
         for (const QVariant &value : styledObjects) {
             const QVariantMap object = value.toMap();
             if (object.value(QStringLiteral("id")).toString() == controller->selectedObjectId()) {
-                assert(object.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.3);
+                EDI_CHECK(object.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.3);
                 foundFaded = true;
             }
         }
-        assert(foundFaded);
+        EDI_CHECK(foundFaded);
 
         // The spin RE-READS the selected object: a freshly drawn (opaque)
         // line resets it to 1.0, re-selecting the faded one restores 0.3.
@@ -867,39 +867,39 @@ int main(int argc, char **argv)
         const QString fadedId = controller->selectedObjectId();
         controller->clickCanvasNormalized(0.62, 0.78);
         controller->clickCanvasNormalized(0.68, 0.78);
-        assert(controller->selectedObjectId() != fadedId);
-        assert(opacitySpin->value() == 1.0);
-        assert(controller->selectObjectById(fadedId));
-        assert(opacitySpin->value() == 0.3);
+        EDI_CHECK(controller->selectedObjectId() != fadedId);
+        EDI_CHECK(opacitySpin->value() == 1.0);
+        EDI_CHECK(controller->selectObjectById(fadedId));
+        EDI_CHECK(opacitySpin->value() == 0.3);
         controller->setSelectedToolId(QStringLiteral("select_move"));
     }
 
     // Export buttons exist and the path seams write SVG / HPGL files.
     {
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export HPGL…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export SVG…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export HPGL…")) != nullptr);
 
         controller->setSelectedToolId(QStringLiteral("line_tool"));
         controller->clickCanvasNormalized(0.2, 0.2);
         controller->clickCanvasNormalized(0.8, 0.8);
 
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString svgPath = tempDir.filePath(QStringLiteral("shell.svg"));
         const QString hpglPath = tempDir.filePath(QStringLiteral("shell.hpgl"));
         const QString gcodePath = tempDir.filePath(QStringLiteral("shell.gcode"));
-        assert(window.exportSvgToPath(svgPath));
-        assert(window.exportHpglToPath(hpglPath));
-        assert(window.exportGcodeToPath(gcodePath)); // N5 export seam
-        assert(QFile::exists(svgPath));
-        assert(QFile::exists(hpglPath));
-        assert(QFile::exists(gcodePath));
+        EDI_CHECK(window.exportSvgToPath(svgPath));
+        EDI_CHECK(window.exportHpglToPath(hpglPath));
+        EDI_CHECK(window.exportGcodeToPath(gcodePath)); // N5 export seam
+        EDI_CHECK(QFile::exists(svgPath));
+        EDI_CHECK(QFile::exists(hpglPath));
+        EDI_CHECK(QFile::exists(gcodePath));
         {
             QFile f(gcodePath);
-            assert(f.open(QIODevice::ReadOnly));
+            EDI_CHECK(f.open(QIODevice::ReadOnly));
             const QString body = QString::fromUtf8(f.readAll());
-            assert(body.startsWith(QStringLiteral("G21\n"))); // real G-code, not empty
-            assert(body.contains(QStringLiteral("G1 ")));     // a stroke was emitted
+            EDI_CHECK(body.startsWith(QStringLiteral("G21\n"))); // real G-code, not empty
+            EDI_CHECK(body.contains(QStringLiteral("G1 ")));     // a stroke was emitted
         }
     }
 
@@ -907,7 +907,7 @@ int main(int argc, char **argv)
     // a fresh window from the same file and assert the state survived.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString settingsPath = tempDir.filePath(QStringLiteral("edi.toml"));
 
         // Use an explicit non-default value (grid snap defaults to false) so the
@@ -915,36 +915,36 @@ int main(int argc, char **argv)
         controller->setGridSnapEnabled(true);
         controller->setPlotOrderModeId(QStringLiteral("nearest_next"));
         controller->setObjectSnapTolerancePreset(QStringLiteral("tight"));
-        assert(window.saveSettings(settingsPath));
-        assert(QFile::exists(settingsPath));
+        EDI_CHECK(window.saveSettings(settingsPath));
+        EDI_CHECK(QFile::exists(settingsPath));
 
         EdiShellWindow restored;
         auto *restoredController = restored.findChild<DrawingDocumentController *>();
-        assert(restoredController != nullptr);
-        assert(!restoredController->gridSnapEnabled()); // fresh default before load
-        assert(restored.loadSettings(settingsPath));
-        assert(restoredController->gridSnapEnabled()); // loaded the saved true
-        assert(restoredController->plotOrderModeId() == QStringLiteral("nearest_next"));
-        assert(restoredController->objectSnapTolerancePresetId() == QStringLiteral("tight"));
+        EDI_CHECK(restoredController != nullptr);
+        EDI_CHECK(!restoredController->gridSnapEnabled()); // fresh default before load
+        EDI_CHECK(restored.loadSettings(settingsPath));
+        EDI_CHECK(restoredController->gridSnapEnabled()); // loaded the saved true
+        EDI_CHECK(restoredController->plotOrderModeId() == QStringLiteral("nearest_next"));
+        EDI_CHECK(restoredController->objectSnapTolerancePresetId() == QStringLiteral("tight"));
     }
 
     // Recent files: saving a drawing records it and surfaces an Open Recent
     // entry (the File menu took over from the left panel's quick buttons).
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString drawingPath = tempDir.filePath(QStringLiteral("recent.edidraw"));
-        assert(window.saveDrawingToPath(drawingPath));
-        assert(window.recentFiles().contains(drawingPath));
+        EDI_CHECK(window.saveDrawingToPath(drawingPath));
+        EDI_CHECK(window.recentFiles().contains(drawingPath));
         auto *recentMenu = window.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
-        assert(recentMenu != nullptr);
+        EDI_CHECK(recentMenu != nullptr);
         bool listed = false;
         for (QAction *action : recentMenu->actions()) {
             if (action->data().toString() == drawingPath) {
                 listed = true;
             }
         }
-        assert(listed);
+        EDI_CHECK(listed);
     }
 
     // Panel system (spec §2): collapse, presets, and auto-hide as observable
@@ -963,58 +963,58 @@ int main(int argc, char **argv)
         QWidget *leftPanel = window.findChild<QWidget *>(QStringLiteral("leftPanel"));
         QWidget *rightPanel = window.findChild<QWidget *>(QStringLiteral("rightPanel"));
         QWidget *bottomPanel = window.findChild<QWidget *>(QStringLiteral("bottomPanel"));
-        assert(leftPanel != nullptr && rightPanel != nullptr && bottomPanel != nullptr);
+        EDI_CHECK(leftPanel != nullptr && rightPanel != nullptr && bottomPanel != nullptr);
 
         // Initial state per spec: left open, right and bottom collapsed.
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
-        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
-        assert(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
-        assert(leftPanel->isVisibleTo(&window));
-        assert(!rightPanel->isVisibleTo(&window));
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
+        EDI_CHECK(leftPanel->isVisibleTo(&window));
+        EDI_CHECK(!rightPanel->isVisibleTo(&window));
 
         // Manual collapse toggling reaches the widgets.
         window.setPanelCollapsed(ShellSlot::Right, false);
-        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
-        assert(rightPanel->isVisibleTo(&window));
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        EDI_CHECK(rightPanel->isVisibleTo(&window));
 
         // Auto-hide: shrink below the left panel's 640px threshold; right
         // never auto-hides. Growing back restores the panel.
         window.resize(600, 820);
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::AutoHidden);
-        assert(!leftPanel->isVisibleTo(&window));
-        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::AutoHidden);
+        EDI_CHECK(!leftPanel->isVisibleTo(&window));
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
         window.resize(1280, 820);
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
-        assert(leftPanel->isVisibleTo(&window));
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(leftPanel->isVisibleTo(&window));
 
         // Manual collapse is sticky across resizes (it outranks auto-hide).
         window.setPanelCollapsed(ShellSlot::Left, true);
         window.resize(600, 820);
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
         window.resize(1280, 820);
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
 
         // Presets transform the whole state.
         window.applyShellPanelPreset(PanelPreset::Full);
-        assert(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
-        assert(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
-        assert(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Visible);
-        assert(bottomPanel->isVisibleTo(&window));
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        EDI_CHECK(window.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Visible);
+        EDI_CHECK(bottomPanel->isVisibleTo(&window));
         window.applyShellPanelPreset(PanelPreset::Focus);
-        assert(!leftPanel->isVisibleTo(&window));
-        assert(!rightPanel->isVisibleTo(&window));
-        assert(!bottomPanel->isVisibleTo(&window));
+        EDI_CHECK(!leftPanel->isVisibleTo(&window));
+        EDI_CHECK(!rightPanel->isVisibleTo(&window));
+        EDI_CHECK(!bottomPanel->isVisibleTo(&window));
         window.applyShellPanelPreset(PanelPreset::Review);
-        assert(leftPanel->isVisibleTo(&window));
-        assert(!rightPanel->isVisibleTo(&window));
+        EDI_CHECK(leftPanel->isVisibleTo(&window));
+        EDI_CHECK(!rightPanel->isVisibleTo(&window));
 
         // Drag limits surface as widget constraints. Bottom has no maximum:
         // the terminal may grow to become the main view.
-        assert(leftPanel->minimumWidth() == 180);
-        assert(leftPanel->maximumWidth() == 520);
-        assert(rightPanel->minimumWidth() == 160);
-        assert(bottomPanel->minimumHeight() == 96);
-        assert(bottomPanel->maximumHeight() > 100000); // QWIDGETSIZE_MAX, i.e. unbounded
+        EDI_CHECK(leftPanel->minimumWidth() == 180);
+        EDI_CHECK(leftPanel->maximumWidth() == 520);
+        EDI_CHECK(rightPanel->minimumWidth() == 160);
+        EDI_CHECK(bottomPanel->minimumHeight() == 96);
+        EDI_CHECK(bottomPanel->maximumHeight() > 100000); // QWIDGETSIZE_MAX, i.e. unbounded
 
         // Overlay behavior: the grid never resizes when panels come and go —
         // they cover it. The canvas always fills the whole main area.
@@ -1022,26 +1022,26 @@ int main(int argc, char **argv)
         QCoreApplication::processEvents();
         QWidget *canvas = window.findChild<QWidget *>(QStringLiteral("drawingCanvas"));
         QWidget *mainArea = window.findChild<QWidget *>(QStringLiteral("workspaceColumn"));
-        assert(canvas != nullptr && mainArea != nullptr);
+        EDI_CHECK(canvas != nullptr && mainArea != nullptr);
         const QSize canvasWithPanels = canvas->size();
-        assert(canvasWithPanels == mainArea->size());
+        EDI_CHECK(canvasWithPanels == mainArea->size());
         window.setPanelCollapsed(ShellSlot::Right, true);
         window.setPanelCollapsed(ShellSlot::Bottom, true);
-        assert(canvas->size() == canvasWithPanels); // unchanged: overlays, not siblings
+        EDI_CHECK(canvas->size() == canvasWithPanels); // unchanged: overlays, not siblings
         window.setPanelCollapsed(ShellSlot::Right, false);
         window.setPanelCollapsed(ShellSlot::Bottom, false);
-        assert(canvas->size() == canvasWithPanels);
+        EDI_CHECK(canvas->size() == canvasWithPanels);
         // The right overlay hugs the right edge; the bottom overlay spans the
         // full width and sits on the bottom edge.
-        assert(rightPanel->geometry().right() + 1 == mainArea->width());
-        assert(bottomPanel->width() == mainArea->width());
-        assert(bottomPanel->geometry().bottom() + 1 == mainArea->height());
-        assert(rightPanel->geometry().bottom() < bottomPanel->geometry().top() + 1);
+        EDI_CHECK(rightPanel->geometry().right() + 1 == mainArea->width());
+        EDI_CHECK(bottomPanel->width() == mainArea->width());
+        EDI_CHECK(bottomPanel->geometry().bottom() + 1 == mainArea->height());
+        EDI_CHECK(rightPanel->geometry().bottom() < bottomPanel->geometry().top() + 1);
 
         // The terminal grows over the grid via its grip — up to the whole
         // main area — without the grid moving.
         QWidget *bottomGrip = window.findChild<QWidget *>(QStringLiteral("bottomPanelGrip"));
-        assert(bottomGrip != nullptr && bottomGrip->isVisibleTo(&window));
+        EDI_CHECK(bottomGrip != nullptr && bottomGrip->isVisibleTo(&window));
         const int beforeDrag = bottomPanel->height();
         {
             const QPointF local(4.0, 4.0);
@@ -1050,9 +1050,9 @@ int main(int argc, char **argv)
                 Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
             QCoreApplication::sendEvent(bottomGrip, &move);
         }
-        assert(bottomPanel->height() > beforeDrag);
-        assert(bottomPanel->height() >= mainArea->height() - 10); // effectively the main window
-        assert(canvas->size() == canvasWithPanels);               // grid untouched
+        EDI_CHECK(bottomPanel->height() > beforeDrag);
+        EDI_CHECK(bottomPanel->height() >= mainArea->height() - 10); // effectively the main window
+        EDI_CHECK(canvas->size() == canvasWithPanels);               // grid untouched
 
         // Leave everything open and at defaults for later assertions.
         window.applyShellPanelPreset(PanelPreset::Full);
@@ -1066,26 +1066,26 @@ int main(int argc, char **argv)
         using edi::shell::ShellSlot;
 
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString layoutPath = tempDir.filePath(QStringLiteral("workspace.toml"));
 
         window.applyShellPanelPreset(PanelPreset::Full);
         window.setPanelCollapsed(ShellSlot::Right, true);
         window.setPanelCollapsed(ShellSlot::Bottom, true);
-        assert(window.saveWorkspaceLayout(layoutPath));
+        EDI_CHECK(window.saveWorkspaceLayout(layoutPath));
 
         EdiShellWindow restored;
         restored.applyShellPanelPreset(PanelPreset::Full); // scramble away from saved state
-        assert(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
-        assert(restored.loadWorkspaceLayout(layoutPath));
-        assert(restored.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
-        assert(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
-        assert(restored.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
+        EDI_CHECK(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        EDI_CHECK(restored.loadWorkspaceLayout(layoutPath));
+        EDI_CHECK(restored.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(restored.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+        EDI_CHECK(restored.shellPanelVisibility(ShellSlot::Bottom) == PanelVisibility::Collapsed);
 
         // A missing file reports false and leaves the built-in defaults alone.
         EdiShellWindow fresh;
-        assert(!fresh.loadWorkspaceLayout(tempDir.filePath(QStringLiteral("absent.toml"))));
-        assert(fresh.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(!fresh.loadWorkspaceLayout(tempDir.filePath(QStringLiteral("absent.toml"))));
+        EDI_CHECK(fresh.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
 
         // Hand-edited geometry actually lands in the splitter, clamped to the
         // slot's band on the way in. (All four slots bound: this fixture is
@@ -1105,12 +1105,12 @@ int main(int argc, char **argv)
             config["panel.left.size"] = "400";
             config["panel.right.collapsed"] = "false";
             const QString sizedPath = tempDir.filePath(QStringLiteral("sized.toml"));
-            assert(edi::io::saveSettingsToPath(sizedPath, config));
+            EDI_CHECK(edi::io::saveSettingsToPath(sizedPath, config));
             sized.show();
-            assert(sized.loadWorkspaceLayout(sizedPath));
+            EDI_CHECK(sized.loadWorkspaceLayout(sizedPath));
             auto *bodySplitter = sized.findChild<QSplitter *>(QStringLiteral("bodySplitter"));
-            assert(bodySplitter != nullptr);
-            assert(bodySplitter->sizes().value(0) == 400);
+            EDI_CHECK(bodySplitter != nullptr);
+            EDI_CHECK(bodySplitter->sizes().value(0) == 400);
         }
     }
 
@@ -1125,13 +1125,13 @@ int main(int argc, char **argv)
         EdiShellWindow shell;
         shell.show();
         auto *shellController = shell.findChild<DrawingDocumentController *>();
-        assert(shellController != nullptr);
+        EDI_CHECK(shellController != nullptr);
 
         // Draw something so there is a document to preserve.
         shellController->setSelectedToolId(QStringLiteral("point_tool"));
         shellController->clickCanvasNormalized(0.5, 0.5);
         const int objectsBefore = objectCount(*shellController);
-        assert(objectsBefore > 0);
+        EDI_CHECK(objectsBefore > 0);
 
         WorkspaceLayout canvasOnly;
         canvasOnly.id = QStringLiteral("canvas_only");
@@ -1141,16 +1141,16 @@ int main(int argc, char **argv)
 
         // Old panels are gone (immediate delete — no flush needed), the canvas
         // is fresh, and the document survived the teardown.
-        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) == nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("bottomPanel")) == nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(objectCount(*shellController) == objectsBefore);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) == nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("bottomPanel")) == nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(objectCount(*shellController) == objectsBefore);
 
         // Model changes must not crash the partial-layout inspector (it is
         // wired to modelChanged on the fresh feature instance).
         shellController->clickCanvasNormalized(0.25, 0.25);
-        assert(objectCount(*shellController) == objectsBefore + 1);
+        EDI_CHECK(objectCount(*shellController) == objectsBefore + 1);
 
         // Switch back to the full drafting job: panels return, and the rebuilt
         // inspector tracks the live selection (the click above selected an
@@ -1165,26 +1165,26 @@ int main(int argc, char **argv)
             {ShellSlot::Bottom, QStringLiteral("drafting")},
         };
         shell.switchWorkspaceLayout(full);
-        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("rightPanel")) != nullptr);
         QPushButton *fitButton = buttonNamed(shell, QStringLiteral("fitToDrawableButton"));
-        assert(fitButton != nullptr);
-        assert(fitButton->isEnabled());
-        assert(objectCount(*shellController) == objectsBefore + 1);
+        EDI_CHECK(fitButton != nullptr);
+        EDI_CHECK(fitButton->isEnabled());
+        EDI_CHECK(objectCount(*shellController) == objectsBefore + 1);
 
         // Persistence round-trips bindings: save the canvas-only job, load it
         // into a fresh window, and the fresh window switches to it.
         shell.switchWorkspaceLayout(canvasOnly);
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString jobPath = tempDir.filePath(QStringLiteral("job.toml"));
-        assert(shell.saveWorkspaceLayout(jobPath));
+        EDI_CHECK(shell.saveWorkspaceLayout(jobPath));
 
         EdiShellWindow restored;
-        assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
-        assert(restored.loadWorkspaceLayout(jobPath));
-        assert(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
-        assert(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(restored.loadWorkspaceLayout(jobPath));
+        EDI_CHECK(restored.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        EDI_CHECK(restored.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
     // Map workspace: the rail's mode->layout switch resolves Map to its own
@@ -1195,32 +1195,32 @@ int main(int argc, char **argv)
     {
         EdiShellWindow shell;
         shell.show();
-        assert(shell.currentWorkspaceId() == QStringLiteral("drafting"));
+        EDI_CHECK(shell.currentWorkspaceId() == QStringLiteral("drafting"));
 
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Map);
-        assert(shell.currentWorkspaceId() == QStringLiteral("map"));
+        EDI_CHECK(shell.currentWorkspaceId() == QStringLiteral("map"));
         // The shared canvas mounts under the Map job (no parallel surface).
-        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
         // First-class feel: the Right slot is a distinguishing feature (the map
         // browser), so the switch auto-opened it — the collapse flag is cleared
         // (Visible or, on a tiny window, AutoHidden — never Collapsed).
-        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
+        EDI_CHECK(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
                != edi::shell::PanelVisibility::Collapsed);
         // The Right slot is the map browser (not the drafting inspector): the
         // panel mounts and its summary projects the live (empty) document.
-        assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) != nullptr);
         auto *summary = shell.findChild<QLabel *>(QStringLiteral("mapBrowserSummary"));
-        assert(summary != nullptr);
-        assert(summary->text().contains(QStringLiteral("0 rooms")));
+        EDI_CHECK(summary != nullptr);
+        EDI_CHECK(summary->text().contains(QStringLiteral("0 rooms")));
         auto *mapList = shell.findChild<QListWidget *>(QStringLiteral("mapBrowserList"));
-        assert(mapList != nullptr);
+        EDI_CHECK(mapList != nullptr);
         // An empty document still shows the two STRUCTURAL section headers (Plugs,
         // Connections) — they are part of the browser's fixed shape, not content,
         // so the readout always announces its sections even when graph-empty.
-        assert(mapList->count() == 2);
-        assert(mapList->item(0)->text() == QStringLiteral("── Plugs ──"));
-        assert(mapList->item(1)->text() == QStringLiteral("── Connections ──"));
+        EDI_CHECK(mapList->count() == 2);
+        EDI_CHECK(mapList->item(0)->text() == QStringLiteral("── Plugs ──"));
+        EDI_CHECK(mapList->item(1)->text() == QStringLiteral("── Connections ──"));
 
         // The browser is LIVE: author a tiny two-room graph and the summary +
         // list re-project on modelChanged (the connection bound to the panel).
@@ -1228,7 +1228,7 @@ int main(int argc, char **argv)
         // spec is built inline from the drafting-core types (plugs centered on
         // their edge, exactly as the .map.toml "center" default lands them).
         auto *mapController = shell.findChild<DrawingDocumentController *>();
-        assert(mapController != nullptr);
+        EDI_CHECK(mapController != nullptr);
         edi::drafting::MapSpec spec;
         edi::drafting::NamedRoomSpec roomA;
         roomA.name = "a";
@@ -1250,14 +1250,14 @@ int main(int argc, char **argv)
         // Author at 0.25 canvas-per-authored-unit so the browser must DIVIDE to
         // recover authored units: the 8 x 6 (canvas) rooms read as 32 x 24, not
         // the raw stored 8 x 6 — proving the footprint is shown in authored units.
-        assert(mapController->createMapFromSpec(spec, 0.25));
-        assert(summary->text().contains(QStringLiteral("2 rooms")));
-        assert(summary->text().contains(QStringLiteral("1 connection"))); // pluralized: singular
-        assert(summary->text().contains(QStringLiteral("2 plugs")));
+        EDI_CHECK(mapController->createMapFromSpec(spec, 0.25));
+        EDI_CHECK(summary->text().contains(QStringLiteral("2 rooms")));
+        EDI_CHECK(summary->text().contains(QStringLiteral("1 connection"))); // pluralized: singular
+        EDI_CHECK(summary->text().contains(QStringLiteral("2 plugs")));
         // Rows: 2 rooms + "── Plugs ──" + 2 plug rows + "── Connections ──" + 1 conn.
-        assert(mapList->count() == 7);
-        assert(mapList->item(0)->text().contains(QStringLiteral("32"))); // 8 / 0.25 authored
-        assert(mapList->item(0)->text().contains(QStringLiteral("24"))); // 6 / 0.25 authored
+        EDI_CHECK(mapList->count() == 7);
+        EDI_CHECK(mapList->item(0)->text().contains(QStringLiteral("32"))); // 8 / 0.25 authored
+        EDI_CHECK(mapList->item(0)->text().contains(QStringLiteral("24"))); // 6 / 0.25 authored
 
         // Collect the list rows by their leading symbol so the assertions don't
         // depend on the exact interleave order beyond the documented sectioning.
@@ -1277,10 +1277,10 @@ int main(int argc, char **argv)
                 connectionRows << text;
             }
         }
-        assert(!plugsHeader.isEmpty());
-        assert(!connectionsHeader.isEmpty());
-        assert(plugRows.size() == 2);
-        assert(connectionRows.size() == 1);
+        EDI_CHECK(!plugsHeader.isEmpty());
+        EDI_CHECK(!connectionsHeader.isEmpty());
+        EDI_CHECK(plugRows.size() == 2);
+        EDI_CHECK(connectionRows.size() == 1);
 
         // The east plug (a.to_b) sits on the room's E edge, is named by a
         // connection (linked), and carries its two flags in a `·`-joined bracket.
@@ -1290,20 +1290,20 @@ int main(int argc, char **argv)
                 eastRow = row;
             }
         }
-        assert(!eastRow.isEmpty());
-        assert(eastRow.contains(QStringLiteral("door")));     // neutral type
-        assert(eastRow.contains(QStringLiteral("· E ·")));    // derived edge
-        assert(eastRow.contains(QStringLiteral("linked")));   // named by a connection
-        assert(eastRow.contains(QStringLiteral("[window · passes_light]"))); // flags run
+        EDI_CHECK(!eastRow.isEmpty());
+        EDI_CHECK(eastRow.contains(QStringLiteral("door")));     // neutral type
+        EDI_CHECK(eastRow.contains(QStringLiteral("· E ·")));    // derived edge
+        EDI_CHECK(eastRow.contains(QStringLiteral("linked")));   // named by a connection
+        EDI_CHECK(eastRow.contains(QStringLiteral("[window · passes_light]"))); // flags run
 
         // The connection row shows its neutral role type ("corridor").
-        assert(connectionRows.front().contains(QStringLiteral("corridor")));
+        EDI_CHECK(connectionRows.front().contains(QStringLiteral("corridor")));
 
         // The switch is reversible; the id tracks the rail and the browser is
         // torn down (its modelChanged connection dies with it).
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Drafting);
-        assert(shell.currentWorkspaceId() == QStringLiteral("drafting"));
-        assert(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) == nullptr);
+        EDI_CHECK(shell.currentWorkspaceId() == QStringLiteral("drafting"));
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("mapBrowserPanel")) == nullptr);
     }
 
     // The recipe lab's ASCII proof pane: switching to the Blender (lab) job
@@ -1314,7 +1314,7 @@ int main(int argc, char **argv)
         EdiShellWindow shell;
         shell.show();
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Blender);
-        assert(shell.currentWorkspaceId() == QStringLiteral("blender"));
+        EDI_CHECK(shell.currentWorkspaceId() == QStringLiteral("blender"));
 
         // The lab's bottom terminal tabs the editor and the ASCII proof; the
         // proof lives in a tab page (found even while the Editor tab is active,
@@ -1322,28 +1322,28 @@ int main(int argc, char **argv)
         // the Bottom terminal (a distinguishing slot here) and the Right render
         // preview, so the proof is one tab-click away without a manual expand.
         auto *terminalTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeTerminal"));
-        assert(terminalTabs != nullptr);
-        assert(terminalTabs->count() == 3); // Steps + Editor + ASCII Proof
-        assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
-        assert(shell.findChild<QListWidget *>(QStringLiteral("opStepsList")) != nullptr);
+        EDI_CHECK(terminalTabs != nullptr);
+        EDI_CHECK(terminalTabs->count() == 3); // Steps + Editor + ASCII Proof
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QListWidget *>(QStringLiteral("opStepsList")) != nullptr);
 
         // The Right slot tabs the recipe OUTPUTS: the Blender render (its label
         // still findable, whichever tab is forward) and the Compiled recipe.
         auto *outputTabs = shell.findChild<QTabWidget *>(QStringLiteral("recipeOutput"));
-        assert(outputTabs != nullptr);
-        assert(outputTabs->count() == 3); // Palette + Render + Compiled
-        assert(shell.findChild<QLabel *>(QStringLiteral("blenderPreview")) != nullptr);
+        EDI_CHECK(outputTabs != nullptr);
+        EDI_CHECK(outputTabs->count() == 3); // Palette + Render + Compiled
+        EDI_CHECK(shell.findChild<QLabel *>(QStringLiteral("blenderPreview")) != nullptr);
         auto *compiledView = shell.findChild<QPlainTextEdit *>(QStringLiteral("compiledRecipeText"));
-        assert(compiledView != nullptr);
-        assert(compiledView->toPlainText().contains(QStringLiteral("No recipe"))); // empty stream
-        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Bottom)
+        EDI_CHECK(compiledView != nullptr);
+        EDI_CHECK(compiledView->toPlainText().contains(QStringLiteral("No recipe"))); // empty stream
+        EDI_CHECK(shell.shellPanelVisibility(edi::shell::ShellSlot::Bottom)
                != edi::shell::PanelVisibility::Collapsed);
-        assert(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
+        EDI_CHECK(shell.shellPanelVisibility(edi::shell::ShellSlot::Right)
                != edi::shell::PanelVisibility::Collapsed);
         auto *asciiView = shell.findChild<QPlainTextEdit *>(QStringLiteral("asciiPreviewText"));
-        assert(asciiView != nullptr);
+        EDI_CHECK(asciiView != nullptr);
         // Empty stream: a proof of nothing says so, never a misleading blank grid.
-        assert(asciiView->toPlainText().contains(QStringLiteral("No recipe")));
+        EDI_CHECK(asciiView->toPlainText().contains(QStringLiteral("No recipe")));
 
         // Apply a literal (binding-free) recipe through the editor's hook; the
         // op stream changes, opsStreamChanged fires, and the pane re-renders.
@@ -1353,31 +1353,31 @@ int main(int argc, char **argv)
             "op.0.radius = \"1\"\n"
             "op.0.height = \"2\"\n"
             "op.0.z = \"0\"\n");
-        assert(applyError.isEmpty()); // the strict reader accepted it
-        assert(asciiView->toPlainText().contains(QStringLiteral("FRONT PROJECTION")));
+        EDI_CHECK(applyError.isEmpty()); // the strict reader accepted it
+        EDI_CHECK(asciiView->toPlainText().contains(QStringLiteral("FRONT PROJECTION")));
         // The compiled view re-serialized off the same opsStreamChanged: the
         // literal cylinder compiles straight through, so it names its op type.
-        assert(compiledView->toPlainText().contains(QStringLiteral("AddCylinder")));
+        EDI_CHECK(compiledView->toPlainText().contains(QStringLiteral("AddCylinder")));
 
         // The Steps inspector lists the recipe's ops; selecting one shows its
         // numeric fields, and editing one (the verb the spinbox's editingFinished
         // calls) mutates the stream + re-renders the proof — the human's surface.
         auto *steps = shell.findChild<QListWidget *>(QStringLiteral("opStepsList"));
-        assert(steps != nullptr);
-        assert(steps->count() == 1); // the one AddCylinder we applied
+        EDI_CHECK(steps != nullptr);
+        EDI_CHECK(steps->count() == 1); // the one AddCylinder we applied
         steps->setCurrentRow(0);
         // Its radius field is present (the cylinder's first editable field) and
         // shows the authored value.
         auto *radiusSpin = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
-        assert(radiusSpin != nullptr);
-        assert(radiusSpin->value() == 1.0); // from the applied recipe
+        EDI_CHECK(radiusSpin != nullptr);
+        EDI_CHECK(radiusSpin->value() == 1.0); // from the applied recipe
         // Tune it through the public edit verb; the stream + proof + compiled all
         // follow, with no manual TOML.
         shell.applyOpFieldEdit(0, QStringLiteral("radius"), 2.5);
         const auto *tunedCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
-        assert(tunedCylinder != nullptr && tunedCylinder->radius == 2.5);
-        assert(compiledView->toPlainText().contains(QStringLiteral("2.5"))); // re-serialized
-        assert(radiusSpin->value() == 2.5);                                  // spin followed the change
+        EDI_CHECK(tunedCylinder != nullptr && tunedCylinder->radius == 2.5);
+        EDI_CHECK(compiledView->toPlainText().contains(QStringLiteral("2.5"))); // re-serialized
+        EDI_CHECK(radiusSpin->value() == 2.5);                                  // spin followed the change
 
         // Drive the REAL spinbox commit path (editingFinished) to prove the
         // wiring and that the resulting re-render does not loop back into another
@@ -1385,79 +1385,79 @@ int main(int argc, char **argv)
         radiusSpin->setValue(4.0);
         emit radiusSpin->editingFinished(); // what a focus-out / Enter triggers
         const auto *reCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
-        assert(reCylinder != nullptr && reCylinder->radius == 4.0);
+        EDI_CHECK(reCylinder != nullptr && reCylinder->radius == 4.0);
 
         // Beyond numbers: the cylinder shows a material combo, a name line-edit,
         // a vertices int-spin, and an entasis checkbox — and the scalar verb sets
         // each kind back onto the op.
-        assert(shell.findChild<QComboBox *>(QStringLiteral("opField_material")) != nullptr);
-        assert(shell.findChild<QLineEdit *>(QStringLiteral("opField_name")) != nullptr);
-        assert(shell.findChild<QSpinBox *>(QStringLiteral("opField_vertices")) != nullptr);
-        assert(shell.findChild<QCheckBox *>(QStringLiteral("opField_entasis")) != nullptr);
+        EDI_CHECK(shell.findChild<QComboBox *>(QStringLiteral("opField_material")) != nullptr);
+        EDI_CHECK(shell.findChild<QLineEdit *>(QStringLiteral("opField_name")) != nullptr);
+        EDI_CHECK(shell.findChild<QSpinBox *>(QStringLiteral("opField_vertices")) != nullptr);
+        EDI_CHECK(shell.findChild<QCheckBox *>(QStringLiteral("opField_entasis")) != nullptr);
         shell.applyOpScalarEdit(0, QStringLiteral("material"),
                                 edi::recipe::RecipeScalarValue{std::string("marble")});
         shell.applyOpScalarEdit(0, QStringLiteral("vertices"), edi::recipe::RecipeScalarValue{32});
         shell.applyOpScalarEdit(0, QStringLiteral("entasis"), edi::recipe::RecipeScalarValue{true});
         const auto *richCylinder = std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops[0]);
-        assert(richCylinder != nullptr);
-        assert(richCylinder->material == "marble" && richCylinder->vertices == 32 && richCylinder->entasis);
+        EDI_CHECK(richCylinder != nullptr);
+        EDI_CHECK(richCylinder->material == "marble" && richCylinder->vertices == 32 && richCylinder->entasis);
 
         // Binding picker: bind the radius to a drafted measurement. The stream
         // carries the binding and the field rebuilds read-only (its number now
         // comes from the canvas through resolve); unbind returns it to a literal.
         shell.bindOpField(0, QStringLiteral("radius"), QStringLiteral("plank_1"), QStringLiteral("length"));
-        assert(shell.opsStream().bindings.size() == 1);
-        assert(shell.opsStream().bindings[0].objectId == "plank_1");
-        assert(shell.opsStream().bindings[0].field == "length");
+        EDI_CHECK(shell.opsStream().bindings.size() == 1);
+        EDI_CHECK(shell.opsStream().bindings[0].objectId == "plank_1");
+        EDI_CHECK(shell.opsStream().bindings[0].field == "length");
         auto *boundRadius = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
-        assert(boundRadius != nullptr && boundRadius->isReadOnly());
+        EDI_CHECK(boundRadius != nullptr && boundRadius->isReadOnly());
         shell.unbindOpField(0, QStringLiteral("radius"));
-        assert(shell.opsStream().bindings.empty());
+        EDI_CHECK(shell.opsStream().bindings.empty());
         auto *freeRadius = shell.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
-        assert(freeRadius != nullptr && !freeRadius->isReadOnly());
+        EDI_CHECK(freeRadius != nullptr && !freeRadius->isReadOnly());
 
         // The palette appends a step by CLICK: a new unit cylinder joins the
         // recipe, the Steps list grows, and it lands as a real AddCylinder.
         const int before = static_cast<int>(shell.opsStream().ops.size());
         auto *addCylinder = shell.findChild<QPushButton *>(QStringLiteral("addStep_AddCylinder"));
-        assert(addCylinder != nullptr);
+        EDI_CHECK(addCylinder != nullptr);
         addCylinder->click();
-        assert(static_cast<int>(shell.opsStream().ops.size()) == before + 1);
-        assert(std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops.back()) != nullptr);
-        assert(steps->count() == before + 1); // the Steps list grew with it
+        EDI_CHECK(static_cast<int>(shell.opsStream().ops.size()) == before + 1);
+        EDI_CHECK(std::get_if<edi::recipe::AddCylinderOp>(&shell.opsStream().ops.back()) != nullptr);
+        EDI_CHECK(steps->count() == before + 1); // the Steps list grew with it
 
         // Remove/reorder buttons drive the verbs: select the just-added step and
         // remove it; the stream shrinks back. (Move's index fixup is covered in
         // recipe_ops_tests; here we confirm the buttons are wired.)
-        assert(shell.findChild<QPushButton *>(QStringLiteral("moveStepUp")) != nullptr);
-        assert(shell.findChild<QPushButton *>(QStringLiteral("moveStepDown")) != nullptr);
+        EDI_CHECK(shell.findChild<QPushButton *>(QStringLiteral("moveStepUp")) != nullptr);
+        EDI_CHECK(shell.findChild<QPushButton *>(QStringLiteral("moveStepDown")) != nullptr);
         auto *removeStepButton = shell.findChild<QPushButton *>(QStringLiteral("removeStep"));
-        assert(removeStepButton != nullptr);
+        EDI_CHECK(removeStepButton != nullptr);
         steps->setCurrentRow(before); // the appended op sits at the old size
         removeStepButton->click();
-        assert(static_cast<int>(shell.opsStream().ops.size()) == before);
+        EDI_CHECK(static_cast<int>(shell.opsStream().ops.size()) == before);
 
         // The projection selector re-renders the chosen view.
         auto *projection = shell.findChild<QComboBox *>(QStringLiteral("asciiPreviewProjection"));
-        assert(projection != nullptr);
+        EDI_CHECK(projection != nullptr);
         projection->setCurrentIndex(1); // Side
-        assert(asciiView->toPlainText().contains(QStringLiteral("SIDE PROJECTION")));
+        EDI_CHECK(asciiView->toPlainText().contains(QStringLiteral("SIDE PROJECTION")));
 
         // Pop-out: the ASCII proof's pop-out button floats a fresh copy into a
         // top-level node window carrying its own live proof view.
         auto *popOutAscii = shell.findChild<QToolButton *>(QStringLiteral("popOutAscii"));
-        assert(popOutAscii != nullptr);
+        EDI_CHECK(popOutAscii != nullptr);
         popOutAscii->click();
         auto *node = shell.findChild<QWidget *>(QStringLiteral("floatingNode"));
-        assert(node != nullptr && node->isWindow());
-        assert(node->findChild<QPlainTextEdit *>(QStringLiteral("asciiPreviewText")) != nullptr);
+        EDI_CHECK(node != nullptr && node->isWindow());
+        EDI_CHECK(node->findChild<QPlainTextEdit *>(QStringLiteral("asciiPreviewText")) != nullptr);
         node->close(); // WA_DeleteOnClose disposes the float
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
         // Leaving the lab tears the pane down (its opsStreamChanged connection
         // dies with it — the window signal source outlives the panel).
         shell.setWorkspaceMode(edi::app::WorkspaceMode::Drafting);
-        assert(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) == nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("asciiPreviewPanel")) == nullptr);
     }
 
     // Custom craftsmen: a fed-in registry adds craftsman buttons to the palette,
@@ -1482,37 +1482,37 @@ int main(int argc, char **argv)
             "craftsman.0.param.2.label = \"Material\"\n"
             "craftsman.0.param.2.type = \"material\"\n"
             "craftsman.0.param.2.default = \"stone\"\n"));
-        assert(craft.craftsmen().size() == 1);
+        EDI_CHECK(craft.craftsmen().size() == 1);
         craft.show();
         craft.setWorkspaceMode(edi::app::WorkspaceMode::Blender);
 
         // The palette grew a Craftsmen heading + a button per craftsman.
-        assert(craft.findChild<QLabel *>(QStringLiteral("craftsmanPaletteTitle")) != nullptr);
+        EDI_CHECK(craft.findChild<QLabel *>(QStringLiteral("craftsmanPaletteTitle")) != nullptr);
         auto *craftBtn = craft.findChild<QPushButton *>(QStringLiteral("addCraftsman_twisted_column"));
-        assert(craftBtn != nullptr);
+        EDI_CHECK(craftBtn != nullptr);
 
         // Click it: a Script step joins the recipe, seeded from the manifest.
         craftBtn->click();
-        assert(craft.opsStream().ops.size() == 1);
+        EDI_CHECK(craft.opsStream().ops.size() == 1);
         const auto *script = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
-        assert(script != nullptr && script->scriptId == "twisted_column");
-        assert(script->params.size() == 3);
+        EDI_CHECK(script != nullptr && script->scriptId == "twisted_column");
+        EDI_CHECK(script->params.size() == 3);
 
         // Select the step; the inspector renders each param with the widget its
         // MANIFEST type calls for, plus the placement spins and the read-only id.
         auto *steps = craft.findChild<QListWidget *>(QStringLiteral("opStepsList"));
-        assert(steps != nullptr && steps->count() == 1);
+        EDI_CHECK(steps != nullptr && steps->count() == 1);
         steps->setCurrentRow(0);
         auto *radius = craft.findChild<QDoubleSpinBox *>(QStringLiteral("opField_radius"));
         auto *sides = craft.findChild<QSpinBox *>(QStringLiteral("opField_sides"));
         auto *material = craft.findChild<QComboBox *>(QStringLiteral("opField_material"));
         auto *scriptId = craft.findChild<QLineEdit *>(QStringLiteral("opField_script"));
-        assert(radius != nullptr && sides != nullptr && material != nullptr && scriptId != nullptr);
-        assert(radius->value() == 1.0 && sides->value() == 4);
-        assert(material->currentText() == QStringLiteral("stone"));
-        assert(!scriptId->isEnabled()); // the craftsman id is a read-only reference
+        EDI_CHECK(radius != nullptr && sides != nullptr && material != nullptr && scriptId != nullptr);
+        EDI_CHECK(radius->value() == 1.0 && sides->value() == 4);
+        EDI_CHECK(material->currentText() == QStringLiteral("stone"));
+        EDI_CHECK(!scriptId->isEnabled()); // the craftsman id is a read-only reference
         // x/y/z are still the bindable placement spins.
-        assert(craft.findChild<QDoubleSpinBox *>(QStringLiteral("opField_x")) != nullptr);
+        EDI_CHECK(craft.findChild<QDoubleSpinBox *>(QStringLiteral("opField_x")) != nullptr);
 
         // Edit a number param through the REAL widget commit path: its value is
         // stored back AS A STRING in the bag, formatted as the store would.
@@ -1521,26 +1521,26 @@ int main(int argc, char **argv)
         radius->setValue(2.5);
         emit radius->editingFinished();
         const auto *tuned = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
-        assert(tuned != nullptr);
+        EDI_CHECK(tuned != nullptr);
         const auto paramValue = [tuned](const std::string &key) -> std::string {
             for (const edi::recipe::ScriptParam &p : tuned->params) {
                 if (p.key == key) return p.value;
             }
             return "<none>";
         };
-        assert(paramValue("sides") == "6");
-        assert(paramValue("radius") == "2.5");
+        EDI_CHECK(paramValue("sides") == "6");
+        EDI_CHECK(paramValue("radius") == "2.5");
 
         // The material dropdown commits a string too (re-fetch the op afterward).
         craft.applyOpScalarEdit(0, QStringLiteral("material"),
                                 edi::recipe::RecipeScalarValue{std::string("marble")});
         const auto *afterMaterial = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
-        assert(afterMaterial != nullptr);
+        EDI_CHECK(afterMaterial != nullptr);
         bool sawMarble = false;
         for (const edi::recipe::ScriptParam &p : afterMaterial->params) {
             sawMarble = sawMarble || (p.key == "material" && p.value == "marble");
         }
-        assert(sawMarble);
+        EDI_CHECK(sawMarble);
 
         // The inspector renders params in MANIFEST order, not the order they sit
         // in the op. Load a recipe whose params sweep ALPHABETICALLY off disk
@@ -1554,16 +1554,16 @@ int main(int argc, char **argv)
             "op.0.radius = \"1\"\n"
             "op.0.sides = \"4\"\n"
             "op.0.material = \"stone\"\n");
-        assert(applyErr.isEmpty());
+        EDI_CHECK(applyErr.isEmpty());
         const auto *loaded = std::get_if<edi::recipe::ScriptOp>(&craft.opsStream().ops[0]);
-        assert(loaded != nullptr && loaded->params.size() == 3);
-        assert(loaded->params[0].key == "material"); // proof the store swept alphabetically
+        EDI_CHECK(loaded != nullptr && loaded->params.size() == 3);
+        EDI_CHECK(loaded->params[0].key == "material"); // proof the store swept alphabetically
         steps->setCurrentRow(-1); // force currentRowChanged so the fields rebuild fresh
         steps->setCurrentRow(0);
         auto *fieldsWidget = craft.findChild<QWidget *>(QStringLiteral("opStepsFields"));
-        assert(fieldsWidget != nullptr);
+        EDI_CHECK(fieldsWidget != nullptr);
         auto *form = qobject_cast<QFormLayout *>(fieldsWidget->layout());
-        assert(form != nullptr);
+        EDI_CHECK(form != nullptr);
         QStringList rowLabels;
         for (int row = 0; row < form->rowCount(); ++row) {
             if (auto *item = form->itemAt(row, QFormLayout::LabelRole)) {
@@ -1575,7 +1575,7 @@ int main(int argc, char **argv)
         const int iRadius = rowLabels.indexOf(QStringLiteral("Radius"));
         const int iSides = rowLabels.indexOf(QStringLiteral("Sides"));
         const int iMaterial = rowLabels.indexOf(QStringLiteral("Material"));
-        assert(iRadius >= 0 && iSides > iRadius && iMaterial > iSides); // manifest order
+        EDI_CHECK(iRadius >= 0 && iSides > iRadius && iMaterial > iSides); // manifest order
     }
 
     // F1 — the object list: a browsable projection of the document. It
@@ -1583,27 +1583,27 @@ int main(int argc, char **argv)
     // is selection-only (no undo step, same rule as marquee).
     {
         auto *objectList = window.findChild<QListWidget *>(QStringLiteral("objectList"));
-        assert(objectList != nullptr);
+        EDI_CHECK(objectList != nullptr);
         const int documentObjects = objectCount(*controller);
-        assert(objectList->count() == documentObjects);
-        assert(documentObjects >= 2); // earlier sections created point(s) + guide
+        EDI_CHECK(objectList->count() == documentObjects);
+        EDI_CHECK(documentObjects >= 2); // earlier sections created point(s) + guide
 
         // Select by id through the controller; the list's current row follows.
         const QString firstId = objectList->item(0)->data(Qt::UserRole).toString();
-        assert(!firstId.isEmpty());
-        assert(window.findChild<DrawingDocumentController *>()->selectObjectById(firstId));
-        assert(controller->selectedObjectId() == firstId);
-        assert(objectList->currentItem() != nullptr);
-        assert(objectList->currentItem()->data(Qt::UserRole).toString() == firstId);
+        EDI_CHECK(!firstId.isEmpty());
+        EDI_CHECK(window.findChild<DrawingDocumentController *>()->selectObjectById(firstId));
+        EDI_CHECK(controller->selectedObjectId() == firstId);
+        EDI_CHECK(objectList->currentItem() != nullptr);
+        EDI_CHECK(objectList->currentItem()->data(Qt::UserRole).toString() == firstId);
 
         // A bogus id is rejected and selection is untouched.
-        assert(!controller->selectObjectById(QStringLiteral("no-such-object")));
-        assert(controller->selectedObjectId() == firstId);
+        EDI_CHECK(!controller->selectObjectById(QStringLiteral("no-such-object")));
+        EDI_CHECK(controller->selectedObjectId() == firstId);
 
         // Creating an object grows the list (the list is a live projection).
         controller->setSelectedToolId(QStringLiteral("point_tool"));
         controller->clickCanvasNormalized(0.6, 0.6);
-        assert(objectList->count() == documentObjects + 1);
+        EDI_CHECK(objectList->count() == documentObjects + 1);
     }
 
     // Live theming: setting the four inputs re-derives the stylesheet, the
@@ -1622,28 +1622,28 @@ int main(int argc, char **argv)
         themed.setThemeInputs(pink);
 
         const auto derived = deriveShellTheme(pink);
-        assert(themed.styleSheet().contains(derived.selected));      // accent-derived token landed
-        assert(themed.styleSheet().contains(QStringLiteral("font-size: 14px")));
-        assert(themed.themeInputs().accent == pink.accent);
+        EDI_CHECK(themed.styleSheet().contains(derived.selected));      // accent-derived token landed
+        EDI_CHECK(themed.styleSheet().contains(QStringLiteral("font-size: 14px")));
+        EDI_CHECK(themed.themeInputs().accent == pink.accent);
 
         // A workspace switch rebuilds the canvas; the live theme must follow.
         WorkspaceLayout canvasOnly;
         canvasOnly.id = QStringLiteral("canvas_only");
         canvasOnly.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}};
         themed.switchWorkspaceLayout(canvasOnly);
-        assert(themed.styleSheet().contains(derived.selected));
+        EDI_CHECK(themed.styleSheet().contains(derived.selected));
 
         // Round trip through the settings file into a fresh window.
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString settingsPath = tempDir.filePath(QStringLiteral("edi.toml"));
-        assert(themed.saveSettings(settingsPath));
+        EDI_CHECK(themed.saveSettings(settingsPath));
         EdiShellWindow reloaded;
-        assert(!reloaded.styleSheet().contains(derived.selected)); // stock theme before load
-        assert(reloaded.loadSettings(settingsPath));
-        assert(reloaded.themeInputs().accent == pink.accent);
-        assert(reloaded.themeInputs().uiFontSize == 14);
-        assert(reloaded.styleSheet().contains(derived.selected));
+        EDI_CHECK(!reloaded.styleSheet().contains(derived.selected)); // stock theme before load
+        EDI_CHECK(reloaded.loadSettings(settingsPath));
+        EDI_CHECK(reloaded.themeInputs().accent == pink.accent);
+        EDI_CHECK(reloaded.themeInputs().uiFontSize == 14);
+        EDI_CHECK(reloaded.styleSheet().contains(derived.selected));
     }
 
     // F5 — the settings pop-out: the rail's S button opens a modeless tool
@@ -1663,37 +1663,37 @@ int main(int argc, char **argv)
                 settingsRail = button;
             }
         }
-        assert(settingsRail != nullptr && settingsRail->isEnabled());
+        EDI_CHECK(settingsRail != nullptr && settingsRail->isEnabled());
         settingsRail->click();
 
         // The drafting job stays mounted; the settings page floats above it.
-        assert(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
         QWidget *popOut = shell.findChild<QWidget *>(QStringLiteral("settingsWindow"));
-        assert(popOut != nullptr && popOut->isVisible());
+        EDI_CHECK(popOut != nullptr && popOut->isVisible());
         QWidget *page = shell.findChild<QWidget *>(QStringLiteral("settingsPanel"));
-        assert(page != nullptr && popOut->isAncestorOf(page));
+        EDI_CHECK(page != nullptr && popOut->isAncestorOf(page));
         // The rail check stays on the mounted workspace, not on S.
-        assert(!settingsRail->isChecked());
+        EDI_CHECK(!settingsRail->isChecked());
 
         // Typing a valid accent hex re-themes the window immediately; a
         // half-typed value is ignored.
         auto *accentField = shell.findChild<QLineEdit *>(QStringLiteral("themeAccentField"));
-        assert(accentField != nullptr);
-        assert(accentField->text() == shell.themeInputs().accent); // page mirrors live state
+        EDI_CHECK(accentField != nullptr);
+        EDI_CHECK(accentField->text() == shell.themeInputs().accent); // page mirrors live state
         accentField->setText(QStringLiteral("#d46c"));             // incomplete: no change
-        assert(shell.themeInputs().accent != QStringLiteral("#d46c"));
+        EDI_CHECK(shell.themeInputs().accent != QStringLiteral("#d46c"));
         accentField->setText(QStringLiteral("#d46ca1"));
-        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        EDI_CHECK(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
         ShellThemeInputs expected = shell.themeInputs();
-        assert(shell.styleSheet().contains(deriveShellTheme(expected).selected));
+        EDI_CHECK(shell.styleSheet().contains(deriveShellTheme(expected).selected));
 
         // Font size flows the same way.
         auto *sizeSpin = shell.findChild<QSpinBox *>(QStringLiteral("uiFontSizeSpin"));
-        assert(sizeSpin != nullptr);
+        EDI_CHECK(sizeSpin != nullptr);
         sizeSpin->setValue(15);
-        assert(shell.themeInputs().uiFontSize == 15);
-        assert(shell.styleSheet().contains(QStringLiteral("font-size: 15px")));
+        EDI_CHECK(shell.themeInputs().uiFontSize == 15);
+        EDI_CHECK(shell.styleSheet().contains(QStringLiteral("font-size: 15px")));
 
         // F6 — the Tool Belt page: a checklist over the tool inventory that
         // writes the workspace's belt and re-dresses the live belt in place.
@@ -1704,7 +1704,7 @@ int main(int argc, char **argv)
                     beltPageButton = button;
                 }
             }
-            assert(beltPageButton != nullptr);
+            EDI_CHECK(beltPageButton != nullptr);
             beltPageButton->click();
 
             // Default belt: every tool is on it, so every box starts checked.
@@ -1716,14 +1716,14 @@ int main(int argc, char **argv)
                     pointBox = box;
                 }
             }
-            assert(pointBox != nullptr && pointBox->isChecked());
+            EDI_CHECK(pointBox != nullptr && pointBox->isChecked());
             // Derived from the inventory so adding a tool never breaks this count
             // (this assertion used to hardcode N and broke on every new tool).
-            assert(checkedCount == static_cast<int>(DraftingFeature::toolInventory().size()));
+            EDI_CHECK(checkedCount == static_cast<int>(DraftingFeature::toolInventory().size()));
 
             auto *belt = shell.findChild<BeltCrossWidget *>(QStringLiteral("beltCross"));
-            assert(belt != nullptr);
-            assert(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
+            EDI_CHECK(belt != nullptr);
+            EDI_CHECK(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
 
             // Belt pin (M1.1): wall_tool surfaces on the inventory checklist
             // AND resolves to a real cell on the mounted belt — so "in the
@@ -1732,44 +1732,44 @@ int main(int argc, char **argv)
             for (const QPair<QString, QString> &entry : DraftingFeature::toolInventory()) {
                 wallInInventory = wallInInventory || entry.first == QStringLiteral("wall_tool");
             }
-            assert(wallInInventory);
-            assert(belt->indexOfItem(QStringLiteral("wall_tool")) >= 0);
+            EDI_CHECK(wallInInventory);
+            EDI_CHECK(belt->indexOfItem(QStringLiteral("wall_tool")) >= 0);
 
             // Uncheck: the live belt loses the tool, and the workspace TOML
             // would save without it.
             pointBox->setChecked(false);
-            assert(belt->indexOfItem(QStringLiteral("point_tool")) == -1);
-            assert(belt->indexOfItem(QStringLiteral("line_tool")) >= 0); // others untouched
+            EDI_CHECK(belt->indexOfItem(QStringLiteral("point_tool")) == -1);
+            EDI_CHECK(belt->indexOfItem(QStringLiteral("line_tool")) >= 0); // others untouched
             {
                 QTemporaryDir beltDir;
-                assert(beltDir.isValid());
+                EDI_CHECK(beltDir.isValid());
                 const QString beltPath = beltDir.filePath(QStringLiteral("belt.toml"));
-                assert(shell.saveWorkspaceLayout(beltPath));
+                EDI_CHECK(shell.saveWorkspaceLayout(beltPath));
                 const edi::io::ShellLayoutData saved = edi::io::loadShellLayoutFromPath(beltPath);
                 bool hasPoint = false;
                 for (const QString &id : saved.layout.belt.itemIds) {
                     hasPoint = hasPoint || id == QStringLiteral("point_tool");
                 }
-                assert(!hasPoint);
+                EDI_CHECK(!hasPoint);
             }
 
             // Re-check: the tool returns to its row.
             pointBox->setChecked(true);
-            assert(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
+            EDI_CHECK(belt->indexOfItem(QStringLiteral("point_tool")) >= 0);
         }
 
         // Closing the pop-out hides it; the theme survives, and reopening
         // through the rail brings the same frame back.
         popOut->close();
-        assert(!popOut->isVisible());
-        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        EDI_CHECK(!popOut->isVisible());
+        EDI_CHECK(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
         settingsRail->click();
-        assert(popOut->isVisible());
+        EDI_CHECK(popOut->isVisible());
 
         // Profiles: snapshot the current theme under a name via the page's
         // save button, scramble, then load the snapshot back.
         QTemporaryDir profileDir;
-        assert(profileDir.isValid());
+        EDI_CHECK(profileDir.isValid());
         shell.setProfilesDirectory(profileDir.path());
 
         // Switch workspaces (away and back) so the page rebuilds with the
@@ -1780,44 +1780,44 @@ int main(int argc, char **argv)
         reset.label = QStringLiteral("Blank");
         reset.bindings = {{edi::shell::ShellSlot::Main, QStringLiteral("drafting")}};
         shell.switchWorkspaceLayout(reset);
-        assert(shell.findChild<QWidget *>(QStringLiteral("settingsWindow"))->isVisible());
-        assert(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) != nullptr);
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("settingsWindow"))->isVisible());
+        EDI_CHECK(shell.findChild<QWidget *>(QStringLiteral("settingsPanel")) != nullptr);
         auto *nameField = shell.findChild<QLineEdit *>(QStringLiteral("profileNameField"));
         auto *saveProfile = shell.findChild<QPushButton *>(QStringLiteral("saveProfileButton"));
         auto *profileCombo = shell.findChild<QComboBox *>(QStringLiteral("profileCombo"));
-        assert(nameField != nullptr && saveProfile != nullptr && profileCombo != nullptr);
-        assert(profileCombo->count() == 0); // empty dir, no profiles yet
+        EDI_CHECK(nameField != nullptr && saveProfile != nullptr && profileCombo != nullptr);
+        EDI_CHECK(profileCombo->count() == 0); // empty dir, no profiles yet
 
         nameField->setText(QStringLiteral("pink lab"));
         saveProfile->click();
-        assert(shell.availableProfiles() == QStringList{QStringLiteral("pink lab")});
-        assert(shell.activeProfile() == QStringLiteral("pink lab"));
-        assert(profileCombo->count() == 1); // the combo re-listed itself
+        EDI_CHECK(shell.availableProfiles() == QStringList{QStringLiteral("pink lab")});
+        EDI_CHECK(shell.activeProfile() == QStringLiteral("pink lab"));
+        EDI_CHECK(profileCombo->count() == 1); // the combo re-listed itself
 
         // Scramble the theme, then load the profile back through the API.
         ShellThemeInputs scrambled = shell.themeInputs();
         scrambled.accent = QStringLiteral("#11aa22");
         shell.setThemeInputs(scrambled);
-        assert(shell.themeInputs().accent == QStringLiteral("#11aa22"));
-        assert(shell.loadProfile(QStringLiteral("pink lab")));
-        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        EDI_CHECK(shell.themeInputs().accent == QStringLiteral("#11aa22"));
+        EDI_CHECK(shell.loadProfile(QStringLiteral("pink lab")));
+        EDI_CHECK(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
 
         // A hostile name degrades to its cleaned form instead of escaping the
         // profiles directory; a missing profile load keeps the current theme.
-        assert(shell.saveProfileAs(QStringLiteral("../evil/../../name")));
-        assert(shell.availableProfiles().contains(QStringLiteral("evilname")));
-        assert(!shell.loadProfile(QStringLiteral("never-saved")));
-        assert(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
+        EDI_CHECK(shell.saveProfileAs(QStringLiteral("../evil/../../name")));
+        EDI_CHECK(shell.availableProfiles().contains(QStringLiteral("evilname")));
+        EDI_CHECK(!shell.loadProfile(QStringLiteral("never-saved")));
+        EDI_CHECK(shell.themeInputs().accent == QStringLiteral("#d46ca1"));
 
         // The active profile name rides along in edi.toml.
         QTemporaryDir settingsDir;
-        assert(settingsDir.isValid());
+        EDI_CHECK(settingsDir.isValid());
         const QString settingsPath = settingsDir.filePath(QStringLiteral("edi.toml"));
-        assert(shell.loadProfile(QStringLiteral("pink lab"))); // make it active again
-        assert(shell.saveSettings(settingsPath));
+        EDI_CHECK(shell.loadProfile(QStringLiteral("pink lab"))); // make it active again
+        EDI_CHECK(shell.saveSettings(settingsPath));
         EdiShellWindow remembered;
-        assert(remembered.loadSettings(settingsPath));
-        assert(remembered.activeProfile() == QStringLiteral("pink lab"));
+        EDI_CHECK(remembered.loadSettings(settingsPath));
+        EDI_CHECK(remembered.activeProfile() == QStringLiteral("pink lab"));
     }
 
     // Title-bar chrome: frameless flag, traffic lights, panel toggles, the
@@ -1829,60 +1829,60 @@ int main(int argc, char **argv)
 
         EdiShellWindow chrome;
         chrome.show();
-        assert(chrome.windowFlags().testFlag(Qt::FramelessWindowHint));
+        EDI_CHECK(chrome.windowFlags().testFlag(Qt::FramelessWindowHint));
 
         QWidget *titleBar = chrome.findChild<QWidget *>(QStringLiteral("titleBar"));
-        assert(titleBar != nullptr && titleBar->height() == 42);
+        EDI_CHECK(titleBar != nullptr && titleBar->height() == 42);
 
         // Panel toggles drive the modeled state and mirror it back as checked.
         QPushButton *leftToggle = buttonNamed(chrome, QStringLiteral("toggleLeftPanel"));
         QPushButton *rightToggle = buttonNamed(chrome, QStringLiteral("toggleRightPanel"));
         QPushButton *bottomToggle = buttonNamed(chrome, QStringLiteral("toggleBottomPanel"));
-        assert(leftToggle != nullptr && rightToggle != nullptr && bottomToggle != nullptr);
-        assert(leftToggle->isChecked());    // left starts open
-        assert(!rightToggle->isChecked());  // right starts collapsed
+        EDI_CHECK(leftToggle != nullptr && rightToggle != nullptr && bottomToggle != nullptr);
+        EDI_CHECK(leftToggle->isChecked());    // left starts open
+        EDI_CHECK(!rightToggle->isChecked());  // right starts collapsed
         leftToggle->click();
-        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
-        assert(!leftToggle->isChecked());
+        EDI_CHECK(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        EDI_CHECK(!leftToggle->isChecked());
         leftToggle->click();
-        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
+        EDI_CHECK(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Visible);
         rightToggle->click();
-        assert(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
+        EDI_CHECK(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Visible);
 
         // Back/forward walk the workspace trail; a fresh trail has one entry.
         QPushButton *back = buttonNamed(chrome, QStringLiteral("workspaceBack"));
         QPushButton *forward = buttonNamed(chrome, QStringLiteral("workspaceForward"));
-        assert(back != nullptr && forward != nullptr);
-        assert(!back->isEnabled() && !forward->isEnabled());
+        EDI_CHECK(back != nullptr && forward != nullptr);
+        EDI_CHECK(!back->isEnabled() && !forward->isEnabled());
 
         WorkspaceLayout canvasOnly;
         canvasOnly.id = QStringLiteral("canvas_only");
         canvasOnly.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}};
         chrome.switchWorkspaceLayout(canvasOnly);
-        assert(back->isEnabled() && !forward->isEnabled());
-        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        EDI_CHECK(back->isEnabled() && !forward->isEnabled());
+        EDI_CHECK(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
 
         back->click(); // back to the full drafting job
-        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
-        assert(!back->isEnabled() && forward->isEnabled());
+        EDI_CHECK(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(!back->isEnabled() && forward->isEnabled());
         forward->click();
-        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
-        assert(back->isEnabled() && !forward->isEnabled());
+        EDI_CHECK(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) == nullptr);
+        EDI_CHECK(back->isEnabled() && !forward->isEnabled());
 
         // Going back and switching somewhere new truncates the forward trail.
         back->click();
-        assert(forward->isEnabled());
+        EDI_CHECK(forward->isEnabled());
         WorkspaceLayout third; // any distinct job
         third.id = QStringLiteral("third");
         third.bindings = {{ShellSlot::Main, QStringLiteral("drafting")}, {ShellSlot::Right, QStringLiteral("drafting")}};
         chrome.switchWorkspaceLayout(third);
-        assert(!forward->isEnabled() && back->isEnabled());
+        EDI_CHECK(!forward->isEnabled() && back->isEnabled());
         // The truncation is observable in where back lands: one step behind
         // "third" must be the full drafting job, not the stale canvas-only
         // entry the truncation discarded.
         back->click();
-        assert(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
-        assert(!back->isEnabled()); // i.e. the trail is exactly two entries deep
+        EDI_CHECK(chrome.findChild<QWidget *>(QStringLiteral("leftPanel")) != nullptr);
+        EDI_CHECK(!back->isEnabled()); // i.e. the trail is exactly two entries deep
         forward->click();           // return to "third" for the sections below
 
         // Menus: File carries the IO verbs (not triggered — they open
@@ -1890,22 +1890,22 @@ int main(int argc, char **argv)
         auto *fileMenu = chrome.findChild<QMenu *>(QStringLiteral("fileMenu"));
         auto *editMenu = chrome.findChild<QMenu *>(QStringLiteral("editMenu"));
         auto *settingsMenu = chrome.findChild<QMenu *>(QStringLiteral("settingsMenu"));
-        assert(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
-        assert(fileMenu->actions().size() == 13); // 10 verbs + Open Recent + 2 separators (pipeline A's three verbs AND their fence separator retired, R1-B06)
+        EDI_CHECK(fileMenu != nullptr && editMenu != nullptr && settingsMenu != nullptr);
+        EDI_CHECK(fileMenu->actions().size() == 13); // 10 verbs + Open Recent + 2 separators (pipeline A's three verbs AND their fence separator retired, R1-B06)
 
         auto *chromeController = chrome.findChild<DrawingDocumentController *>();
-        assert(chromeController != nullptr);
+        EDI_CHECK(chromeController != nullptr);
         chromeController->setSelectedToolId(QStringLiteral("point_tool"));
         chromeController->clickCanvasNormalized(0.4, 0.4);
         const int before = objectCount(*chromeController);
         editMenu->actions().at(0)->trigger(); // Undo
-        assert(objectCount(*chromeController) == before - 1);
+        EDI_CHECK(objectCount(*chromeController) == before - 1);
         editMenu->actions().at(1)->trigger(); // Redo
-        assert(objectCount(*chromeController) == before);
+        EDI_CHECK(objectCount(*chromeController) == before);
 
         settingsMenu->actions().at(1)->trigger(); // Focus layout
-        assert(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
-        assert(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
+        EDI_CHECK(chrome.shellPanelVisibility(ShellSlot::Left) == PanelVisibility::Collapsed);
+        EDI_CHECK(chrome.shellPanelVisibility(ShellSlot::Right) == PanelVisibility::Collapsed);
 
         // Traffic close really closes the window. The document is dirty from
         // the undo/redo dance above, so the #18 guard asks on the way out —
@@ -1917,11 +1917,11 @@ int main(int argc, char **argv)
             return EdiShellWindow::DirtyGuardChoice::Discard;
         });
         QPushButton *closeButton = buttonNamed(chrome, QStringLiteral("trafficClose"));
-        assert(closeButton != nullptr);
-        assert(chrome.isVisible());
+        EDI_CHECK(closeButton != nullptr);
+        EDI_CHECK(chrome.isVisible());
         closeButton->click();
-        assert(!chrome.isVisible());
-        assert(closeGuardAsks == 1);
+        EDI_CHECK(!chrome.isVisible());
+        EDI_CHECK(closeGuardAsks == 1);
     }
 
     // Render proof: panel surfaces and the object list must paint THEME
@@ -1939,22 +1939,22 @@ int main(int argc, char **argv)
         const edi::shell::ShellTheme theme =
             edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
         const QImage rendered = proof.grab().toImage();
-        assert(rendered.devicePixelRatio() == 1.0); // offscreen: probe == pixel
+        EDI_CHECK(rendered.devicePixelRatio() == 1.0); // offscreen: probe == pixel
 
         QWidget *leftPanel = proof.findChild<QWidget *>(QStringLiteral("leftPanel"));
-        assert(leftPanel != nullptr && leftPanel->isVisible());
+        EDI_CHECK(leftPanel != nullptr && leftPanel->isVisible());
         // Probe the panel's bottom stretch area — no child widget owns it, so
         // the color is the panel frame's own fill.
         const QPoint panelProbe = leftPanel->mapTo(
             &proof, QPoint(leftPanel->width() / 2, leftPanel->height() - 8));
-        assert(QColor(rendered.pixel(panelProbe)).name() == theme.surface);
+        EDI_CHECK(QColor(rendered.pixel(panelProbe)).name() == theme.surface);
 
         auto *objectList = proof.findChild<QListWidget *>(QStringLiteral("objectList"));
-        assert(objectList != nullptr);
+        EDI_CHECK(objectList != nullptr);
         const QPoint listProbe = objectList->viewport()->mapTo(
             &proof, QPoint(objectList->viewport()->width() / 2,
                            objectList->viewport()->height() / 2));
-        assert(QColor(rendered.pixel(listProbe)).name() == theme.surface);
+        EDI_CHECK(QColor(rendered.pixel(listProbe)).name() == theme.surface);
 
         // Traffic lights: spec-constant fills, hit area exactly the 14px dot.
         // Guards the QSS-specificity regression — a generic '#titleBar
@@ -1968,72 +1968,72 @@ int main(int argc, char **argv)
         };
         for (const auto &[name, fill] : trafficExpected) {
             QPushButton *light = buttonNamed(proof, QLatin1String(name));
-            assert(light != nullptr);
-            assert(light->size() == QSize(14, 14));
+            EDI_CHECK(light != nullptr);
+            EDI_CHECK(light->size() == QSize(14, 14));
             const QPoint center = light->mapTo(&proof, QPoint(7, 7));
-            assert(QColor(rendered.pixel(center)).name() == fill);
+            EDI_CHECK(QColor(rendered.pixel(center)).name() == fill);
         }
 
         // The belt paints through QPalette roles; applyShellStyle must push
         // the theme-derived painting palette onto every mounted belt (the
         // pixel-level proof lives in belt_cross_widget_tests).
         auto *beltWidget = proof.findChild<BeltCrossWidget *>();
-        assert(beltWidget != nullptr);
-        assert(beltWidget->palette().color(QPalette::Base).name() == theme.control);
-        assert(beltWidget->palette().color(QPalette::Highlight).name() == theme.selected);
-        assert(beltWidget->palette().color(QPalette::Text).name() == theme.text);
+        EDI_CHECK(beltWidget != nullptr);
+        EDI_CHECK(beltWidget->palette().color(QPalette::Base).name() == theme.control);
+        EDI_CHECK(beltWidget->palette().color(QPalette::Highlight).name() == theme.selected);
+        EDI_CHECK(beltWidget->palette().color(QPalette::Text).name() == theme.text);
 
         // Typography: stylesheet fonts do not propagate like setFont — the
         // universal QWidget rule is what carries the theme face/size to every
         // control. A deep child (a panel button) proves the rule reaches it.
         QPushButton *fontProbe = buttonNamed(proof, QStringLiteral("toggleLeftPanel"));
-        assert(fontProbe != nullptr);
-        assert(fontProbe->font().pixelSize() == theme.fontSizeBody);
-        assert(fontProbe->font().family() == theme.uiFont);
+        EDI_CHECK(fontProbe != nullptr);
+        EDI_CHECK(fontProbe->font().pixelSize() == theme.fontSizeBody);
+        EDI_CHECK(fontProbe->font().family() == theme.uiFont);
 
         // Auxiliary surfaces paint tokens, not the platform popup gray.
         // Menus: grab the widget directly (offscreen popups render fine) and
         // probe inside the 4px padding ring, clear of border and items.
         auto *menuProbe = proof.findChild<QMenu *>(QStringLiteral("fileMenu"));
-        assert(menuProbe != nullptr);
+        EDI_CHECK(menuProbe != nullptr);
         menuProbe->adjustSize();
         const QImage menuImage = menuProbe->grab().toImage();
-        assert(QColor(menuImage.pixel(3, 3)).name() == theme.surfaceRaised);
+        EDI_CHECK(QColor(menuImage.pixel(3, 3)).name() == theme.surfaceRaised);
 
         // Chrome popups (the Snap panel): QObject children of the window, so
         // they grab without being shown; probe inside the 12px margins.
         QFrame *snapPopup = proof.findChild<QFrame *>(QStringLiteral("chromePopup_snap"));
-        assert(snapPopup != nullptr);
-        assert(snapPopup->property("chromePopup").toBool());
+        EDI_CHECK(snapPopup != nullptr);
+        EDI_CHECK(snapPopup->property("chromePopup").toBool());
         const QImage popupImage = snapPopup->grab().toImage();
-        assert(QColor(popupImage.pixel(6, 6)).name() == theme.surfaceRaised);
+        EDI_CHECK(QColor(popupImage.pixel(6, 6)).name() == theme.surfaceRaised);
 
         // Settings pop-out: plain QWidget — without WA_StyledBackground its
         // background rule is silently ignored. Grab works unshown; the frame
         // is a permanent window-owned child.
         QWidget *settingsWindow = proof.findChild<QWidget *>(QStringLiteral("settingsWindow"));
-        assert(settingsWindow != nullptr);
+        EDI_CHECK(settingsWindow != nullptr);
         const QImage settingsImage = settingsWindow->grab().toImage();
-        assert(QColor(settingsImage.pixel(2, settingsImage.height() - 2)).name() == theme.base);
+        EDI_CHECK(QColor(settingsImage.pixel(2, settingsImage.height() - 2)).name() == theme.base);
 
         // Tooltips are top-level: only the application sheet reaches them.
-        assert(qApp->styleSheet().contains(theme.surfaceRaised));
+        EDI_CHECK(qApp->styleSheet().contains(theme.surfaceRaised));
 
         // Control treatment (spec §4): 30px button boxes (20px QSS content +
         // padding + border) and the pointing-hand cursor, swept on by
         // applyShellStyle since QSS has no cursor property.
-        assert(fontProbe->cursor().shape() == Qt::PointingHandCursor);
+        EDI_CHECK(fontProbe->cursor().shape() == Qt::PointingHandCursor);
         // QSS min-height lands as the widget's minimumSize at polish time
         // (not in sizeHint) — assert on the laid-out height.
-        assert(fontProbe->height() >= 30);
+        EDI_CHECK(fontProbe->height() >= 30);
         // Section headers opt out: spec keeps them a compact ~20px row.
         QPushButton *sectionProbe = nullptr;
         for (QPushButton *candidate : proof.findChildren<QPushButton *>(QStringLiteral("sectionToggle"))) {
             sectionProbe = candidate;
             break;
         }
-        assert(sectionProbe != nullptr);
-        assert(sectionProbe->height() <= 24);
+        EDI_CHECK(sectionProbe != nullptr);
+        EDI_CHECK(sectionProbe->height() <= 24);
     }
 
     // Toggle-switch knobs: the pill track shows a knob band at the off/on
@@ -2067,21 +2067,21 @@ int main(int argc, char **argv)
         for (QCheckBox *box : knobs.findChildren<QCheckBox *>(QStringLiteral("layerFlagCheckbox"))) {
             (box->text() == QStringLiteral("Visible") ? checkedToggle : uncheckedToggle) = box;
         }
-        assert(checkedToggle != nullptr && checkedToggle->isChecked());
-        assert(checkedToggle->isVisibleTo(&knobs));
+        EDI_CHECK(checkedToggle != nullptr && checkedToggle->isChecked());
+        EDI_CHECK(checkedToggle->isVisibleTo(&knobs));
         // Ends are asserted separately (review find: a whole-strip membership
         // check passes with the knob on the WRONG end). On: knob right, track
         // left. Off: knob left, track right.
         const QSet<QString> onLeft = stripColors(checkedToggle, 2, 9);
         const QSet<QString> onRight = stripColors(checkedToggle, 19, 26);
-        assert(onLeft.contains(knobTheme.accentSoft) && !onLeft.contains(knobTheme.accent));
-        assert(onRight.contains(knobTheme.accent));
+        EDI_CHECK(onLeft.contains(knobTheme.accentSoft) && !onLeft.contains(knobTheme.accent));
+        EDI_CHECK(onRight.contains(knobTheme.accent));
 
-        assert(uncheckedToggle != nullptr && !uncheckedToggle->isChecked());
+        EDI_CHECK(uncheckedToggle != nullptr && !uncheckedToggle->isChecked());
         const QSet<QString> offLeft = stripColors(uncheckedToggle, 2, 9);
         const QSet<QString> offRight = stripColors(uncheckedToggle, 19, 26);
-        assert(offLeft.contains(knobTheme.textFaint));
-        assert(offRight.contains(knobTheme.control) && !offRight.contains(knobTheme.textFaint));
+        EDI_CHECK(offLeft.contains(knobTheme.textFaint));
+        EDI_CHECK(offRight.contains(knobTheme.control) && !offRight.contains(knobTheme.textFaint));
     }
 
     // Panel-toggle faces (spec §3): the painted 16x14 frame with its 5x12
@@ -2095,13 +2095,13 @@ int main(int argc, char **argv)
         const edi::shell::ShellTheme faceTheme =
             edi::shell::deriveShellTheme(edi::shell::ShellThemeInputs{});
         QPushButton *leftToggle = buttonNamed(faces, QStringLiteral("toggleLeftPanel"));
-        assert(leftToggle != nullptr);
-        assert(leftToggle->size() == QSize(30, 30)); // spec square, sheet-enforced
+        EDI_CHECK(leftToggle != nullptr);
+        EDI_CHECK(leftToggle->size() == QSize(30, 30)); // spec square, sheet-enforced
         // Icon 16x14 centered in 30x30 -> origin (7,8); the left bar's
         // center sits at icon (3,7).
         const QPoint barProbe = leftToggle->mapTo(&faces, QPoint(7 + 3, 8 + 7));
         QImage faceShot = faces.grab().toImage();
-        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.accent); // visible
+        EDI_CHECK(QColor(faceShot.pixel(barProbe)).name() == faceTheme.accent); // visible
 
         // The right and bottom faces get their own probes (review find: the
         // golden's pixel budget is far larger than one icon, so an unprobed
@@ -2109,22 +2109,22 @@ int main(int argc, char **argv)
         // (12,7); bottom bar rect(2,8,12,5) -> center (8,10).
         QPushButton *rightToggle = buttonNamed(faces, QStringLiteral("toggleRightPanel"));
         QPushButton *bottomToggle = buttonNamed(faces, QStringLiteral("toggleBottomPanel"));
-        assert(rightToggle != nullptr && bottomToggle != nullptr);
+        EDI_CHECK(rightToggle != nullptr && bottomToggle != nullptr);
         // Right and bottom panels start collapsed (spec): their bars are faint.
-        assert(QColor(faceShot.pixel(rightToggle->mapTo(&faces, QPoint(7 + 12, 8 + 7)))).name()
+        EDI_CHECK(QColor(faceShot.pixel(rightToggle->mapTo(&faces, QPoint(7 + 12, 8 + 7)))).name()
                == faceTheme.textFaint);
-        assert(QColor(faceShot.pixel(bottomToggle->mapTo(&faces, QPoint(7 + 8, 8 + 10)))).name()
+        EDI_CHECK(QColor(faceShot.pixel(bottomToggle->mapTo(&faces, QPoint(7 + 8, 8 + 10)))).name()
                == faceTheme.textFaint);
 
         faces.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
         faceShot = faces.grab().toImage();
-        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.textFaint); // collapsed
+        EDI_CHECK(QColor(faceShot.pixel(barProbe)).name() == faceTheme.textFaint); // collapsed
 
         faces.resize(600, 760); // under the auto-hide threshold
         QCoreApplication::processEvents();
         faces.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
         faceShot = faces.grab().toImage();
-        assert(QColor(faceShot.pixel(barProbe)).name() == faceTheme.warning); // auto-hidden
+        EDI_CHECK(QColor(faceShot.pixel(barProbe)).name() == faceTheme.warning); // auto-hidden
     }
 
     // Spec-minimum window (520x420): every title-bar control must stay
@@ -2138,20 +2138,20 @@ int main(int argc, char **argv)
         // The window must actually sit at the claimed minimum — if a layout
         // minimum forced it larger, every containment assert below would
         // pass vacuously at the wrong size.
-        assert(tiny.size() == QSize(520, 420));
+        EDI_CHECK(tiny.size() == QSize(520, 420));
         QWidget *bar = tiny.findChild<QWidget *>(QStringLiteral("titleBar"));
-        assert(bar != nullptr);
+        EDI_CHECK(bar != nullptr);
         for (QPushButton *control : bar->findChildren<QPushButton *>()) {
             if (!control->isVisibleTo(bar)) {
                 continue;
             }
             const QRect inBar(control->mapTo(bar, QPoint(0, 0)), control->size());
-            assert(bar->rect().contains(inBar));
+            EDI_CHECK(bar->rect().contains(inBar));
         }
         QWidget *rail = tiny.findChild<QWidget *>(QStringLiteral("activityRail"));
-        assert(rail != nullptr && rail->width() == 52);
+        EDI_CHECK(rail != nullptr && rail->width() == 52);
         for (QPushButton *railButton : rail->findChildren<QPushButton *>()) {
-            assert(railButton->size() == QSize(34, 34));
+            EDI_CHECK(railButton->size() == QSize(34, 34));
         }
     }
 
@@ -2169,8 +2169,8 @@ int main(int argc, char **argv)
             QWidget *layersGroup = assigner.findChild<QWidget *>(QStringLiteral("inspectorGroup_layers_document"));
             QWidget *rightPanel = assigner.findChild<QWidget *>(QStringLiteral("rightPanel"));
             QWidget *leftPanel = assigner.findChild<QWidget *>(QStringLiteral("leftPanel"));
-            assert(layersGroup != nullptr && rightPanel != nullptr && leftPanel != nullptr);
-            assert(rightPanel->isAncestorOf(layersGroup)); // default home
+            EDI_CHECK(layersGroup != nullptr && rightPanel != nullptr && leftPanel != nullptr);
+            EDI_CHECK(rightPanel->isAncestorOf(layersGroup)); // default home
 
             // Drive the real settings page combo.
             QComboBox *layersCombo = nullptr;
@@ -2179,21 +2179,21 @@ int main(int argc, char **argv)
                     layersCombo = combo;
                 }
             }
-            assert(layersCombo != nullptr);
+            EDI_CHECK(layersCombo != nullptr);
             layersCombo->setCurrentIndex(layersCombo->findData(QStringLiteral("left")));
-            assert(leftPanel->isAncestorOf(layersGroup));   // moved live
-            assert(!rightPanel->isAncestorOf(layersGroup));
+            EDI_CHECK(leftPanel->isAncestorOf(layersGroup));   // moved live
+            EDI_CHECK(!rightPanel->isAncestorOf(layersGroup));
             // The combo survived its own edit (live reparent, no remount).
-            assert(layersCombo->currentData().toString() == QStringLiteral("left"));
-            assert(assigner.saveWorkspaceLayout(panelLayoutPath));
+            EDI_CHECK(layersCombo->currentData().toString() == QStringLiteral("left"));
+            EDI_CHECK(assigner.saveWorkspaceLayout(panelLayoutPath));
         }
 
         EdiShellWindow restorer;
-        assert(restorer.loadWorkspaceLayout(panelLayoutPath));
+        EDI_CHECK(restorer.loadWorkspaceLayout(panelLayoutPath));
         QWidget *restoredGroup = restorer.findChild<QWidget *>(QStringLiteral("inspectorGroup_layers_document"));
         QWidget *restoredLeft = restorer.findChild<QWidget *>(QStringLiteral("leftPanel"));
-        assert(restoredGroup != nullptr && restoredLeft != nullptr);
-        assert(restoredLeft->isAncestorOf(restoredGroup)); // the move survived restart
+        EDI_CHECK(restoredGroup != nullptr && restoredLeft != nullptr);
+        EDI_CHECK(restoredLeft->isAncestorOf(restoredGroup)); // the move survived restart
     }
 
     // Workspace restore is not navigation: loading workspace.toml at startup
@@ -2210,7 +2210,7 @@ int main(int argc, char **argv)
             saver.show();
             QCoreApplication::processEvents();
             auto *saverBelt = saver.findChild<BeltCrossWidget *>();
-            assert(saverBelt != nullptr);
+            EDI_CHECK(saverBelt != nullptr);
             // Freeze the active row by the same gesture a user makes: click
             // the pin nub (gutter, centered on the live row).
             const QPointF pinNub(5.0, 21.0 + 17.0);
@@ -2218,19 +2218,19 @@ int main(int argc, char **argv)
                                  saverBelt->mapToGlobal(pinNub.toPoint()), Qt::LeftButton,
                                  Qt::LeftButton, Qt::NoModifier);
             QCoreApplication::sendEvent(saverBelt, &pinPress);
-            assert(saverBelt->pinnedRows() == std::vector<int>{0});
-            assert(saver.saveWorkspaceLayout(layoutPath));
+            EDI_CHECK(saverBelt->pinnedRows() == std::vector<int>{0});
+            EDI_CHECK(saver.saveWorkspaceLayout(layoutPath));
         }
 
         EdiShellWindow loader;
-        assert(loader.loadWorkspaceLayout(layoutPath));
+        EDI_CHECK(loader.loadWorkspaceLayout(layoutPath));
         QPushButton *back = buttonNamed(loader, QStringLiteral("workspaceBack"));
         QPushButton *forward = buttonNamed(loader, QStringLiteral("workspaceForward"));
-        assert(back != nullptr && forward != nullptr);
-        assert(!back->isEnabled() && !forward->isEnabled()); // a single-entry trail
+        EDI_CHECK(back != nullptr && forward != nullptr);
+        EDI_CHECK(!back->isEnabled() && !forward->isEnabled()); // a single-entry trail
         auto *loaderBelt = loader.findChild<BeltCrossWidget *>();
-        assert(loaderBelt != nullptr);
-        assert(loaderBelt->pinnedRows() == std::vector<int>{0}); // the quick-bar survived restart
+        EDI_CHECK(loaderBelt != nullptr);
+        EDI_CHECK(loaderBelt->pinnedRows() == std::vector<int>{0}); // the quick-bar survived restart
     }
 
     // Review find: a Tool Belt checklist edit must not wipe pinned
@@ -2242,13 +2242,13 @@ int main(int argc, char **argv)
         checklist.show();
         QCoreApplication::processEvents();
         auto *checklistBelt = checklist.findChild<BeltCrossWidget *>();
-        assert(checklistBelt != nullptr);
+        EDI_CHECK(checklistBelt != nullptr);
         const QPointF nub(5.0, 21.0 + 17.0);
         QMouseEvent nubPress(QEvent::MouseButtonPress, nub,
                              checklistBelt->mapToGlobal(nub.toPoint()), Qt::LeftButton,
                              Qt::LeftButton, Qt::NoModifier);
         QCoreApplication::sendEvent(checklistBelt, &nubPress);
-        assert(checklistBelt->pinnedRows() == std::vector<int>{0}); // select row frozen
+        EDI_CHECK(checklistBelt->pinnedRows() == std::vector<int>{0}); // select row frozen
 
         // Drive the same hook the settings checklist uses: open the settings
         // window and uncheck one tool that is NOT on the pinned row.
@@ -2258,7 +2258,7 @@ int main(int argc, char **argv)
                 settingsRail = button;
             }
         }
-        assert(settingsRail != nullptr);
+        EDI_CHECK(settingsRail != nullptr);
         settingsRail->click();
         QCheckBox *circleToggle = nullptr;
         for (QCheckBox *box : checklist.findChildren<QCheckBox *>(QStringLiteral("beltToolCheckbox"))) {
@@ -2266,12 +2266,12 @@ int main(int argc, char **argv)
                 circleToggle = box;
             }
         }
-        assert(circleToggle != nullptr && circleToggle->isChecked());
+        EDI_CHECK(circleToggle != nullptr && circleToggle->isChecked());
         circleToggle->click();
         // The belt was re-dressed in place; the frozen quick-bar survived.
         auto *redressedBelt = checklist.findChild<BeltCrossWidget *>();
-        assert(redressedBelt != nullptr);
-        assert(redressedBelt->pinnedRows() == std::vector<int>{0});
+        EDI_CHECK(redressedBelt != nullptr);
+        EDI_CHECK(redressedBelt->pinnedRows() == std::vector<int>{0});
     }
 
     // Panel-toggle tri-state (spec §3): the chrome distinguishes a panel the
@@ -2284,23 +2284,23 @@ int main(int argc, char **argv)
         triState.show();
         QCoreApplication::processEvents();
         QPushButton *leftToggle = buttonNamed(triState, QStringLiteral("toggleLeftPanel"));
-        assert(leftToggle != nullptr);
-        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+        EDI_CHECK(leftToggle != nullptr);
+        EDI_CHECK(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
 
         triState.setPanelCollapsed(edi::shell::ShellSlot::Left, true);
-        assert(leftToggle->property("panelState").toString() == QStringLiteral("collapsed"));
+        EDI_CHECK(leftToggle->property("panelState").toString() == QStringLiteral("collapsed"));
         triState.setPanelCollapsed(edi::shell::ShellSlot::Left, false);
-        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+        EDI_CHECK(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
 
         // Auto-hide reacts to the window, not to clicks: shrink under the
         // 640px threshold and the left panel reports auto_hidden, distinct
         // from the manual collapse above.
         triState.resize(600, 760);
         QCoreApplication::processEvents();
-        assert(leftToggle->property("panelState").toString() == QStringLiteral("auto_hidden"));
+        EDI_CHECK(leftToggle->property("panelState").toString() == QStringLiteral("auto_hidden"));
         triState.resize(1100, 760);
         QCoreApplication::processEvents();
-        assert(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
+        EDI_CHECK(leftToggle->property("panelState").toString() == QStringLiteral("visible"));
     }
 
     // Blender workspace: the SECOND real layout. Its rail button mounts a
@@ -2320,29 +2320,29 @@ int main(int argc, char **argv)
         };
 
         QPushButton *blenderRail = railButton(QStringLiteral("blender"));
-        assert(blenderRail != nullptr && blenderRail->isEnabled());
-        assert(railButton(QStringLiteral("drafting"))->isChecked());
-        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
+        EDI_CHECK(blenderRail != nullptr && blenderRail->isEnabled());
+        EDI_CHECK(railButton(QStringLiteral("drafting"))->isChecked());
+        EDI_CHECK(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
         auto *back = blenderShell.findChild<QPushButton *>(QStringLiteral("workspaceBack"));
-        assert(back != nullptr && !back->isEnabled()); // no history yet
+        EDI_CHECK(back != nullptr && !back->isEnabled()); // no history yet
 
         blenderRail->click();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete); // retire old slot widgets first
 
         // The Blender job mounts the same canvas + editor (its bindings mirror
         // drafting), and the switch pushed a back-history entry.
-        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
-        assert(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
-        assert(railButton(QStringLiteral("blender"))->isChecked());
-        assert(!railButton(QStringLiteral("drafting"))->isChecked());
-        assert(blenderShell.findChild<QPushButton *>(QStringLiteral("workspaceBack"))->isEnabled());
+        EDI_CHECK(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(blenderShell.findChild<QWidget *>(QStringLiteral("textEditorView")) != nullptr);
+        EDI_CHECK(railButton(QStringLiteral("blender"))->isChecked());
+        EDI_CHECK(!railButton(QStringLiteral("drafting"))->isChecked());
+        EDI_CHECK(blenderShell.findChild<QPushButton *>(QStringLiteral("workspaceBack"))->isEnabled());
 
         // And back to drafting.
         railButton(QStringLiteral("drafting"))->click();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        assert(railButton(QStringLiteral("drafting"))->isChecked());
-        assert(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
+        EDI_CHECK(railButton(QStringLiteral("drafting"))->isChecked());
+        EDI_CHECK(blenderShell.findChild<QWidget *>(QStringLiteral("drawingCanvas")) != nullptr);
     }
 
     // Build (the Blender lab): the editor's Build button hands the active .py to
@@ -2382,13 +2382,13 @@ int main(int argc, char **argv)
 
         auto *buildButton = buildShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
         auto *buildStatus = buildShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
-        assert(buildButton != nullptr && buildStatus != nullptr);
-        assert(buildButton->isEnabled()); // the active document is a .py
+        EDI_CHECK(buildButton != nullptr && buildStatus != nullptr);
+        EDI_CHECK(buildButton->isEnabled()); // the active document is a .py
         buildButton->click();
-        assert(runnerCalled && capturedPlan.ok);
-        assert(capturedPlan.args.size() >= 5);
-        assert(capturedPlan.args[0] == "--background" && capturedPlan.args[1] == "--python");
-        assert(buildStatus->text().contains(QStringLiteral("building")));
+        EDI_CHECK(runnerCalled && capturedPlan.ok);
+        EDI_CHECK(capturedPlan.args.size() >= 5);
+        EDI_CHECK(capturedPlan.args[0] == "--background" && capturedPlan.args[1] == "--python");
+        EDI_CHECK(buildStatus->text().contains(QStringLiteral("building")));
 
         // No Blender configured: Build shows the named refusal and never spawns
         // — the executable-empty case routes through the pure plan's message.
@@ -2398,10 +2398,10 @@ int main(int argc, char **argv)
         makePythonShell(noBlenderShell, QStringLiteral("scene2_py"));
         auto *refuseButton = noBlenderShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
         auto *refuseStatus = noBlenderShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
-        assert(refuseButton->isEnabled());
+        EDI_CHECK(refuseButton->isEnabled());
         refuseButton->click();
-        assert(!stubCalled);
-        assert(refuseStatus->text().contains(QStringLiteral("blender.executable_path")));
+        EDI_CHECK(!stubCalled);
+        EDI_CHECK(refuseStatus->text().contains(QStringLiteral("blender.executable_path")));
 
         // Build is gated to python: on the seeded plain "scratch" document
         // (no .py path), the button is disabled — never a category error.
@@ -2413,7 +2413,7 @@ int main(int argc, char **argv)
         }
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         auto *gatedButton = scratchShell.findChild<QPushButton *>(QStringLiteral("textEditorBuild"));
-        assert(gatedButton != nullptr && !gatedButton->isEnabled());
+        EDI_CHECK(gatedButton != nullptr && !gatedButton->isEnabled());
     }
 
     // Render preview — the app's FIRST raster surface. The Blender profile's
@@ -2422,7 +2422,7 @@ int main(int argc, char **argv)
     {
         EdiShellWindow previewShell;
         // Drafting profile: no preview pane.
-        assert(previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview")) == nullptr);
+        EDI_CHECK(previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview")) == nullptr);
 
         for (QPushButton *button : previewShell.findChildren<QPushButton *>(QStringLiteral("railButton"))) {
             if (button->property("modeId").toString() == QStringLiteral("blender")) {
@@ -2431,17 +2431,17 @@ int main(int argc, char **argv)
         }
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         auto *preview = previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview"));
-        assert(preview != nullptr);          // the pane mounts in the Blender profile
-        assert(preview->pixmap().isNull());  // nothing rendered yet
+        EDI_CHECK(preview != nullptr);          // the pane mounts in the Blender profile
+        EDI_CHECK(preview->pixmap().isNull());  // nothing rendered yet
 
         // A real PNG on disk, loaded into the pane.
         const QString pngPath = QDir::tempPath() + QStringLiteral("/edi_preview_test.png");
         QImage rendered(40, 30, QImage::Format_RGBA8888);
         rendered.fill(Qt::blue);
-        assert(rendered.save(pngPath));
+        EDI_CHECK(rendered.save(pngPath));
         previewShell.showRenderImage(pngPath);
-        assert(!preview->pixmap().isNull());
-        assert(preview->pixmap().width() > 0);
+        EDI_CHECK(!preview->pixmap().isNull());
+        EDI_CHECK(preview->pixmap().width() > 0);
 
         // The render survives a workspace switch (drafting and back): the pane is
         // rebuilt, but it re-shows the remembered image.
@@ -2458,7 +2458,7 @@ int main(int argc, char **argv)
         }
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         auto *rebuilt = previewShell.findChild<QLabel *>(QStringLiteral("blenderPreview"));
-        assert(rebuilt != nullptr && !rebuilt->pixmap().isNull());
+        EDI_CHECK(rebuilt != nullptr && !rebuilt->pixmap().isNull());
     }
 
     // Status bar (spec §2/§3): a 28px strip under the body. The left label
@@ -2470,25 +2470,25 @@ int main(int argc, char **argv)
         QWidget *statusBar = statusWindow.findChild<QWidget *>(QStringLiteral("statusBar"));
         auto *modeLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusMode"));
         auto *fileLabel = statusWindow.findChild<QLabel *>(QStringLiteral("statusFile"));
-        assert(statusBar != nullptr && modeLabel != nullptr && fileLabel != nullptr);
-        assert(statusBar->height() == 28 || statusBar->sizeHint().height() == 28);
+        EDI_CHECK(statusBar != nullptr && modeLabel != nullptr && fileLabel != nullptr);
+        EDI_CHECK(statusBar->height() == 28 || statusBar->sizeHint().height() == 28);
         // The drafting feature publishes its mode line into the status bar
         // (it lived in the title bar before — the user's chrome inventory
         // has no status slot there). The zoom readout rides at the end.
-        assert(modeLabel->text().contains(QStringLiteral("drafting")));
-        assert(modeLabel->text().contains(QStringLiteral("100%")));
-        assert(statusWindow.findChild<QLabel *>(QStringLiteral("chromeStatus")) == nullptr);
+        EDI_CHECK(modeLabel->text().contains(QStringLiteral("drafting")));
+        EDI_CHECK(modeLabel->text().contains(QStringLiteral("100%")));
+        EDI_CHECK(statusWindow.findChild<QLabel *>(QStringLiteral("chromeStatus")) == nullptr);
 
         auto *statusController = statusWindow.findChild<DrawingDocumentController *>();
-        assert(statusController != nullptr);
-        assert(!fileLabel->property("documentDirty").toBool());
-        assert(fileLabel->text() == QStringLiteral("Untitled"));
+        EDI_CHECK(statusController != nullptr);
+        EDI_CHECK(!fileLabel->property("documentDirty").toBool());
+        EDI_CHECK(fileLabel->text() == QStringLiteral("Untitled"));
         statusController->setSelectedToolId(QStringLiteral("point_tool"));
         statusController->clickCanvasNormalized(0.5, 0.5);
-        assert(fileLabel->property("documentDirty").toBool());
-        assert(fileLabel->text().contains(QStringLiteral("•")));
+        EDI_CHECK(fileLabel->property("documentDirty").toBool());
+        EDI_CHECK(fileLabel->text().contains(QStringLiteral("•")));
         statusController->undo();
-        assert(!fileLabel->property("documentDirty").toBool());
+        EDI_CHECK(!fileLabel->property("documentDirty").toBool());
     }
 
     // F1 empty state: the object list names its own absence ("No objects
@@ -2499,18 +2499,18 @@ int main(int argc, char **argv)
         EdiShellWindow emptyState;
         auto *stateController = emptyState.findChild<DrawingDocumentController *>();
         auto *emptyLabel = emptyState.findChild<QLabel *>(QStringLiteral("objectListEmpty"));
-        assert(stateController != nullptr && emptyLabel != nullptr);
-        assert(objectCount(*stateController) == 0);
-        assert(emptyLabel->isVisibleTo(&emptyState));
+        EDI_CHECK(stateController != nullptr && emptyLabel != nullptr);
+        EDI_CHECK(objectCount(*stateController) == 0);
+        EDI_CHECK(emptyLabel->isVisibleTo(&emptyState));
 
         stateController->setSelectedToolId(QStringLiteral("point_tool"));
         stateController->clickCanvasNormalized(0.5, 0.5);
-        assert(objectCount(*stateController) == 1);
-        assert(!emptyLabel->isVisibleTo(&emptyState));
+        EDI_CHECK(objectCount(*stateController) == 1);
+        EDI_CHECK(!emptyLabel->isVisibleTo(&emptyState));
 
         stateController->undo();
-        assert(objectCount(*stateController) == 0);
-        assert(emptyLabel->isVisibleTo(&emptyState));
+        EDI_CHECK(objectCount(*stateController) == 0);
+        EDI_CHECK(emptyLabel->isVisibleTo(&emptyState));
     }
 
     // Golden-render lock: the whole default-theme shell against a checked-in
@@ -2538,7 +2538,7 @@ int main(int argc, char **argv)
             fprintf(stderr, saved ? "golden blessed: %s — bless runs exit red by design\n"
                                   : "golden bless FAILED to write: %s\n",
                     qPrintable(goldenPath));
-            assert(saved);
+            EDI_CHECK(saved);
             return 1;
         } else {
             QImage reference(goldenPath);
@@ -2546,13 +2546,13 @@ int main(int argc, char **argv)
                 fprintf(stderr, "golden missing: %s — bless once with EDI_BLESS_GOLDEN=1\n",
                         qPrintable(goldenPath));
             }
-            assert(!reference.isNull());
+            EDI_CHECK(!reference.isNull());
             reference = reference.convertToFormat(QImage::Format_RGB32);
             if (reference.size() != current.size()) {
                 fprintf(stderr, "golden size mismatch: reference %dx%d vs render %dx%d\n",
                         reference.width(), reference.height(), current.width(), current.height());
             }
-            assert(reference.size() == current.size());
+            EDI_CHECK(reference.size() == current.size());
             // Channel tolerance 8 + a 0.5% pixel budget: tight enough that a
             // 1px chrome shift fails, loose enough that subpixel AA jitter
             // from a Qt patch release does not cry wolf.
@@ -2573,7 +2573,7 @@ int main(int argc, char **argv)
                 fprintf(stderr, "golden mismatch: %d differing pixels (budget %d) vs %s\n",
                         differing, budget, qPrintable(goldenPath));
             }
-            assert(differing <= budget);
+            EDI_CHECK(differing <= budget);
         }
     }
 
@@ -2583,23 +2583,23 @@ int main(int argc, char **argv)
     // widget lookups (house gotcha).
     {
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open Ops Recipe…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save Ops Recipe…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Resolved…")) != nullptr);
-        assert(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Ops Previews…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Open Ops Recipe…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Save Ops Recipe…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Resolved…")) != nullptr);
+        EDI_CHECK(menuActionWithText(window, QStringLiteral("fileMenu"), QStringLiteral("Export Ops Previews…")) != nullptr);
 
         QTemporaryDir opsDir;
-        assert(opsDir.isValid());
+        EDI_CHECK(opsDir.isValid());
 
         // Open Ops surfaces the strict reader's offender verbatim.
         const QString badOpsPath = opsDir.filePath(QStringLiteral("bad_ops.toml"));
         {
             QFile bad(badOpsPath);
-            assert(bad.open(QIODevice::WriteOnly));
+            EDI_CHECK(bad.open(QIODevice::WriteOnly));
             bad.write("op.0.type = \"AddDodecahedron\"\n");
         }
-        assert(!window.openOpsRecipeFromPath(badOpsPath));
-        assert(window.lastRecipeError().contains(QStringLiteral("AddDodecahedron")));
+        EDI_CHECK(!window.openOpsRecipeFromPath(badOpsPath));
+        EDI_CHECK(window.lastRecipeError().contains(QStringLiteral("AddDodecahedron")));
 
         // A fresh drafted line is the measurement source; its physical length
         // feeds a cylinder's bound height.
@@ -2607,12 +2607,12 @@ int main(int argc, char **argv)
         controller->clickCanvasNormalized(0.2, 0.2);
         controller->clickCanvasNormalized(0.5, 0.6);
         const QString lineId = controller->selectedObjectId();
-        assert(!lineId.isEmpty());
+        EDI_CHECK(!lineId.isEmpty());
 
         const QString opsPath = opsDir.filePath(QStringLiteral("ops.toml"));
         {
             QFile ops(opsPath);
-            assert(ops.open(QIODevice::WriteOnly));
+            EDI_CHECK(ops.open(QIODevice::WriteOnly));
             const QString text = QStringLiteral(
                 "op.0.type = \"AddCylinder\"\n"
                 "op.0.name = \"shaft\"\n"
@@ -2622,30 +2622,30 @@ int main(int argc, char **argv)
                 "op.0.z = \"0\"\n").arg(lineId);
             ops.write(text.toUtf8());
         }
-        assert(window.openOpsRecipeFromPath(opsPath));
-        assert(window.lastRecipeError().isEmpty());
+        EDI_CHECK(window.openOpsRecipeFromPath(opsPath));
+        EDI_CHECK(window.lastRecipeError().isEmpty());
 
         // Export Resolved SUCCEEDS while the line exists: the written file is
         // literals-only — the binding keys are gone.
         const QString resolvedPath = opsDir.filePath(QStringLiteral("resolved.toml"));
-        assert(window.exportResolvedOpsToPath(resolvedPath));
-        assert(window.lastRecipeError().isEmpty());
-        assert(QFile::exists(resolvedPath));
+        EDI_CHECK(window.exportResolvedOpsToPath(resolvedPath));
+        EDI_CHECK(window.lastRecipeError().isEmpty());
+        EDI_CHECK(QFile::exists(resolvedPath));
         {
             QFile resolved(resolvedPath);
-            assert(resolved.open(QIODevice::ReadOnly));
+            EDI_CHECK(resolved.open(QIODevice::ReadOnly));
             const QString text = QString::fromUtf8(resolved.readAll());
-            assert(!text.contains(QStringLiteral("height.object"))); // resolved to a literal
+            EDI_CHECK(!text.contains(QStringLiteral("height.object"))); // resolved to a literal
         }
 
         // Delete the line; Export Resolved now REFUSES, naming the binding AND
         // the missing object, and writes NOTHING (the resolve gate, in the UI).
-        assert(controller->deleteSelectedObject());
+        EDI_CHECK(controller->deleteSelectedObject());
         const QString stalePath = opsDir.filePath(QStringLiteral("stale.toml"));
-        assert(!window.exportResolvedOpsToPath(stalePath));
-        assert(!QFile::exists(stalePath));
-        assert(window.lastRecipeError().contains(QStringLiteral("op.0.height")));
-        assert(window.lastRecipeError().contains(QStringLiteral("object not found: ") + lineId));
+        EDI_CHECK(!window.exportResolvedOpsToPath(stalePath));
+        EDI_CHECK(!QFile::exists(stalePath));
+        EDI_CHECK(window.lastRecipeError().contains(QStringLiteral("op.0.height")));
+        EDI_CHECK(window.lastRecipeError().contains(QStringLiteral("object not found: ") + lineId));
     }
 
     // #18 close-without-saving guard: the dialog is an injectable callable,
@@ -2653,12 +2653,12 @@ int main(int argc, char **argv)
     // because the Save case genuinely closes (hides) the window.
     {
         QTemporaryDir guardDir;
-        assert(guardDir.isValid());
+        EDI_CHECK(guardDir.isValid());
         const QString guardPath = guardDir.filePath(QStringLiteral("guard.edidraw"));
 
         // Make the document clean at a known path first.
-        assert(window.saveDrawingToPath(guardPath));
-        assert(!window.isDocumentDirty());
+        EDI_CHECK(window.saveDrawingToPath(guardPath));
+        EDI_CHECK(!window.isDocumentDirty());
 
         int promptCalls = 0;
         window.setDirtyGuardPrompt([&promptCalls]() {
@@ -2667,71 +2667,71 @@ int main(int argc, char **argv)
         });
 
         // Clean document: no question asked, the close proceeds.
-        assert(window.close());
-        assert(promptCalls == 0);
+        EDI_CHECK(window.close());
+        EDI_CHECK(promptCalls == 0);
         window.show(); // close() only hides; revive for the rest of the block
 
         // Dirty + Cancel: the close is refused and the window survives.
         controller->setSelectedToolId(QStringLiteral("point_tool"));
         controller->clickCanvasNormalized(0.41, 0.41);
         controller->clickCanvasNormalized(0.42, 0.42);
-        assert(window.isDocumentDirty());
-        assert(!window.close());
-        assert(promptCalls == 1);
+        EDI_CHECK(window.isDocumentDirty());
+        EDI_CHECK(!window.close());
+        EDI_CHECK(promptCalls == 1);
 
         // Cancel blocks a guarded open the same way — document untouched.
         const int beforeOpen = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
-        assert(!window.openDrawingFromPathGuarded(guardPath));
-        assert(promptCalls == 2);
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeOpen);
+        EDI_CHECK(!window.openDrawingFromPathGuarded(guardPath));
+        EDI_CHECK(promptCalls == 2);
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeOpen);
 
         // Save: the close saves to the current path on its way out.
         window.setDirtyGuardPrompt([&promptCalls]() {
             ++promptCalls;
             return EdiShellWindow::DirtyGuardChoice::Save;
         });
-        assert(window.close());
-        assert(promptCalls == 3);
-        assert(!window.isDocumentDirty()); // the save landed before closing
+        EDI_CHECK(window.close());
+        EDI_CHECK(promptCalls == 3);
+        EDI_CHECK(!window.isDocumentDirty()); // the save landed before closing
         window.show();
 
         // Discard: a guarded open over a dirty document proceeds and loses
         // the changes, exactly as the user chose.
         controller->clickCanvasNormalized(0.43, 0.43);
         controller->clickCanvasNormalized(0.44, 0.44);
-        assert(window.isDocumentDirty());
+        EDI_CHECK(window.isDocumentDirty());
         window.setDirtyGuardPrompt([&promptCalls]() {
             ++promptCalls;
             return EdiShellWindow::DirtyGuardChoice::Discard;
         });
-        assert(window.openDrawingFromPathGuarded(guardPath));
-        assert(promptCalls == 4);
-        assert(!window.isDocumentDirty()); // back to the saved state
+        EDI_CHECK(window.openDrawingFromPathGuarded(guardPath));
+        EDI_CHECK(promptCalls == 4);
+        EDI_CHECK(!window.isDocumentDirty()); // back to the saved state
 
         // The recent-files menu routes through the guard too — this is the
         // WIRING test (reverting the menu lambda to the unguarded open
         // passes the direct-method checks above but fails here).
         controller->setSelectedToolId(QStringLiteral("point_tool"));
         controller->clickCanvasNormalized(0.45, 0.45);
-        assert(window.isDocumentDirty());
+        EDI_CHECK(window.isDocumentDirty());
         window.setDirtyGuardPrompt([&promptCalls]() {
             ++promptCalls;
             return EdiShellWindow::DirtyGuardChoice::Cancel;
         });
         auto *recentMenu = window.findChild<QMenu *>(QStringLiteral("recentFilesMenu"));
-        assert(recentMenu != nullptr);
+        EDI_CHECK(recentMenu != nullptr);
         QAction *recentGuardAction = nullptr;
         for (QAction *action : recentMenu->actions()) {
             if (action->data().toString() == guardPath) {
                 recentGuardAction = action;
             }
         }
-        assert(recentGuardAction != nullptr);
+        EDI_CHECK(recentGuardAction != nullptr);
         const int beforeRecent = controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
         recentGuardAction->trigger();
-        assert(promptCalls == 5);          // the guard asked...
-        assert(window.isDocumentDirty());  // ...and Cancel kept the document
-        assert(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeRecent);
+        EDI_CHECK(promptCalls == 5);          // the guard asked...
+        EDI_CHECK(window.isDocumentDirty());  // ...and Cancel kept the document
+        EDI_CHECK(controller->modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == beforeRecent);
 
         // The Save choice REFUSES the action when the save cannot land.
         // Removing the directory is NOT enough — the store mkpath()es
@@ -2744,12 +2744,12 @@ int main(int argc, char **argv)
             ++promptCalls;
             return EdiShellWindow::DirtyGuardChoice::Save;
         });
-        assert(QFile::remove(guardPath));
-        assert(QDir(guardDir.path()).mkdir(QStringLiteral("guard.edidraw")));
-        assert(!window.close());
-        assert(promptCalls == 6);
-        assert(saveFailures == 1);
-        assert(window.isDocumentDirty()); // nothing was lost, nothing closed
+        EDI_CHECK(QFile::remove(guardPath));
+        EDI_CHECK(QDir(guardDir.path()).mkdir(QStringLiteral("guard.edidraw")));
+        EDI_CHECK(!window.close());
+        EDI_CHECK(promptCalls == 6);
+        EDI_CHECK(saveFailures == 1);
+        EDI_CHECK(window.isDocumentDirty()); // nothing was lost, nothing closed
 
         // The block-local captures die with this scope: leave capture-free
         // seams installed so the shared window never holds dangling
@@ -2770,19 +2770,19 @@ int main(int argc, char **argv)
         // bindings are data; this asserts what edi ships, not what tests left).
         EdiShellWindow editorShell;
         QWidget *panel = editorShell.findChild<QWidget *>(QStringLiteral("textEditorPanel"));
-        assert(panel != nullptr); // mounted in the bottom terminal slot
+        EDI_CHECK(panel != nullptr); // mounted in the bottom terminal slot
         auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
-        assert(view != nullptr);
-        assert(view->isReadOnly()); // Qt's own mutation paths are dead
+        EDI_CHECK(view != nullptr);
+        EDI_CHECK(view->isReadOnly()); // Qt's own mutation paths are dead
         auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
-        assert(list != nullptr);
-        assert(list->count() == 1); // the seeded scratch document
+        EDI_CHECK(list != nullptr);
+        EDI_CHECK(list->count() == 1); // the seeded scratch document
         auto *editorStatus = editorShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
-        assert(editorStatus != nullptr);
+        EDI_CHECK(editorStatus != nullptr);
 
         edi::text::TextDocumentStore &textStore = editorShell.textDocumentStore();
-        assert(textStore.activeDocumentId.has_value());
-        assert(*textStore.activeDocumentId == "scratch");
+        EDI_CHECK(textStore.activeDocumentId.has_value());
+        EDI_CHECK(*textStore.activeDocumentId == "scratch");
         const std::uint64_t revisionBefore =
             edi::text::findDocument(textStore, "scratch")->revision;
 
@@ -2798,24 +2798,24 @@ int main(int argc, char **argv)
         type(Qt::Key_C, QStringLiteral("c"));
         const edi::text::TextDocument *scratch =
             edi::text::findDocument(textStore, "scratch");
-        assert(scratch != nullptr);
-        assert(scratch->text == "abc");      // the STORE changed, not just pixels
-        assert(scratch->dirty);              // the core's own dirty discipline
-        assert(scratch->revision > revisionBefore);
-        assert(view->toPlainText() == QStringLiteral("abc")); // projection agrees
-        assert(editorStatus->text() == QStringLiteral("ok"));
-        assert(list->item(0)->text().contains(QStringLiteral("•"))); // dirty marker
+        EDI_CHECK(scratch != nullptr);
+        EDI_CHECK(scratch->text == "abc");      // the STORE changed, not just pixels
+        EDI_CHECK(scratch->dirty);              // the core's own dirty discipline
+        EDI_CHECK(scratch->revision > revisionBefore);
+        EDI_CHECK(view->toPlainText() == QStringLiteral("abc")); // projection agrees
+        EDI_CHECK(editorStatus->text() == QStringLiteral("ok"));
+        EDI_CHECK(list->item(0)->text().contains(QStringLiteral("•"))); // dirty marker
 
         type(Qt::Key_Backspace, QString());
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab");
 
         // E3: Delete at the end is a quiet no-op — symmetric with Backspace
         // at the start, like every editor. (E1 let it reach the core for an
         // invalid_range refusal; boundary math made the honest translation
         // "nothing to delete".)
         type(Qt::Key_Delete, QString());
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
-        assert(editorStatus->text() == QStringLiteral("ok"));
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        EDI_CHECK(editorStatus->text() == QStringLiteral("ok"));
 
         // E3 retired E1's ASCII gate: é now LANDS, as two UTF-8 bytes the
         // core stores and one UTF-16 unit the view counts. The caret math
@@ -2823,21 +2823,21 @@ int main(int argc, char **argv)
         // split the é (which is exactly what E1's review showed happening
         // without the mapping).
         type(Qt::Key_E, QString::fromUtf8("\xc3\xa9")); // é
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9");
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9");
         type(Qt::Key_X, QStringLiteral("x"));
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9x");
-        assert(view->toPlainText() == QString::fromUtf8("ab\xc3\xa9x"));
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab\xc3\xa9x");
+        EDI_CHECK(view->toPlainText() == QString::fromUtf8("ab\xc3\xa9x"));
         // Backspace removes the WHOLE character, however many bytes.
         type(Qt::Key_Backspace, QString());
         type(Qt::Key_Backspace, QString());
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab");
 
         // The core-refusal surface stays pinned DIRECTLY: the host now only
         // translates legal edits, so the defensive branch is exercised by
         // invoking the choke point with a hand-built out-of-range command.
         view->applyCommand(edi::text::DeleteTextRangeCommand{{}, {999, 1000}});
-        assert(edi::text::findDocument(textStore, "scratch")->text == "ab");
-        assert(editorStatus->text().contains(QStringLiteral("invalid_range")));
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "ab");
+        EDI_CHECK(editorStatus->text().contains(QStringLiteral("invalid_range")));
 
         // Selection editing (E3): select all of "ab" and type over it —
         // the host translates the gesture into the user's OWN
@@ -2848,8 +2848,8 @@ int main(int argc, char **argv)
         selectAll.setPosition(2, QTextCursor::KeepAnchor);
         view->setTextCursor(selectAll);
         type(Qt::Key_Z, QStringLiteral("z"));
-        assert(edi::text::findDocument(textStore, "scratch")->text == "z");
-        assert(editorStatus->text() == QStringLiteral("ok"));
+        EDI_CHECK(edi::text::findDocument(textStore, "scratch")->text == "z");
+        EDI_CHECK(editorStatus->text() == QStringLiteral("ok"));
 
         // Find (E3): the needle is searched in the CORE's bytes, the match
         // selected in the view; a miss names the needle — never silent.
@@ -2858,15 +2858,15 @@ int main(int argc, char **argv)
         type(Qt::Key_I, QStringLiteral("i")); // document: "zedi"
         auto *findInput = editorShell.findChild<QLineEdit *>(QStringLiteral("textEditorFindInput"));
         auto *findButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorFindNext"));
-        assert(findInput != nullptr && findButton != nullptr);
+        EDI_CHECK(findInput != nullptr && findButton != nullptr);
         findInput->setText(QStringLiteral("ed"));
         findButton->click();
-        assert(view->textCursor().hasSelection());
-        assert(view->textCursor().selectedText() == QStringLiteral("ed"));
-        assert(view->textCursor().selectionStart() == 1);
+        EDI_CHECK(view->textCursor().hasSelection());
+        EDI_CHECK(view->textCursor().selectedText() == QStringLiteral("ed"));
+        EDI_CHECK(view->textCursor().selectionStart() == 1);
         findInput->setText(QStringLiteral("zebra"));
         findButton->click();
-        assert(editorStatus->text().contains(QStringLiteral("zebra"))); // miss, by name
+        EDI_CHECK(editorStatus->text().contains(QStringLiteral("zebra"))); // miss, by name
     }
 
     // The text editor SESSION (E2): the open documents and the active one
@@ -2876,12 +2876,12 @@ int main(int argc, char **argv)
     {
         EdiShellWindow editorShell;
         auto *list = editorShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
-        assert(list != nullptr && list->count() == 1); // conditional seed intact: one scratch
+        EDI_CHECK(list != nullptr && list->count() == 1); // conditional seed intact: one scratch
         auto *view = editorShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
-        assert(view != nullptr);
+        EDI_CHECK(view != nullptr);
 
         QTemporaryDir sessionDir;
-        assert(sessionDir.isValid());
+        EDI_CHECK(sessionDir.isValid());
         const QString sessionPath = sessionDir.filePath(QStringLiteral("session.toml"));
 
         // Type a scratch note WITH A NEWLINE (Return -> "\n"), then save the session.
@@ -2894,56 +2894,56 @@ int main(int argc, char **argv)
         type(Qt::Key_Return, QString());
         type(Qt::Key_Y, QStringLiteral("y"));
         edi::text::TextDocumentStore &store = editorShell.textDocumentStore();
-        assert(edi::text::findDocument(store, "scratch")->text == "hi\ny");
-        assert(editorShell.saveTextSession(sessionPath));
-        assert(QFile::exists(sessionPath));
+        EDI_CHECK(edi::text::findDocument(store, "scratch")->text == "hi\ny");
+        EDI_CHECK(editorShell.saveTextSession(sessionPath));
+        EDI_CHECK(QFile::exists(sessionPath));
 
         // A FRESH window restores the open set + active from the manifest, not
         // the bare seed — and the panel re-projects the restored text.
         {
             EdiShellWindow restored;
-            assert(restored.loadTextSession(sessionPath));
+            EDI_CHECK(restored.loadTextSession(sessionPath));
             const edi::text::TextDocumentStore &rStore = restored.textDocumentStore();
-            assert(rStore.activeDocumentId.has_value() && *rStore.activeDocumentId == "scratch");
+            EDI_CHECK(rStore.activeDocumentId.has_value() && *rStore.activeDocumentId == "scratch");
             const edi::text::TextDocument *scratch = edi::text::findDocument(rStore, "scratch");
-            assert(scratch != nullptr && scratch->text == "hi\ny"); // newline survived restart
+            EDI_CHECK(scratch != nullptr && scratch->text == "hi\ny"); // newline survived restart
             auto *rView = restored.findChild<QPlainTextEdit *>(QStringLiteral("textEditorView"));
-            assert(rView != nullptr && rView->toPlainText() == QStringLiteral("hi\ny"));
+            EDI_CHECK(rView != nullptr && rView->toPlainText() == QStringLiteral("hi\ny"));
         }
 
         // New creates + ACTIVATES a second document (makes the switch testable).
         auto *newButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorNew"));
-        assert(newButton != nullptr);
+        EDI_CHECK(newButton != nullptr);
         newButton->click();
-        assert(store.documents.size() == 2);
-        assert(store.activeDocumentId.has_value() && *store.activeDocumentId != "scratch");
+        EDI_CHECK(store.documents.size() == 2);
+        EDI_CHECK(store.activeDocumentId.has_value() && *store.activeDocumentId != "scratch");
         const std::string created = *store.activeDocumentId;
-        assert(list->count() == 2);
+        EDI_CHECK(list->count() == 2);
 
         // itemClicked on the FIRST item (scratch) switches the STORE's active
         // document — the E1 nit fixed (itemActivated was double-click only).
         QListWidgetItem *firstItem = list->item(0);
-        assert(firstItem != nullptr);
-        assert(firstItem->data(Qt::UserRole).toString() == QStringLiteral("scratch"));
+        EDI_CHECK(firstItem != nullptr);
+        EDI_CHECK(firstItem->data(Qt::UserRole).toString() == QStringLiteral("scratch"));
         emit list->itemClicked(firstItem);
-        assert(store.activeDocumentId.has_value() && *store.activeDocumentId == "scratch");
-        assert(*store.activeDocumentId != created); // switched away from the new doc
+        EDI_CHECK(store.activeDocumentId.has_value() && *store.activeDocumentId == "scratch");
+        EDI_CHECK(*store.activeDocumentId != created); // switched away from the new doc
 
         // Save writes the active document's text to a FILE (injected path) and
         // clears dirty — the list's dirty dot disappears.
         edi::text::TextDocument *activeDoc = edi::text::findDocument(store, "scratch");
-        assert(activeDoc != nullptr && activeDoc->dirty); // typing left it dirty
+        EDI_CHECK(activeDoc != nullptr && activeDoc->dirty); // typing left it dirty
         QTemporaryDir saveDir;
-        assert(saveDir.isValid());
+        EDI_CHECK(saveDir.isValid());
         const QString savePath = saveDir.filePath(QStringLiteral("note.txt"));
         editorShell.setTextEditorPathProvider(
             [savePath](bool forSave) { return forSave ? savePath : QString(); });
         auto *saveButton = editorShell.findChild<QPushButton *>(QStringLiteral("textEditorSave"));
-        assert(saveButton != nullptr);
+        EDI_CHECK(saveButton != nullptr);
         saveButton->click();
-        assert(QFile::exists(savePath));
-        assert(!activeDoc->dirty); // markClean cleared it
-        assert(!list->item(0)->text().contains(QStringLiteral("•"))); // dirty dot gone
+        EDI_CHECK(QFile::exists(savePath));
+        EDI_CHECK(!activeDoc->dirty); // markClean cleared it
+        EDI_CHECK(!list->item(0)->text().contains(QStringLiteral("•"))); // dirty dot gone
     }
 
     // The script view (E4, the R7 loop early): opening an ops recipe puts
@@ -2953,23 +2953,23 @@ int main(int argc, char **argv)
     // the pipeline never re-parses mid-edit.
     {
         EdiShellWindow scriptShell;
-        assert(scriptShell.openOpsRecipeFromPath(QStringLiteral(
+        EDI_CHECK(scriptShell.openOpsRecipeFromPath(QStringLiteral(
             EDI_SAMPLES_DIR "/doric_column/doric_column_drafted_ops.toml")));
         auto *view = scriptShell.findChild<TextEditorView *>(QStringLiteral("textEditorView"));
         auto *editorStatus = scriptShell.findChild<QLabel *>(QStringLiteral("textEditorStatus"));
         auto *applyButton = scriptShell.findChild<QPushButton *>(QStringLiteral("textEditorApply"));
-        assert(view != nullptr && editorStatus != nullptr && applyButton != nullptr);
+        EDI_CHECK(view != nullptr && editorStatus != nullptr && applyButton != nullptr);
 
         // The script document holds the stream's canonical serialization
         // and is active; Apply is therefore enabled.
         edi::text::TextDocumentStore &textStore = scriptShell.textDocumentStore();
-        assert(textStore.activeDocumentId.has_value()
+        EDI_CHECK(textStore.activeDocumentId.has_value()
                && *textStore.activeDocumentId == "ops_recipe");
         const edi::text::TextDocument *script =
             edi::text::findDocument(textStore, "ops_recipe");
-        assert(script != nullptr);
-        assert(script->text.find("op.0.type = \"AddBox\"") != std::string::npos);
-        assert(applyButton->isEnabled());
+        EDI_CHECK(script != nullptr);
+        EDI_CHECK(script->text.find("op.0.type = \"AddBox\"") != std::string::npos);
+        EDI_CHECK(applyButton->isEnabled());
 
         // Corrupt one key by typing where the caret lands (position 0):
         // "x" prepended makes the first key unknown — the STRICT reader
@@ -2986,8 +2986,8 @@ int main(int argc, char **argv)
         // (The reader refuses at the first MISSING required key — mangling
         // op.0.depth into xop.0.depth makes depth absent — which is even
         // more pointable than the audit catching the stray key later.)
-        assert(editorStatus->text().contains(QStringLiteral("op.0.depth")));
-        assert(scriptShell.opsStream().ops.size() == opsBefore); // unchanged
+        EDI_CHECK(editorStatus->text().contains(QStringLiteral("op.0.depth")));
+        EDI_CHECK(scriptShell.opsStream().ops.size() == opsBefore); // unchanged
 
         // Repair: delete the stray byte, Apply again — ok, canonical echo.
         QKeyEvent del(QEvent::KeyPress, Qt::Key_Delete, Qt::NoModifier, QString());
@@ -2998,11 +2998,11 @@ int main(int argc, char **argv)
         }
         QCoreApplication::sendEvent(view, &del);
         applyButton->click();
-        assert(editorStatus->text() == QStringLiteral("ok"));
-        assert(scriptShell.opsStream().ops.size() == opsBefore);
+        EDI_CHECK(editorStatus->text() == QStringLiteral("ok"));
+        EDI_CHECK(scriptShell.opsStream().ops.size() == opsBefore);
         const edi::text::TextDocument *after =
             edi::text::findDocument(textStore, "ops_recipe");
-        assert(after->text.find("xop.0") == std::string::npos); // canonical again
+        EDI_CHECK(after->text.find("xop.0") == std::string::npos); // canonical again
 
         // The canonical ECHO is observable, not assumed: add a trailing
         // blank line (legal TOML, parses identically), Apply, and the echo
@@ -3015,22 +3015,22 @@ int main(int argc, char **argv)
         }
         QKeyEvent ret(QEvent::KeyPress, Qt::Key_Return, Qt::NoModifier, QString());
         QCoreApplication::sendEvent(view, &ret);
-        assert(edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+        EDI_CHECK(edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
         applyButton->click();
-        assert(editorStatus->text() == QStringLiteral("ok"));
-        assert(!edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
+        EDI_CHECK(editorStatus->text() == QStringLiteral("ok"));
+        EDI_CHECK(!edi::text::findDocument(textStore, "ops_recipe")->text.ends_with("\n\n"));
 
         // Apply is a SCRIPT-document gesture: on a scratch note it is
         // disabled, not silently wrong.
         auto *list = scriptShell.findChild<QListWidget *>(QStringLiteral("textEditorDocumentList"));
-        assert(list != nullptr);
+        EDI_CHECK(list != nullptr);
         for (int i = 0; i < list->count(); ++i) {
             if (list->item(i)->data(Qt::UserRole).toString() == QStringLiteral("scratch")) {
                 list->setCurrentItem(list->item(i));
                 emit list->itemClicked(list->item(i));
             }
         }
-        assert(!applyButton->isEnabled());
+        EDI_CHECK(!applyButton->isEnabled());
     }
 
     // C3 block palette: save a selection as a named block, see it listed, click
@@ -3039,42 +3039,42 @@ int main(int argc, char **argv)
     {
         EdiShellWindow blockWindow;
         auto *blockController = blockWindow.findChild<DrawingDocumentController *>();
-        assert(blockController != nullptr);
+        EDI_CHECK(blockController != nullptr);
 
         // Draw two points and marquee-select both.
         blockController->setSelectedToolId(QStringLiteral("point_tool"));
         blockController->clickCanvasNormalized(0.3, 0.3);
         blockController->clickCanvasNormalized(0.6, 0.6);
-        assert(objectCount(*blockController) == 2);
+        EDI_CHECK(objectCount(*blockController) == 2);
         blockController->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
 
         auto *nameField = blockWindow.findChild<QLineEdit *>(QStringLiteral("blockNameField"));
         auto *saveButton = buttonNamed(blockWindow, QStringLiteral("saveBlockButton"));
         auto *blockList = blockWindow.findChild<QListWidget *>(QStringLiteral("blockList"));
-        assert(nameField != nullptr && saveButton != nullptr && blockList != nullptr);
-        assert(blockList->count() == 0); // empty library at first
+        EDI_CHECK(nameField != nullptr && saveButton != nullptr && blockList != nullptr);
+        EDI_CHECK(blockList->count() == 0); // empty library at first
 
         // Save the selection as a named block via the palette button.
         nameField->setText(QStringLiteral("table"));
         saveButton->click();
 
         // The palette now lists the block by name, the row carrying its id.
-        assert(blockList->count() == 1);
-        assert(blockList->item(0)->text() == QStringLiteral("table"));
+        EDI_CHECK(blockList->count() == 1);
+        EDI_CHECK(blockList->item(0)->text() == QStringLiteral("table"));
         const QString blockId = blockList->item(0)->data(Qt::UserRole).toString();
-        assert(blockId.startsWith(QStringLiteral("block_")));
+        EDI_CHECK(blockId.startsWith(QStringLiteral("block_")));
 
         // Clicking the row (through the real signal wiring) arms a placement pick.
         emit blockList->itemClicked(blockList->item(0));
-        assert(blockController->isAwaitingPointCapture());
-        assert(blockController->pointCapturePrompt() == QStringLiteral("Click to place the block"));
+        EDI_CHECK(blockController->isAwaitingPointCapture());
+        EDI_CHECK(blockController->pointCapturePrompt() == QStringLiteral("Click to place the block"));
 
         // The next canvas click stamps the instance (the definition's two
         // objects) and clears the pick — no point object is created by the tool.
         const int beforeStamp = objectCount(*blockController);
         blockController->clickCanvasNormalized(0.5, 0.5);
-        assert(objectCount(*blockController) == beforeStamp + 2);
-        assert(!blockController->isAwaitingPointCapture());
+        EDI_CHECK(objectCount(*blockController) == beforeStamp + 2);
+        EDI_CHECK(!blockController->isAwaitingPointCapture());
     }
 
     // DM-15 "Block instance" inspector group: the group + transformInstanceButton
@@ -3090,29 +3090,29 @@ int main(int argc, char **argv)
     {
         EdiShellWindow dm15Window;
         auto *dm15Controller = dm15Window.findChild<DrawingDocumentController *>();
-        assert(dm15Controller != nullptr);
+        EDI_CHECK(dm15Controller != nullptr);
 
         // Build a block: draw a point, select it, save it.
         dm15Controller->setSelectedToolId(QStringLiteral("point_tool"));
         dm15Controller->clickCanvasNormalized(0.4, 0.4);
-        assert(objectCount(*dm15Controller) == 1);
+        EDI_CHECK(objectCount(*dm15Controller) == 1);
         dm15Controller->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
 
         auto *blockNameField = dm15Window.findChild<QLineEdit *>(QStringLiteral("blockNameField"));
         auto *saveBlockButton = buttonNamed(dm15Window, QStringLiteral("saveBlockButton"));
         auto *dm15BlockList = dm15Window.findChild<QListWidget *>(QStringLiteral("blockList"));
-        assert(blockNameField != nullptr && saveBlockButton != nullptr && dm15BlockList != nullptr);
+        EDI_CHECK(blockNameField != nullptr && saveBlockButton != nullptr && dm15BlockList != nullptr);
         blockNameField->setText(QStringLiteral("chair"));
         saveBlockButton->click();
-        assert(dm15BlockList->count() == 1);
+        EDI_CHECK(dm15BlockList->count() == 1);
 
         // Stamp an instance by picking the block row + clicking the canvas.
         emit dm15BlockList->itemClicked(dm15BlockList->item(0));
-        assert(dm15Controller->isAwaitingPointCapture());
+        EDI_CHECK(dm15Controller->isAwaitingPointCapture());
         const int beforePlace = objectCount(*dm15Controller);
         dm15Controller->clickCanvasNormalized(0.5, 0.5);
-        assert(objectCount(*dm15Controller) == beforePlace + 1); // one point in the definition
-        assert(!dm15Controller->isAwaitingPointCapture());
+        EDI_CHECK(objectCount(*dm15Controller) == beforePlace + 1); // one point in the definition
+        EDI_CHECK(!dm15Controller->isAwaitingPointCapture());
 
         // The controller auto-selects the stamped objects. Flush DeferredDelete
         // before widget lookups (geometry editor retires spins with deleteLater).
@@ -3120,7 +3120,7 @@ int main(int argc, char **argv)
 
         // --- Gate 1: instance is selected → group + button visible and enabled ---
         auto *transformBtn = buttonNamed(dm15Window, QStringLiteral("transformInstanceButton"));
-        assert(transformBtn != nullptr); // widget was built
+        EDI_CHECK(transformBtn != nullptr); // widget was built
 
         // The group's OWN hidden flag is the real gate — isHidden() is
         // ancestor-independent, so it reads correctly even though this offscreen
@@ -3130,25 +3130,25 @@ int main(int argc, char **argv)
         auto blockInstanceVisible = [&dm15Window]() {
             QWidget *group =
                 dm15Window.findChild<QWidget *>(QStringLiteral("inspectorGroup_block_instance"));
-            assert(group != nullptr); // built once in ensureInspectorGroupsBuilt
+            EDI_CHECK(group != nullptr); // built once in ensureInspectorGroupsBuilt
             return !group->isHidden();
         };
 
         // The projection bool: read it directly to confirm the wiring.
         const QVariantMap dm15Doc = dm15Controller->modelDocument();
-        assert(dm15Doc.value(QStringLiteral("has_block_instance_selection")).toBool());
-        assert(!dm15Doc.value(QStringLiteral("instance_id")).toString().isEmpty());
+        EDI_CHECK(dm15Doc.value(QStringLiteral("has_block_instance_selection")).toBool());
+        EDI_CHECK(!dm15Doc.value(QStringLiteral("instance_id")).toString().isEmpty());
 
         // The group is SHOWN for the placed instance, and the action is enabled.
-        assert(blockInstanceVisible());
-        assert(transformBtn->isEnabled());
+        EDI_CHECK(blockInstanceVisible());
+        EDI_CHECK(transformBtn->isEnabled());
 
         // The two delta spins exist and have the correct identity defaults.
         auto *rotSpin = dm15Window.findChild<QDoubleSpinBox *>(QStringLiteral("instanceRotationSpin"));
         auto *scaleSpin = dm15Window.findChild<QDoubleSpinBox *>(QStringLiteral("instanceScaleSpin"));
-        assert(rotSpin != nullptr && scaleSpin != nullptr);
-        assert(rotSpin->value() == 0.0);
-        assert(scaleSpin->value() == 1.0);
+        EDI_CHECK(rotSpin != nullptr && scaleSpin != nullptr);
+        EDI_CHECK(rotSpin->value() == 0.0);
+        EDI_CHECK(scaleSpin->value() == 1.0);
 
         // --- Gate 2: a non-instance object selected → group hidden ---
         // Draw an ordinary point (not a block definition, not a placed instance).
@@ -3159,11 +3159,11 @@ int main(int argc, char **argv)
 
         const QVariantMap dm15DocAfter = dm15Controller->modelDocument();
         // An ordinary point carries no blockPlacement.instanceId.
-        assert(!dm15DocAfter.value(QStringLiteral("has_block_instance_selection")).toBool());
-        assert(dm15DocAfter.value(QStringLiteral("instance_id")).toString().isEmpty());
+        EDI_CHECK(!dm15DocAfter.value(QStringLiteral("has_block_instance_selection")).toBool());
+        EDI_CHECK(dm15DocAfter.value(QStringLiteral("instance_id")).toString().isEmpty());
 
         // The group's own hidden flag must now be set (the sub-gate fired).
-        assert(!blockInstanceVisible());
+        EDI_CHECK(!blockInstanceVisible());
 
         // --- Gate 3: nothing selected → group hidden (plan-level context gate) ---
         dm15Controller->setSelectedToolId(QStringLiteral("select_move"));
@@ -3172,8 +3172,8 @@ int main(int argc, char **argv)
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
 
         const QVariantMap dm15DocNoSel = dm15Controller->modelDocument();
-        assert(!dm15DocNoSel.value(QStringLiteral("has_block_instance_selection")).toBool());
-        assert(!blockInstanceVisible());
+        EDI_CHECK(!dm15DocNoSel.value(QStringLiteral("has_block_instance_selection")).toBool());
+        EDI_CHECK(!blockInstanceVisible());
     }
 
     // DR-11 Kaleidoscope chrome: the Duplicate fold's mirror area gains an
@@ -3184,31 +3184,31 @@ int main(int argc, char **argv)
     {
         EdiShellWindow dr11Window;
         auto *dr11Controller = dr11Window.findChild<DrawingDocumentController *>();
-        assert(dr11Controller != nullptr);
+        EDI_CHECK(dr11Controller != nullptr);
 
         // axisCountSpin must be present and seeded from the controller.
         auto *axisCountSpin = dr11Window.findChild<QSpinBox *>(QStringLiteral("axisCountSpin"));
-        assert(axisCountSpin != nullptr);
-        assert(axisCountSpin->value() == dr11Controller->arrayCount());
+        EDI_CHECK(axisCountSpin != nullptr);
+        EDI_CHECK(axisCountSpin->value() == dr11Controller->arrayCount());
 
         // Changing the spin propagates to the controller.
         axisCountSpin->setValue(4);
-        assert(dr11Controller->arrayCount() == 4);
+        EDI_CHECK(dr11Controller->arrayCount() == 4);
 
         // The kaleidoscope button must be present.
         auto *kaleidoscopeButton = dr11Window.findChild<QPushButton *>(QStringLiteral("kaleidoscopeButton"));
-        assert(kaleidoscopeButton != nullptr);
+        EDI_CHECK(kaleidoscopeButton != nullptr);
 
         // Clicking it with a mirror-supported object selected arms a pick.
         dr11Controller->setSelectedToolId(QStringLiteral("line_tool"));
         dr11Controller->clickCanvasNormalized(0.3, 0.3);
         dr11Controller->clickCanvasNormalized(0.6, 0.6);
-        assert(!dr11Controller->selectedObjectId().isEmpty());
+        EDI_CHECK(!dr11Controller->selectedObjectId().isEmpty());
         kaleidoscopeButton->click();
-        assert(dr11Controller->isAwaitingPointCapture());
+        EDI_CHECK(dr11Controller->isAwaitingPointCapture());
         // Cancel so the pick does not bleed into subsequent operations.
         dr11Controller->cancelPendingCreation();
-        assert(!dr11Controller->isAwaitingPointCapture());
+        EDI_CHECK(!dr11Controller->isAwaitingPointCapture());
     }
 
     // M8 Motif palette: the "Motifs" palette mounts alongside the Blocks
@@ -3218,50 +3218,50 @@ int main(int argc, char **argv)
         EdiShellWindow m8Window;
         m8Window.show();
         auto *m8Controller = m8Window.findChild<DrawingDocumentController *>();
-        assert(m8Controller != nullptr);
+        EDI_CHECK(m8Controller != nullptr);
 
         // defineMotifButton must exist (the QInputDialog trigger).
         // Flush DeferredDelete before widget lookups (charter rule).
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
         auto *defineBtn = buttonNamed(m8Window, QStringLiteral("defineMotifButton"));
-        assert(defineBtn != nullptr);
+        EDI_CHECK(defineBtn != nullptr);
 
         // motifList must exist, initially empty.
         auto *motifList = m8Window.findChild<QListWidget *>(QStringLiteral("motifList"));
-        assert(motifList != nullptr);
-        assert(motifList->count() == 0);
+        EDI_CHECK(motifList != nullptr);
+        EDI_CHECK(motifList->count() == 0);
 
         // Draw two objects and marquee-select them — defineMotifFromSelection
         // operates on the active selection.
         m8Controller->setSelectedToolId(QStringLiteral("point_tool"));
         m8Controller->clickCanvasNormalized(0.3, 0.3);
         m8Controller->clickCanvasNormalized(0.7, 0.7);
-        assert(objectCount(*m8Controller) == 2);
+        EDI_CHECK(objectCount(*m8Controller) == 2);
         m8Controller->selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
 
         // Define the motif directly through the controller (the button path
         // goes through QInputDialog which is interactive; the controller verb
         // is what the button calls after the prompt). A row for "star" appears.
         const bool defined = m8Controller->defineMotifFromSelection(QStringLiteral("star"));
-        assert(defined);
+        EDI_CHECK(defined);
 
         // refreshInspector runs via the modelChanged connection; flush events
         // so the list repopulation completes before we assert its count.
         QCoreApplication::processEvents();
         QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
-        assert(motifList->count() == 1);
-        assert(motifList->item(0)->text() == QStringLiteral("star"));
+        EDI_CHECK(motifList->count() == 1);
+        EDI_CHECK(motifList->item(0)->text() == QStringLiteral("star"));
 
         // Activating the row (USER signal — itemActivated) arms a MotifPlacement
         // pick-a-point capture via beginMotifPlacement. The signal wiring is
         // tested by emitting it directly (same as the block-palette test pattern).
-        assert(!m8Controller->isAwaitingPointCapture());
+        EDI_CHECK(!m8Controller->isAwaitingPointCapture());
         emit motifList->itemActivated(motifList->item(0));
-        assert(m8Controller->isAwaitingPointCapture());
+        EDI_CHECK(m8Controller->isAwaitingPointCapture());
 
         // Cancel so the pick does not bleed into subsequent operations.
         m8Controller->cancelPendingCreation();
-        assert(!m8Controller->isAwaitingPointCapture());
+        EDI_CHECK(!m8Controller->isAwaitingPointCapture());
     }
 
     // DR-13 Angular dimension chrome: the dimension row gains a new belt cell
@@ -3269,13 +3269,13 @@ int main(int argc, char **argv)
     {
         EdiShellWindow dr13Window;
         auto *dr13Controller = dr13Window.findChild<DrawingDocumentController *>();
-        assert(dr13Controller != nullptr);
+        EDI_CHECK(dr13Controller != nullptr);
 
         // The dimensionKindCombo must carry an "Angular" entry (data "angular").
         // Several combos share the objectName; comboWithFirstItemData finds the
         // dimension combo by its first entry's data ("distance").
         QComboBox *dimensionKindCombo = comboWithFirstItemData(dr13Window, QStringLiteral("distance"));
-        assert(dimensionKindCombo != nullptr);
+        EDI_CHECK(dimensionKindCombo != nullptr);
 
         // Check that "Angular" is present in the combo.
         bool foundAngular = false;
@@ -3285,7 +3285,7 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        assert(foundAngular);
+        EDI_CHECK(foundAngular);
 
         // The angular_dimension_tool belt cell must be registered in the default
         // belt layout — it lives on beltRow 9 alongside the other dimension tools.
@@ -3297,7 +3297,7 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        assert(foundAngularTool);
+        EDI_CHECK(foundAngularTool);
     }
 
     return 0;

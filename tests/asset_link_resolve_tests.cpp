@@ -12,7 +12,7 @@
 #include "zoo/AssetZoo.h"
 #include "zoo/AssetZooOps.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <set>
 #include <string>
 #include <vector>
@@ -60,19 +60,19 @@ int main()
     // Build a small zoo: two assets, one curated (greenlit), one not.
     AssetZoo zoo;
     const AssetId curatedId = mintAssetId(zoo);
-    assert(addAsset(zoo, makeAssetRecord(curatedId, "crypt_wall", "wall")));
+    EDI_CHECK(addAsset(zoo, makeAssetRecord(curatedId, "crypt_wall", "wall")));
     const AssetId uncuratedId = mintAssetId(zoo);
-    assert(addAsset(zoo, makeAssetRecord(uncuratedId, "stone_floor", "floor")));
-    assert(curateAsset(zoo, curatedId, true)); // only the wall is greenlit
+    EDI_CHECK(addAsset(zoo, makeAssetRecord(uncuratedId, "stone_floor", "floor")));
+    EDI_CHECK(curateAsset(zoo, curatedId, true)); // only the wall is greenlit
 
     // resolveAssetRef: hit returns the right record; unknown and EMPTY both nullptr.
     {
         const edi::zoo::AssetRecord *hit = resolveAssetRef(zoo, curatedId);
-        assert(hit != nullptr);
-        assert(hit->id == curatedId);
-        assert(hit->name == "crypt_wall");
-        assert(resolveAssetRef(zoo, "asset_9999") == nullptr); // dangling
-        assert(resolveAssetRef(zoo, "") == nullptr);           // empty sentinel
+        EDI_CHECK(hit != nullptr);
+        EDI_CHECK(hit->id == curatedId);
+        EDI_CHECK(hit->name == "crypt_wall");
+        EDI_CHECK(resolveAssetRef(zoo, "asset_9999") == nullptr); // dangling
+        EDI_CHECK(resolveAssetRef(zoo, "") == nullptr);           // empty sentinel
     }
 
     // collect from blocks + placements + dedup. The doc uses:
@@ -126,45 +126,45 @@ int main()
         // curatedId (block + placement, deduped), uncuratedId (block), danglingRef
         // (placement). Hand-drawn block and ordinary object excluded.
         const std::set<std::string> expected{curatedId, uncuratedId, danglingRef};
-        assert(refs == expected);
-        assert(refs.size() == 3);
-        assert(refs.count("asset_should_be_ignored") == 0);
-        assert(refs.count("") == 0);
+        EDI_CHECK(refs == expected);
+        EDI_CHECK(refs.size() == 3);
+        EDI_CHECK(refs.count("asset_should_be_ignored") == 0);
+        EDI_CHECK(refs.count("") == 0);
     }
 
     // validateDocumentAssetRefs: status per distinct ref, sorted by assetRef.
     {
         const DocumentAssetRefValidation v = validateDocumentAssetRefs(doc, zoo);
-        assert(v.refs.size() == 3);
+        EDI_CHECK(v.refs.size() == 3);
         // refs are sorted by assetRef (std::set order): asset_0001, asset_0002, asset_4242.
-        assert(v.refs[0].assetRef == curatedId);
-        assert(v.refs[1].assetRef == uncuratedId);
-        assert(v.refs[2].assetRef == danglingRef);
+        EDI_CHECK(v.refs[0].assetRef == curatedId);
+        EDI_CHECK(v.refs[1].assetRef == uncuratedId);
+        EDI_CHECK(v.refs[2].assetRef == danglingRef);
 
         // Curated asset: resolved && curated, in neither warning list.
         const AssetRefStatus *cur = statusFor(v, curatedId);
-        assert(cur != nullptr);
-        assert(cur->resolved && cur->curated);
-        assert(!hasRef(v.unresolved, curatedId));
-        assert(!hasRef(v.uncurated, curatedId));
+        EDI_CHECK(cur != nullptr);
+        EDI_CHECK(cur->resolved && cur->curated);
+        EDI_CHECK(!hasRef(v.unresolved, curatedId));
+        EDI_CHECK(!hasRef(v.uncurated, curatedId));
 
         // Uncurated (resolved) asset: resolved && !curated, appears in uncurated only.
         const AssetRefStatus *unc = statusFor(v, uncuratedId);
-        assert(unc != nullptr);
-        assert(unc->resolved && !unc->curated);
-        assert(!hasRef(v.unresolved, uncuratedId));
-        assert(hasRef(v.uncurated, uncuratedId));
+        EDI_CHECK(unc != nullptr);
+        EDI_CHECK(unc->resolved && !unc->curated);
+        EDI_CHECK(!hasRef(v.unresolved, uncuratedId));
+        EDI_CHECK(hasRef(v.uncurated, uncuratedId));
 
         // Dangling ref: resolved == false (curated false too), appears in unresolved only.
         const AssetRefStatus *dang = statusFor(v, danglingRef);
-        assert(dang != nullptr);
-        assert(!dang->resolved && !dang->curated);
-        assert(hasRef(v.unresolved, danglingRef));
-        assert(!hasRef(v.uncurated, danglingRef));
+        EDI_CHECK(dang != nullptr);
+        EDI_CHECK(!dang->resolved && !dang->curated);
+        EDI_CHECK(hasRef(v.unresolved, danglingRef));
+        EDI_CHECK(!hasRef(v.uncurated, danglingRef));
 
         // Exactly one of each warning kind.
-        assert(v.unresolved.size() == 1);
-        assert(v.uncurated.size() == 1);
+        EDI_CHECK(v.unresolved.size() == 1);
+        EDI_CHECK(v.uncurated.size() == 1);
     }
 
     return 0;

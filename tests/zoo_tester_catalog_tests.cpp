@@ -12,7 +12,7 @@
 #include "zoo/ZooTesterCatalog.h"
 #include "zoo/ZooToonExport.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <optional>
 #include <string>
 
@@ -28,10 +28,10 @@ int main()
     // persist/manifest seam relies on (the exporter emits curated-only and assumes
     // zooManifestFieldProblem == nullopt; the tree texture names bark_brown/
     // leaf_green are reserved-char-clean and the container rows carry none).
-    assert(catalog.size() == 15);
+    EDI_CHECK(catalog.size() == 15);
     for (const AssetRecord &record : catalog) {
-        assert(record.curated);
-        assert(!zooManifestFieldProblem(record).has_value());
+        EDI_CHECK(record.curated);
+        EDI_CHECK(!zooManifestFieldProblem(record).has_value());
     }
 
     // The expected fifteen rows, in catalog order: serial (1-based) + identity fields
@@ -67,16 +67,16 @@ int main()
     for (std::size_t i = 0; i < catalog.size(); ++i) {
         const AssetRecord &record = catalog[i];
         const Expect &want = expected[i];
-        assert(record.id == assetIdForSerial(want.serial)); // id format single-sourced
-        assert(record.name == want.name);
-        assert(record.category == want.category);
-        assert(record.meshRef == want.meshRef);
+        EDI_CHECK(record.id == assetIdForSerial(want.serial)); // id format single-sourced
+        EDI_CHECK(record.name == want.name);
+        EDI_CHECK(record.category == want.category);
+        EDI_CHECK(record.meshRef == want.meshRef);
         if (want.texture0 == nullptr) {
-            assert(record.textureRefs.empty());
+            EDI_CHECK(record.textureRefs.empty());
         } else {
-            assert(record.textureRefs.size() == 2);
-            assert(record.textureRefs[0] == want.texture0); // baked-slot order
-            assert(record.textureRefs[1] == want.texture1);
+            EDI_CHECK(record.textureRefs.size() == 2);
+            EDI_CHECK(record.textureRefs[0] == want.texture0); // baked-slot order
+            EDI_CHECK(record.textureRefs[1] == want.texture1);
         }
     }
 
@@ -89,7 +89,7 @@ int main()
 
     const std::string expectedHeader =
         "assets[15]{id,name,category,meshRef,proxyRef,textures,sockets}:\n";
-    assert(manifest.find(expectedHeader) != std::string::npos);
+    EDI_CHECK(manifest.find(expectedHeader) != std::string::npos);
 
     // The tree rows carry the two slot colours as a `·`-joined run in the textures
     // cell (bark_brown·leaf_green). The run has no comma/space, so cell() leaves it
@@ -114,7 +114,7 @@ int main()
         "  asset_0015,bucket,container,meshes/bucket.blend,\"\",\"\",\"\"\n",
     };
     for (const std::string &row : expectedRows) {
-        assert(manifest.find(row) != std::string::npos);
+        EDI_CHECK(manifest.find(row) != std::string::npos);
     }
 
     return 0;

@@ -4,7 +4,7 @@
 #include <QEventLoop>
 #include <QTimer>
 
-#include <cassert>
+#include "EdiAssert.h"
 
 namespace {
 
@@ -30,7 +30,7 @@ ProcessRunResult runAndWait(ProcessRunStore &store, const QString &exe,
     if (!done) {
         loop.exec();
     }
-    assert(done && "ProcessRunStore::finished never arrived");
+    EDI_CHECK(done && "ProcessRunStore::finished never arrived");
     return captured;
 }
 
@@ -46,9 +46,9 @@ int main(int argc, char **argv)
         ProcessRunStore store;
         const ProcessRunResult result = runAndWait(store, QStringLiteral("/bin/echo"),
                                                     {QStringLiteral("hello")});
-        assert(result.ok && result.started && !result.timedOut);
-        assert(result.exitCode == 0);
-        assert(result.standardOutput.trimmed() == QStringLiteral("hello"));
+        EDI_CHECK(result.ok && result.started && !result.timedOut);
+        EDI_CHECK(result.exitCode == 0);
+        EDI_CHECK(result.standardOutput.trimmed() == QStringLiteral("hello"));
     }
 
     // A non-zero exit is reported, not swallowed: ok=false but started=true.
@@ -56,8 +56,8 @@ int main(int argc, char **argv)
         ProcessRunStore store;
         const ProcessRunResult result = runAndWait(store, QStringLiteral("/bin/sh"),
                                                     {QStringLiteral("-c"), QStringLiteral("exit 3")});
-        assert(result.started && !result.ok);
-        assert(result.exitCode == 3);
+        EDI_CHECK(result.started && !result.ok);
+        EDI_CHECK(result.exitCode == 3);
     }
 
     // A binary that cannot launch: started=false, a named message, no crash.
@@ -65,8 +65,8 @@ int main(int argc, char **argv)
         ProcessRunStore store;
         const ProcessRunResult result = runAndWait(store,
             QStringLiteral("/no/such/edi/binary/blender"), {});
-        assert(!result.started && !result.ok);
-        assert(result.message.contains(QStringLiteral("failed to start")));
+        EDI_CHECK(!result.started && !result.ok);
+        EDI_CHECK(result.message.contains(QStringLiteral("failed to start")));
     }
 
     // A process past its timeout is killed and reported timedOut (not as a
@@ -75,8 +75,8 @@ int main(int argc, char **argv)
         ProcessRunStore store;
         const ProcessRunResult result = runAndWait(store, QStringLiteral("/bin/sleep"),
                                                     {QStringLiteral("5")}, 200);
-        assert(result.timedOut && !result.ok);
-        assert(result.message == QStringLiteral("timed out"));
+        EDI_CHECK(result.timedOut && !result.ok);
+        EDI_CHECK(result.message == QStringLiteral("timed out"));
     }
 
     // stderr is captured distinctly from stdout.
@@ -84,9 +84,9 @@ int main(int argc, char **argv)
         ProcessRunStore store;
         const ProcessRunResult result = runAndWait(store, QStringLiteral("/bin/sh"),
             {QStringLiteral("-c"), QStringLiteral("echo out; echo err 1>&2")});
-        assert(result.ok);
-        assert(result.standardOutput.trimmed() == QStringLiteral("out"));
-        assert(result.standardError.trimmed() == QStringLiteral("err"));
+        EDI_CHECK(result.ok);
+        EDI_CHECK(result.standardOutput.trimmed() == QStringLiteral("out"));
+        EDI_CHECK(result.standardError.trimmed() == QStringLiteral("err"));
     }
 
     return 0;

@@ -10,7 +10,7 @@
 
 #include "drafting/DraftingStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 
@@ -27,7 +27,7 @@ bool near(double a, double b, double tolerance = 1e-9)
 DraftingObject object(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     auto built = buildDraftingObject(std::move(id), kind, std::move(geometry));
-    assert(built.ok);
+    EDI_CHECK(built.ok);
     return built.object;
 }
 
@@ -39,28 +39,28 @@ DraftingObject object(DraftingObjectId id, DraftingShapeKind kind, DraftingGeome
 DraftingDocument labDocument()
 {
     DraftingDocument drafting = makeDraftingDocument("lab_doc");
-    assert(addObject(drafting, object("plank", DraftingShapeKind::Rectangle,
+    EDI_CHECK(addObject(drafting, object("plank", DraftingShapeKind::Rectangle,
         RectangleGeometry{{0.1, 0.1}, 0.5, 0.25})).ok);
-    assert(addObject(drafting, object("hole", DraftingShapeKind::Circle,
+    EDI_CHECK(addObject(drafting, object("hole", DraftingShapeKind::Circle,
         CircleGeometry{{0.5, 0.5}, 0.1})).ok);
-    assert(addObject(drafting, object("cut", DraftingShapeKind::Line,
+    EDI_CHECK(addObject(drafting, object("cut", DraftingShapeKind::Line,
         LineGeometry{{0.2, 0.2}, {0.5, 0.6}})).ok);
-    assert(addObject(drafting, object("arch", DraftingShapeKind::Arc,
+    EDI_CHECK(addObject(drafting, object("arch", DraftingShapeKind::Arc,
         ArcGeometry{{0.5, 0.5}, 0.25, 0.0, 90.0})).ok);
     PolylineGeometry shaft;
     shaft.vertices = {{0.105, 0.90}, {0.085, 0.20}}; // A's lathe test profile
-    assert(addObject(drafting, object("shaft", DraftingShapeKind::Polyline, shaft)).ok);
+    EDI_CHECK(addObject(drafting, object("shaft", DraftingShapeKind::Polyline, shaft)).ok);
     PolylineGeometry shaftRev;
     shaftRev.vertices = {{0.085, 0.20}, {0.105, 0.90}}; // the SAME shaft drawn top-down
-    assert(addObject(drafting, object("shaft_rev", DraftingShapeKind::Polyline, shaftRev)).ok);
+    EDI_CHECK(addObject(drafting, object("shaft_rev", DraftingShapeKind::Polyline, shaftRev)).ok);
     PolylineGeometry folded;
     folded.vertices = {{0.1, 0.5}, {0.2, 0.2}, {0.15, 0.7}}; // physical z 4.0,6.4,2.4 — non-monotonic
-    assert(addObject(drafting, object("folded", DraftingShapeKind::Polyline, folded)).ok);
+    EDI_CHECK(addObject(drafting, object("folded", DraftingShapeKind::Polyline, folded)).ok);
     // A closed square loop for the extrude (BL-03) footprint test — the last
     // vertex repeats the first, as a closed drafted polyline does.
     PolylineGeometry panel;
     panel.vertices = {{0.1, 0.1}, {0.3, 0.1}, {0.3, 0.3}, {0.1, 0.3}, {0.1, 0.1}};
-    assert(addObject(drafting, object("panel", DraftingShapeKind::Polyline, panel)).ok);
+    EDI_CHECK(addObject(drafting, object("panel", DraftingShapeKind::Polyline, panel)).ok);
     return drafting;
 }
 
@@ -118,37 +118,37 @@ int main()
         };
 
         const OpResolveResult result = resolveRecipeOps(stream, drafting, grid);
-        assert(result.ok);
-        assert(result.findings.empty());
-        assert(result.stream.bindings.empty());
+        EDI_CHECK(result.ok);
+        EDI_CHECK(result.findings.empty());
+        EDI_CHECK(result.stream.bindings.empty());
 
         const auto *box = std::get_if<AddBoxOp>(&result.stream.ops[0]);
-        assert(box != nullptr);
-        assert(near(box->width, 0.5 * 12.0));  // 6.0
-        assert(near(box->height, 0.25 * 8.0)); // 2.0
+        EDI_CHECK(box != nullptr);
+        EDI_CHECK(near(box->width, 0.5 * 12.0));  // 6.0
+        EDI_CHECK(near(box->height, 0.25 * 8.0)); // 2.0
         // The ARC half of the radius vocabulary, pinned: without this the
         // seam's arc branch is mutation-invisible (deleting it survived both
         // suites — caught in the B03 planner review).
-        assert(near(box->z, 0.25 * 12.0));     // 3.0, arc radius, X-axis
-        assert(near(box->depth, 9.0));         // untouched literal
+        EDI_CHECK(near(box->z, 0.25 * 12.0));     // 3.0, arc radius, X-axis
+        EDI_CHECK(near(box->depth, 9.0));         // untouched literal
         const auto *cyl = std::get_if<AddCylinderOp>(&result.stream.ops[1]);
-        assert(cyl != nullptr);
-        assert(near(cyl->radius, 0.1 * 12.0)); // 1.2 — matches A (recipe_document_tests:114)
-        assert(near(cyl->height, std::hypot(0.3 * 12.0, 0.4 * 8.0))); // matches A (:115)
-        assert(near(cyl->z, 3.5));             // untouched literal
+        EDI_CHECK(cyl != nullptr);
+        EDI_CHECK(near(cyl->radius, 0.1 * 12.0)); // 1.2 — matches A (recipe_document_tests:114)
+        EDI_CHECK(near(cyl->height, std::hypot(0.3 * 12.0, 0.4 * 8.0))); // matches A (:115)
+        EDI_CHECK(near(cyl->z, 3.5));             // untouched literal
         const auto *cut = std::get_if<CutFlutesOp>(&result.stream.ops[2]);
-        assert(cut != nullptr);
-        assert(near(cut->depth, 0.1 * 12.0)); // 1.2
-        assert(cut->count == 20);             // untouched int literal
+        EDI_CHECK(cut != nullptr);
+        EDI_CHECK(near(cut->depth, 0.1 * 12.0)); // 1.2
+        EDI_CHECK(cut->count == 20);             // untouched int literal
 
         // The input is pure-functionally untouched: bindings still present,
         // bound fields still their inert struct defaults.
-        assert(stream.bindings.size() == 6);
+        EDI_CHECK(stream.bindings.size() == 6);
         const auto *inputBox = std::get_if<AddBoxOp>(&stream.ops[0]);
-        assert(inputBox != nullptr && inputBox->width == 0.0 && inputBox->height == 0.0);
-        assert(inputBox->depth == 9.0);
+        EDI_CHECK(inputBox != nullptr && inputBox->width == 0.0 && inputBox->height == 0.0);
+        EDI_CHECK(inputBox->depth == 9.0);
         const auto *inputCyl = std::get_if<AddCylinderOp>(&stream.ops[1]);
-        assert(inputCyl != nullptr && inputCyl->radius == 0.0 && inputCyl->height == 0.0);
+        EDI_CHECK(inputCyl != nullptr && inputCyl->radius == 0.0 && inputCyl->height == 0.0);
     }
 
     // ---- Every refusal, exact composed wording. One bad binding fails the
@@ -175,40 +175,40 @@ int main()
             RecipeOpStream s = oneBox();
             s.bindings = {{0, "width", "gone", "width"}};
             const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-            assert(!r.ok && r.stream.ops.empty());
-            assert(r.findings.size() == 1);
-            assert(r.findings[0].key == "op.0.width");
-            assert(r.findings[0].message == "object not found: gone");
+            EDI_CHECK(!r.ok && r.stream.ops.empty());
+            EDI_CHECK(r.findings.size() == 1);
+            EDI_CHECK(r.findings[0].key == "op.0.width");
+            EDI_CHECK(r.findings[0].message == "object not found: gone");
         }
         // length on a circle
         {
             RecipeOpStream s = oneCylinder();
             s.bindings = {{0, "height", "hole", "length"}};
             const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-            assert(!r.ok && r.stream.ops.empty());
-            assert(r.findings.size() == 1);
-            assert(r.findings[0].key == "op.0.height");
-            assert(r.findings[0].message == "length needs a line");
+            EDI_CHECK(!r.ok && r.stream.ops.empty());
+            EDI_CHECK(r.findings.size() == 1);
+            EDI_CHECK(r.findings[0].key == "op.0.height");
+            EDI_CHECK(r.findings[0].message == "length needs a line");
         }
         // radius on a line
         {
             RecipeOpStream s = oneCylinder();
             s.bindings = {{0, "radius", "cut", "radius"}};
             const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-            assert(!r.ok && r.stream.ops.empty());
-            assert(r.findings.size() == 1);
-            assert(r.findings[0].key == "op.0.radius");
-            assert(r.findings[0].message == "radius needs a circle or arc");
+            EDI_CHECK(!r.ok && r.stream.ops.empty());
+            EDI_CHECK(r.findings.size() == 1);
+            EDI_CHECK(r.findings[0].key == "op.0.radius");
+            EDI_CHECK(r.findings[0].message == "radius needs a circle or arc");
         }
         // unknown measurement field
         {
             RecipeOpStream s = oneBox();
             s.bindings = {{0, "width", "plank", "girth"}};
             const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-            assert(!r.ok && r.stream.ops.empty());
-            assert(r.findings.size() == 1);
-            assert(r.findings[0].key == "op.0.width");
-            assert(r.findings[0].message == "unknown measurement field: girth");
+            EDI_CHECK(!r.ok && r.stream.ops.empty());
+            EDI_CHECK(r.findings.size() == 1);
+            EDI_CHECK(r.findings[0].key == "op.0.width");
+            EDI_CHECK(r.findings[0].message == "unknown measurement field: girth");
         }
         // unbindable fieldKey: a hand-built binding on "vertices" (an int,
         // never bindable — the store refuses this file). The object resolves;
@@ -218,10 +218,10 @@ int main()
             RecipeOpStream s = oneCylinder();
             s.bindings = {{0, "vertices", "hole", "radius"}};
             const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-            assert(!r.ok && r.stream.ops.empty());
-            assert(r.findings.size() == 1);
-            assert(r.findings[0].key == "op.0.vertices");
-            assert(r.findings[0].message == "not a bindable field");
+            EDI_CHECK(!r.ok && r.stream.ops.empty());
+            EDI_CHECK(r.findings.size() == 1);
+            EDI_CHECK(r.findings[0].key == "op.0.vertices");
+            EDI_CHECK(r.findings[0].message == "not a bindable field");
         }
     }
 
@@ -242,13 +242,13 @@ int main()
             {1, "radius", "cut", "radius"}, // radius on a line
         };
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(!r.ok);
-        assert(r.stream.ops.empty());
-        assert(r.findings.size() == 2);
+        EDI_CHECK(!r.ok);
+        EDI_CHECK(r.stream.ops.empty());
+        EDI_CHECK(r.findings.size() == 2);
         const OpResolveFinding *first = findingFor(r, "op.0.width");
         const OpResolveFinding *second = findingFor(r, "op.1.radius");
-        assert(first != nullptr && first->message == "object not found: gone");
-        assert(second != nullptr && second->message == "radius needs a circle or arc");
+        EDI_CHECK(first != nullptr && first->message == "object not found: gone");
+        EDI_CHECK(second != nullptr && second->message == "radius needs a circle or arc");
     }
 
     // ---- A healthy binding ALONGSIDE a bad one still resolves nothing: the
@@ -264,11 +264,11 @@ int main()
             {0, "height", "gone", "height"}, // bad  — object not found
         };
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(!r.ok);
-        assert(r.stream.ops.empty());
-        assert(r.findings.size() == 1);
-        assert(r.findings[0].key == "op.0.height");
-        assert(r.findings[0].message == "object not found: gone");
+        EDI_CHECK(!r.ok);
+        EDI_CHECK(r.stream.ops.empty());
+        EDI_CHECK(r.findings.size() == 1);
+        EDI_CHECK(r.findings[0].key == "op.0.height");
+        EDI_CHECK(r.findings[0].message == "object not found: gone");
     }
 
     // ---- Out-of-range opIndex: only reachable on a hand-built stream (the
@@ -283,11 +283,11 @@ int main()
         s.ops.push_back(b);
         s.bindings = {{9, "width", "plank", "width"}};
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(!r.ok);
-        assert(r.stream.ops.empty());
-        assert(r.findings.size() == 1);
-        assert(r.findings[0].key == "op.9.width");
-        assert(r.findings[0].message == "no such op");
+        EDI_CHECK(!r.ok);
+        EDI_CHECK(r.stream.ops.empty());
+        EDI_CHECK(r.findings.size() == 1);
+        EDI_CHECK(r.findings[0].key == "op.9.width");
+        EDI_CHECK(r.findings[0].message == "no such op");
     }
 
     // ---- Profile lowering (R1-B04): the lathe, op-vocabulary native. The
@@ -310,24 +310,24 @@ int main()
         s.bindings = {{0, "base_z", "plank", "height"}}; // 2.0
 
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
-        assert(r.stream.bindings.empty());
+        EDI_CHECK(r.ok);
+        EDI_CHECK(r.stream.bindings.empty());
         const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr); // the revolved op is GONE, a moulding stands
-        assert(lowered->name == "shaft.turned");
-        assert(near(lowered->baseZ, 0.25 * 8.0)); // the bound base_z landed
-        assert(lowered->vertices == 64);
-        assert(lowered->material == "limestone");
-        assert(lowered->profile.size() == 2);
-        assert(lowered->profile[0].term == "profile_00");
-        assert(near(lowered->profile[0].radius, 0.105 * 12.0)); // 1.26 — matches A
-        assert(near(lowered->profile[0].z, 0.10 * 8.0));        // 0.8  — page-bottom up
-        assert(lowered->profile[1].term == "profile_01");
-        assert(near(lowered->profile[1].radius, 0.085 * 12.0)); // 1.02
-        assert(near(lowered->profile[1].z, 0.80 * 8.0));        // 6.4
+        EDI_CHECK(lowered != nullptr); // the revolved op is GONE, a moulding stands
+        EDI_CHECK(lowered->name == "shaft.turned");
+        EDI_CHECK(near(lowered->baseZ, 0.25 * 8.0)); // the bound base_z landed
+        EDI_CHECK(lowered->vertices == 64);
+        EDI_CHECK(lowered->material == "limestone");
+        EDI_CHECK(lowered->profile.size() == 2);
+        EDI_CHECK(lowered->profile[0].term == "profile_00");
+        EDI_CHECK(near(lowered->profile[0].radius, 0.105 * 12.0)); // 1.26 — matches A
+        EDI_CHECK(near(lowered->profile[0].z, 0.10 * 8.0));        // 0.8  — page-bottom up
+        EDI_CHECK(lowered->profile[1].term == "profile_01");
+        EDI_CHECK(near(lowered->profile[1].radius, 0.085 * 12.0)); // 1.02
+        EDI_CHECK(near(lowered->profile[1].z, 0.80 * 8.0));        // 6.4
 
         // The input stream still holds the un-lowered reference (purity).
-        assert(std::get_if<AddRevolvedProfileOp>(&s.ops[0]) != nullptr);
+        EDI_CHECK(std::get_if<AddRevolvedProfileOp>(&s.ops[0]) != nullptr);
     }
 
     // ---- Arc profile through the seam: 64 segments per full circle, so a
@@ -339,19 +339,19 @@ int main()
         flare.profile = "arch";
         s.ops.push_back(flare);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(lowered->profile.size() == 17);
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(lowered->profile.size() == 17);
         // The arc (drawn 0->90 deg) has strictly-FALLING physical z, so
         // decision-7 normalization (R1-B05) reverses it to canonical rising
         // order — the arc END is now first. Before B05 this lowered to a
         // DESCENDING moulding that would fail validation; normalized, it lofts
         // bottom-up like every other profile.
-        assert(near(lowered->profile.front().radius, 0.50 * 12.0)); // arc end (0.5, 0.75), now first
-        assert(near(lowered->profile.front().z, 0.25 * 8.0));        // z 2.0 (lowest ring)
-        assert(near(lowered->profile.back().radius, 0.75 * 12.0));   // arc start (0.75, 0.5), now last
-        assert(near(lowered->profile.back().z, 0.50 * 8.0));         // z 4.0
+        EDI_CHECK(near(lowered->profile.front().radius, 0.50 * 12.0)); // arc end (0.5, 0.75), now first
+        EDI_CHECK(near(lowered->profile.front().z, 0.25 * 8.0));        // z 2.0 (lowest ring)
+        EDI_CHECK(near(lowered->profile.back().radius, 0.75 * 12.0));   // arc start (0.75, 0.5), now last
+        EDI_CHECK(near(lowered->profile.back().z, 0.50 * 8.0));         // z 4.0
     }
 
     // ---- Profile refusals through resolve, key op.<i>.profile, the seam's
@@ -368,19 +368,19 @@ int main()
             return s;
         };
         const OpResolveResult unbound = resolveRecipeOps(oneLathe(""), drafting, grid);
-        assert(!unbound.ok && unbound.stream.ops.empty());
-        assert(unbound.findings.size() == 1);
-        assert(unbound.findings[0].key == "op.0.profile");
-        assert(unbound.findings[0].message == "no profile bound");
+        EDI_CHECK(!unbound.ok && unbound.stream.ops.empty());
+        EDI_CHECK(unbound.findings.size() == 1);
+        EDI_CHECK(unbound.findings[0].key == "op.0.profile");
+        EDI_CHECK(unbound.findings[0].message == "no profile bound");
 
         const OpResolveResult gone = resolveRecipeOps(oneLathe("gone"), drafting, grid);
-        assert(!gone.ok);
-        assert(gone.findings[0].key == "op.0.profile");
-        assert(gone.findings[0].message == "profile object not found: gone");
+        EDI_CHECK(!gone.ok);
+        EDI_CHECK(gone.findings[0].key == "op.0.profile");
+        EDI_CHECK(gone.findings[0].message == "profile object not found: gone");
 
         const OpResolveResult wrongKind = resolveRecipeOps(oneLathe("hole"), drafting, grid);
-        assert(!wrongKind.ok);
-        assert(wrongKind.findings[0].message == "profile needs a line, polyline, or arc");
+        EDI_CHECK(!wrongKind.ok);
+        EDI_CHECK(wrongKind.findings[0].message == "profile needs a line, polyline, or arc");
 
         // The fourth wording, through THIS pass (A's corrupt-file pin dies
         // with pipeline A in B06; the op pipeline needs its own witness).
@@ -396,19 +396,19 @@ int main()
         corruptDoc.objects.push_back(corrupt);
         const OpResolveResult shortPolyline =
             resolveRecipeOps(oneLathe("stub"), corruptDoc, grid);
-        assert(!shortPolyline.ok);
-        assert(shortPolyline.findings[0].key == "op.0.profile");
-        assert(shortPolyline.findings[0].message == "profile polyline needs at least two vertices");
+        EDI_CHECK(!shortPolyline.ok);
+        EDI_CHECK(shortPolyline.findings[0].key == "op.0.profile");
+        EDI_CHECK(shortPolyline.findings[0].message == "profile polyline needs at least two vertices");
 
         // A failed lowering joins binding failures under one all-or-nothing
         // roof: both findings, no stream.
         RecipeOpStream mixed = oneLathe("gone");
         mixed.bindings = {{0, "x", "missing", "width"}};
         const OpResolveResult both = resolveRecipeOps(mixed, drafting, grid);
-        assert(!both.ok && both.stream.ops.empty());
-        assert(both.findings.size() == 2);
-        assert(findingFor(both, "op.0.x") != nullptr);
-        assert(findingFor(both, "op.0.profile") != nullptr);
+        EDI_CHECK(!both.ok && both.stream.ops.empty());
+        EDI_CHECK(both.findings.size() == 2);
+        EDI_CHECK(findingFor(both, "op.0.x") != nullptr);
+        EDI_CHECK(findingFor(both, "op.0.profile") != nullptr);
     }
 
     // ---- The gate predicate (R1-B05 decision 1): resolved means no bindings
@@ -419,28 +419,28 @@ int main()
         AddBoxOp b;
         b.name = "b";
         clean.ops.push_back(b);
-        assert(recipeOpsResolved(clean)); // neither: resolved
+        EDI_CHECK(recipeOpsResolved(clean)); // neither: resolved
 
         RecipeOpStream bound = clean;
         bound.bindings = {{0, "width", "plank", "width"}};
-        assert(!recipeOpsResolved(bound)); // bindings only
+        EDI_CHECK(!recipeOpsResolved(bound)); // bindings only
 
         RecipeOpStream lathe;
         AddRevolvedProfileOp r;
         r.name = "r";
         r.profile = "shaft";
         lathe.ops.push_back(r);
-        assert(!recipeOpsResolved(lathe)); // revolved only — an empty binding table is not enough
+        EDI_CHECK(!recipeOpsResolved(lathe)); // revolved only — an empty binding table is not enough
 
         RecipeOpStream both = lathe;
         both.bindings = {{0, "base_z", "plank", "height"}};
-        assert(!recipeOpsResolved(both)); // both
+        EDI_CHECK(!recipeOpsResolved(both)); // both
 
         // The contract the gate exists to enforce: resolveRecipeOps's output
         // always passes — bindings cleared AND the lathe lowered to a moulding.
         const OpResolveResult resolved = resolveRecipeOps(lathe, drafting, grid);
-        assert(resolved.ok);
-        assert(recipeOpsResolved(resolved.stream));
+        EDI_CHECK(resolved.ok);
+        EDI_CHECK(recipeOpsResolved(resolved.stream));
     }
 
     // ---- Direction-normalization (R1-B05 decision 7): the shaft drawn
@@ -455,9 +455,9 @@ int main()
         f.profile = "shaft";
         forward.ops.push_back(f);
         const OpResolveResult fr = resolveRecipeOps(forward, drafting, grid);
-        assert(fr.ok);
+        EDI_CHECK(fr.ok);
         const auto *forwardM = std::get_if<AddMouldingOp>(&fr.stream.ops[0]);
-        assert(forwardM != nullptr);
+        EDI_CHECK(forwardM != nullptr);
 
         RecipeOpStream reversed;
         AddRevolvedProfileOp v;
@@ -465,22 +465,22 @@ int main()
         v.profile = "shaft_rev";
         reversed.ops.push_back(v);
         const OpResolveResult rr = resolveRecipeOps(reversed, drafting, grid);
-        assert(rr.ok);
+        EDI_CHECK(rr.ok);
         const auto *reversedM = std::get_if<AddMouldingOp>(&rr.stream.ops[0]);
-        assert(reversedM != nullptr);
+        EDI_CHECK(reversedM != nullptr);
 
         // Point-for-point identical: normalization restored A's orientation-
         // agnostic promise (profile_00 is the page-bottom ring in both).
-        assert(reversedM->profile.size() == forwardM->profile.size());
-        assert(forwardM->profile.size() == 2);
+        EDI_CHECK(reversedM->profile.size() == forwardM->profile.size());
+        EDI_CHECK(forwardM->profile.size() == 2);
         for (std::size_t i = 0; i < forwardM->profile.size(); ++i) {
-            assert(reversedM->profile[i].term == forwardM->profile[i].term);
-            assert(near(reversedM->profile[i].z, forwardM->profile[i].z));
-            assert(near(reversedM->profile[i].radius, forwardM->profile[i].radius));
+            EDI_CHECK(reversedM->profile[i].term == forwardM->profile[i].term);
+            EDI_CHECK(near(reversedM->profile[i].z, forwardM->profile[i].z));
+            EDI_CHECK(near(reversedM->profile[i].radius, forwardM->profile[i].radius));
         }
         // And it really did flip: profile_00 is the LOW ring (z 0.8), not the
         // drafted-first point (z 6.4). Without the reversal this would be 6.4.
-        assert(near(reversedM->profile[0].z, 0.10 * 8.0));
+        EDI_CHECK(near(reversedM->profile[0].z, 0.10 * 8.0));
 
         // A folded profile lowers (lowering is not validation) but the moulding
         // it becomes fails validation by name.
@@ -490,26 +490,26 @@ int main()
         folds.profile = "folded";
         foldedStream.ops.push_back(folds);
         const OpResolveResult foldedResolved = resolveRecipeOps(foldedStream, drafting, grid);
-        assert(foldedResolved.ok); // lowered, not yet judged
+        EDI_CHECK(foldedResolved.ok); // lowered, not yet judged
         // Planner ruling on the builder's flag #2 (all-pairs, not endpoints):
         // this fold's ENDPOINTS happen to descend net (4.0 → 2.4), but it is
         // not strictly falling, so it lowers VERBATIM — drafted-first stays
         // first. The endpoint-test variant would have reversed it; only a
         // profile the loft can fully understand gets normalized.
         const auto *foldedM = std::get_if<AddMouldingOp>(&foldedResolved.stream.ops[0]);
-        assert(foldedM != nullptr);
-        assert(near(foldedM->profile[0].z, 4.0));
-        assert(near(foldedM->profile[1].z, 6.4));
-        assert(near(foldedM->profile[2].z, 2.4));
+        EDI_CHECK(foldedM != nullptr);
+        EDI_CHECK(near(foldedM->profile[0].z, 4.0));
+        EDI_CHECK(near(foldedM->profile[1].z, 6.4));
+        EDI_CHECK(near(foldedM->profile[2].z, 2.4));
         const OpValidationReport report = validateRecipeOps(foldedResolved.stream.ops);
-        assert(!report.ok);
+        EDI_CHECK(!report.ok);
         bool sawNonMonotonic = false;
         for (const OpFinding &finding : report.findings) {
             if (finding.code == "moulding_profile_not_monotonic") {
                 sawNonMonotonic = true;
             }
         }
-        assert(sawNonMonotonic);
+        EDI_CHECK(sawNonMonotonic);
     }
 
     // ---- Finiteness gate (R1-B05 decision 3): a resolved number that comes
@@ -534,10 +534,10 @@ int main()
         s.ops.push_back(c);
         s.bindings = {{0, "radius", "huge", "radius"}}; // 1e308 * 12 = inf
         const OpResolveResult r = resolveRecipeOps(s, hugeDoc, grid);
-        assert(!r.ok && r.stream.ops.empty());
-        assert(r.findings.size() == 1);
-        assert(r.findings[0].key == "op.0.radius");
-        assert(r.findings[0].message == "not a finite number");
+        EDI_CHECK(!r.ok && r.stream.ops.empty());
+        EDI_CHECK(r.findings.size() == 1);
+        EDI_CHECK(r.findings[0].key == "op.0.radius");
+        EDI_CHECK(r.findings[0].message == "not a finite number");
     }
 
     // ---- Extrude lowering (BL-03): every AddExtrudedProfileOp lowers to a
@@ -556,26 +556,26 @@ int main()
         s.bindings = {{0, "height", "plank", "height"}}; // 2.0 — lands pre-lowering
 
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
-        assert(r.stream.bindings.empty());
+        EDI_CHECK(r.ok);
+        EDI_CHECK(r.stream.bindings.empty());
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr); // the extrude reference is GONE, a prism stands
-        assert(lowered->name == "wall.panel");
-        assert(near(lowered->height, 0.25 * 8.0)); // the bound height landed: 2.0
-        assert(near(lowered->baseZ, 1.0));
-        assert(lowered->material == "limestone");
+        EDI_CHECK(lowered != nullptr); // the extrude reference is GONE, a prism stands
+        EDI_CHECK(lowered->name == "wall.panel");
+        EDI_CHECK(near(lowered->height, 0.25 * 8.0)); // the bound height landed: 2.0
+        EDI_CHECK(near(lowered->baseZ, 1.0));
+        EDI_CHECK(lowered->material == "limestone");
         // Footprint = physical x/y of the closed square (x*12, y*8), the
         // repeated closing vertex preserved.
-        assert(lowered->footprint.size() == 5);
-        assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
-        assert(near(lowered->footprint[1].x, 0.3 * 12.0) && near(lowered->footprint[1].y, 0.1 * 8.0));
-        assert(near(lowered->footprint[2].x, 0.3 * 12.0) && near(lowered->footprint[2].y, 0.3 * 8.0));
-        assert(near(lowered->footprint[4].x, 0.1 * 12.0) && near(lowered->footprint[4].y, 0.1 * 8.0));
+        EDI_CHECK(lowered->footprint.size() == 5);
+        EDI_CHECK(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
+        EDI_CHECK(near(lowered->footprint[1].x, 0.3 * 12.0) && near(lowered->footprint[1].y, 0.1 * 8.0));
+        EDI_CHECK(near(lowered->footprint[2].x, 0.3 * 12.0) && near(lowered->footprint[2].y, 0.3 * 8.0));
+        EDI_CHECK(near(lowered->footprint[4].x, 0.1 * 12.0) && near(lowered->footprint[4].y, 0.1 * 8.0));
         // The lowered prism passes validation and the resolve gate.
-        assert(validateRecipeOps(r.stream.ops).ok);
-        assert(recipeOpsResolved(r.stream));
+        EDI_CHECK(validateRecipeOps(r.stream.ops).ok);
+        EDI_CHECK(recipeOpsResolved(r.stream));
         // The input is pure-functionally untouched.
-        assert(std::get_if<AddExtrudedProfileOp>(&s.ops[0]) != nullptr);
+        EDI_CHECK(std::get_if<AddExtrudedProfileOp>(&s.ops[0]) != nullptr);
     }
 
     // ---- Extrude refusals: deleted / wrong-kind / open use the SHARED profile
@@ -593,23 +593,23 @@ int main()
         };
         // deleted object — shared wording
         const OpResolveResult gone = resolveRecipeOps(oneExtrude("gone"), drafting, grid);
-        assert(!gone.ok && gone.stream.ops.empty());
-        assert(gone.findings[0].key == "op.0.profile");
-        assert(gone.findings[0].message == "profile object not found: gone");
+        EDI_CHECK(!gone.ok && gone.stream.ops.empty());
+        EDI_CHECK(gone.findings[0].key == "op.0.profile");
+        EDI_CHECK(gone.findings[0].message == "profile object not found: gone");
         // wrong kind — shared wording
         const OpResolveResult wrong = resolveRecipeOps(oneExtrude("hole"), drafting, grid);
-        assert(!wrong.ok);
-        assert(wrong.findings[0].message == "profile needs a line, polyline, or arc");
+        EDI_CHECK(!wrong.ok);
+        EDI_CHECK(wrong.findings[0].message == "profile needs a line, polyline, or arc");
         // empty reference — shared wording
         const OpResolveResult unbound = resolveRecipeOps(oneExtrude(""), drafting, grid);
-        assert(!unbound.ok);
-        assert(unbound.findings[0].message == "no profile bound");
+        EDI_CHECK(!unbound.ok);
+        EDI_CHECK(unbound.findings[0].message == "no profile bound");
         // a LINE (the 2-vertex shaft polyline) projects to 2 distinct points —
         // not an area, so the footprint is degenerate, refused by name.
         const OpResolveResult line = resolveRecipeOps(oneExtrude("shaft"), drafting, grid);
-        assert(!line.ok);
-        assert(line.findings[0].key == "op.0.profile");
-        assert(line.findings[0].message == "profile must enclose at least three distinct points");
+        EDI_CHECK(!line.ok);
+        EDI_CHECK(line.findings[0].key == "op.0.profile");
+        EDI_CHECK(line.findings[0].message == "profile must enclose at least three distinct points");
     }
 
     // ---- BL-05 HEADLINE: push/pull as a depth verb — a DRAFTED MEASUREMENT
@@ -630,17 +630,17 @@ int main()
         s.bindings = {{0, "height", "cut", "length"}}; // measured line length -> depth
 
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
-        assert(r.stream.bindings.empty());
+        EDI_CHECK(r.ok);
+        EDI_CHECK(r.stream.bindings.empty());
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
+        EDI_CHECK(lowered != nullptr);
         // The drafted "cut" line spans (0.3, 0.4) normalized on the 12x8 grid:
         // physical length hypot(3.6, 3.2) — the SAME number the box-height
         // binding measures in the happy-path block above. The extrude DEPTH is
         // now a drafted measurement.
-        assert(near(lowered->height, std::hypot(0.3 * 12.0, 0.4 * 8.0)));
-        assert(validateRecipeOps(r.stream.ops).ok);
-        assert(recipeOpsResolved(r.stream));
+        EDI_CHECK(near(lowered->height, std::hypot(0.3 * 12.0, 0.4 * 8.0)));
+        EDI_CHECK(validateRecipeOps(r.stream.ops).ok);
+        EDI_CHECK(recipeOpsResolved(r.stream));
     }
 
     // ---- BL-05: a NEGATIVE height is a buildable PUSH (downward cut), not a
@@ -658,22 +658,22 @@ int main()
         // extruded_profile_zero_height), only zero/non-finite is refused.
         const OpValidationReport extrudeReport = validateRecipeOps({RecipeOp{push}});
         for (const OpFinding &f : extrudeReport.findings) {
-            assert(f.code != "extruded_profile_zero_height");
+            EDI_CHECK(f.code != "extruded_profile_zero_height");
         }
 
         RecipeOpStream s;
         s.ops = {RecipeOp{push}};
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(near(lowered->height, -2.5)); // the negative depth survived into the carrier
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(near(lowered->height, -2.5)); // the negative depth survived into the carrier
         // The lowered prism validates (negative prism height is allowed) and
         // carries no zero-height finding.
         const OpValidationReport prismReport = validateRecipeOps(r.stream.ops);
-        assert(prismReport.ok);
+        EDI_CHECK(prismReport.ok);
         for (const OpFinding &f : prismReport.findings) {
-            assert(f.code != "prism_zero_height");
+            EDI_CHECK(f.code != "prism_zero_height");
         }
     }
 
@@ -688,11 +688,11 @@ int main()
         lathe.sweepDegrees = 180.0; // a half revolve — an arch/apse niche
         s.ops.push_back(lathe);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(near(lowered->sweepDegrees, 180.0)); // the chosen arc travelled into the carrier
-        assert(validateRecipeOps(r.stream.ops).ok);
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(near(lowered->sweepDegrees, 180.0)); // the chosen arc travelled into the carrier
+        EDI_CHECK(validateRecipeOps(r.stream.ops).ok);
     }
 
     // ---- BL-07: the screw/helix params also SURVIVE lowering onto the
@@ -706,12 +706,12 @@ int main()
         lathe.screwTurns = 3.0; // three turns -> a thread
         s.ops.push_back(lathe);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddMouldingOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(near(lowered->screwRise, 1.5));  // the helix travelled into the carrier
-        assert(near(lowered->screwTurns, 3.0));
-        assert(validateRecipeOps(r.stream.ops).ok);
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(near(lowered->screwRise, 1.5));  // the helix travelled into the carrier
+        EDI_CHECK(near(lowered->screwTurns, 3.0));
+        EDI_CHECK(validateRecipeOps(r.stream.ops).ok);
     }
 
     // ---- BL-08: a Follow-Me sweep resolves to a PATH-bearing AddPrism. The
@@ -726,21 +726,21 @@ int main()
         sweep.taperEnd = 0.5;    // BL-09: a tapering run
         s.ops.push_back(sweep);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr); // the sweep reference is GONE, a prism stands
-        assert(lowered->name == "cornice.run");
-        assert(near(lowered->taperEnd, 0.5));    // BL-09: the taper survived lowering
-        assert(near(lowered->taperCurve, 1.0)); // P4: default curve survives lowering
-        assert(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
-        assert(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
+        EDI_CHECK(lowered != nullptr); // the sweep reference is GONE, a prism stands
+        EDI_CHECK(lowered->name == "cornice.run");
+        EDI_CHECK(near(lowered->taperEnd, 0.5));    // BL-09: the taper survived lowering
+        EDI_CHECK(near(lowered->taperCurve, 1.0)); // P4: default curve survives lowering
+        EDI_CHECK(lowered->footprint.size() == 5); // panel's 5 points (closing repeat kept)
+        EDI_CHECK(near(lowered->footprint[0].x, 0.1 * 12.0) && near(lowered->footprint[0].y, 0.1 * 8.0));
         // The path is the projected "cut" line: (0.2,0.2)->(0.5,0.6) on the 12x8 grid.
-        assert(lowered->path.size() == 2);
-        assert(near(lowered->path[0].x, 0.2 * 12.0) && near(lowered->path[0].y, 0.2 * 8.0));
-        assert(near(lowered->path[1].x, 0.5 * 12.0) && near(lowered->path[1].y, 0.6 * 8.0));
-        assert(validateRecipeOps(r.stream.ops).ok);
-        assert(recipeOpsResolved(r.stream));
-        assert(std::get_if<AddSweepProfileOp>(&s.ops[0]) != nullptr); // input untouched (purity)
+        EDI_CHECK(lowered->path.size() == 2);
+        EDI_CHECK(near(lowered->path[0].x, 0.2 * 12.0) && near(lowered->path[0].y, 0.2 * 8.0));
+        EDI_CHECK(near(lowered->path[1].x, 0.5 * 12.0) && near(lowered->path[1].y, 0.6 * 8.0));
+        EDI_CHECK(validateRecipeOps(r.stream.ops).ok);
+        EDI_CHECK(recipeOpsResolved(r.stream));
+        EDI_CHECK(std::get_if<AddSweepProfileOp>(&s.ops[0]) != nullptr); // input untouched (purity)
     }
 
     // ---- P4: taperCurve survives sweep→prism lowering. A non-default curve
@@ -756,12 +756,12 @@ int main()
         curved.taperCurve = 2.5; // P4: non-linear back-loaded taper
         s.ops.push_back(curved);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(near(lowered->taperEnd, 0.4));    // BL-09 taper end survived
-        assert(near(lowered->taperCurve, 2.5)); // P4 curve exponent survived
-        assert(near(lowered->taperEndY, 0.0));  // P4b default sentinel survived
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(near(lowered->taperEnd, 0.4));    // BL-09 taper end survived
+        EDI_CHECK(near(lowered->taperCurve, 2.5)); // P4 curve exponent survived
+        EDI_CHECK(near(lowered->taperEndY, 0.0));  // P4b default sentinel survived
     }
 
     // ---- P4b: taperEndY survives sweep→prism lowering. The per-axis Y scale
@@ -776,11 +776,11 @@ int main()
         asym.taperEndY = 0.2;  // Y narrows to 20 % (asymmetric)
         s.ops.push_back(asym);
         const OpResolveResult r = resolveRecipeOps(s, drafting, grid);
-        assert(r.ok);
+        EDI_CHECK(r.ok);
         const auto *lowered = std::get_if<AddPrismOp>(&r.stream.ops[0]);
-        assert(lowered != nullptr);
-        assert(near(lowered->taperEnd, 0.8));   // X taper survived
-        assert(near(lowered->taperEndY, 0.2)); // Y taper survived
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(near(lowered->taperEnd, 0.8));   // X taper survived
+        EDI_CHECK(near(lowered->taperEndY, 0.2)); // Y taper survived
     }
 
     // ---- BL-08 refusals: a deleted/wrong-kind profile-or-path, and a
@@ -797,17 +797,17 @@ int main()
         };
         // deleted profile -> shared wording, keyed op.0.profile
         const OpResolveResult goneP = resolveRecipeOps(oneSweep("gone", "cut"), drafting, grid);
-        assert(!goneP.ok && goneP.findings[0].key == "op.0.profile");
-        assert(goneP.findings[0].message == "profile object not found: gone");
+        EDI_CHECK(!goneP.ok && goneP.findings[0].key == "op.0.profile");
+        EDI_CHECK(goneP.findings[0].message == "profile object not found: gone");
         // deleted path -> shared wording, keyed op.0.path
         const OpResolveResult gonePath = resolveRecipeOps(oneSweep("panel", "gone"), drafting, grid);
-        assert(!gonePath.ok && gonePath.findings[0].key == "op.0.path");
-        assert(gonePath.findings[0].message == "profile object not found: gone");
+        EDI_CHECK(!gonePath.ok && gonePath.findings[0].key == "op.0.path");
+        EDI_CHECK(gonePath.findings[0].message == "profile object not found: gone");
         // a path that is a single point ("hole" is a circle -> sampled, but use a
         // wrong-kind to hit the shared wording instead): a circle has no path.
         const OpResolveResult wrongPath = resolveRecipeOps(oneSweep("panel", "hole"), drafting, grid);
-        assert(!wrongPath.ok && wrongPath.findings[0].key == "op.0.path");
-        assert(wrongPath.findings[0].message == "profile needs a line, polyline, or arc");
+        EDI_CHECK(!wrongPath.ok && wrongPath.findings[0].key == "op.0.path");
+        EDI_CHECK(wrongPath.findings[0].message == "profile needs a line, polyline, or arc");
     }
 
     return 0;

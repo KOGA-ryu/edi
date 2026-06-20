@@ -3,7 +3,7 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGeometry.h" // computeBounds
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 
 using namespace edi::drafting;
@@ -29,24 +29,24 @@ int main()
         pt.bounds = computeBounds(pt.geometry);
 
         DraftingMotif motif = buildMotifFromObjects("test_motif", {line, pt});
-        assert(motif.name == "test_motif");
-        assert(motif.objects.size() == 2);
+        EDI_CHECK(motif.name == "test_motif");
+        EDI_CHECK(motif.objects.size() == 2);
 
         // Union lower-left was (2,3), so objects are shifted by (-2,-3).
         // The line should now be (0,0)→(3,4).
         const auto *lineGeo = std::get_if<LineGeometry>(&motif.objects[0].geometry);
-        assert(lineGeo != nullptr);
-        assert(near(lineGeo->a.x, 0.0) && near(lineGeo->a.y, 0.0));
-        assert(near(lineGeo->b.x, 3.0) && near(lineGeo->b.y, 4.0));
+        EDI_CHECK(lineGeo != nullptr);
+        EDI_CHECK(near(lineGeo->a.x, 0.0) && near(lineGeo->a.y, 0.0));
+        EDI_CHECK(near(lineGeo->b.x, 3.0) && near(lineGeo->b.y, 4.0));
 
         // The point should now be (2,0).
         const auto *ptGeo = std::get_if<PointGeometry>(&motif.objects[1].geometry);
-        assert(ptGeo != nullptr);
-        assert(near(ptGeo->point.x, 2.0) && near(ptGeo->point.y, 0.0));
+        EDI_CHECK(ptGeo != nullptr);
+        EDI_CHECK(near(ptGeo->point.x, 2.0) && near(ptGeo->point.y, 0.0));
 
         // motif.bounds origin-based: x=0, y=0, width=3, height=4.
-        assert(near(motif.bounds.x, 0.0) && near(motif.bounds.y, 0.0));
-        assert(near(motif.bounds.width, 3.0) && near(motif.bounds.height, 4.0));
+        EDI_CHECK(near(motif.bounds.x, 0.0) && near(motif.bounds.y, 0.0));
+        EDI_CHECK(near(motif.bounds.width, 3.0) && near(motif.bounds.height, 4.0));
     }
 
     // lock/visible reset: captured objects always start unlocked+visible.
@@ -58,9 +58,9 @@ int main()
         locked.visible = false;
 
         DraftingMotif motif = buildMotifFromObjects("reset_test", {locked});
-        assert(motif.objects.size() == 1);
-        assert(motif.objects[0].locked  == false);
-        assert(motif.objects[0].visible == true);
+        EDI_CHECK(motif.objects.size() == 1);
+        EDI_CHECK(motif.objects[0].locked  == false);
+        EDI_CHECK(motif.objects[0].visible == true);
     }
 
     // Guide objects are EXCLUDED; ConstructionLine is INCLUDED.
@@ -79,9 +79,9 @@ int main()
 
         DraftingMotif motif = buildMotifFromObjects("filter_test", {guide, cl, pt});
         // Guide excluded; ConstructionLine and Point kept.
-        assert(motif.objects.size() == 2);
-        assert(motif.objects[0].kind == DraftingShapeKind::ConstructionLine);
-        assert(motif.objects[1].kind == DraftingShapeKind::Point);
+        EDI_CHECK(motif.objects.size() == 2);
+        EDI_CHECK(motif.objects[0].kind == DraftingShapeKind::ConstructionLine);
+        EDI_CHECK(motif.objects[1].kind == DraftingShapeKind::Point);
     }
 
     // All-guide source: yields empty motif (addMotif rejects it).
@@ -91,7 +91,7 @@ int main()
         guide.bounds = computeBounds(guide.geometry);
 
         DraftingMotif motif = buildMotifFromObjects("all_guides", {guide});
-        assert(motif.objects.empty());
+        EDI_CHECK(motif.objects.empty());
     }
 
     // --- addMotif + motifIndexByName ------------------------------------------
@@ -107,42 +107,42 @@ int main()
     // addMotif: success case — revision bumps, found by name.
     const auto revBefore = doc.revision;
     auto r1 = addMotif(doc, m);
-    assert(r1.ok);
-    assert(doc.revision == revBefore + 1);
-    assert(doc.motifs.size() == 1);
-    assert(doc.motifs[0].name == "flower");
-    assert(motifIndexByName(doc, "flower").has_value());
-    assert(!motifIndexByName(doc, "nonexistent").has_value());
+    EDI_CHECK(r1.ok);
+    EDI_CHECK(doc.revision == revBefore + 1);
+    EDI_CHECK(doc.motifs.size() == 1);
+    EDI_CHECK(doc.motifs[0].name == "flower");
+    EDI_CHECK(motifIndexByName(doc, "flower").has_value());
+    EDI_CHECK(!motifIndexByName(doc, "nonexistent").has_value());
 
     // Duplicate name: rejected.
     auto r2 = addMotif(doc, m);
-    assert(!r2.ok);
-    assert(r2.code == DraftingResultCode::DuplicateObjectId);
+    EDI_CHECK(!r2.ok);
+    EDI_CHECK(r2.code == DraftingResultCode::DuplicateObjectId);
 
     // Empty name: rejected.
     DraftingMotif emptyName = m;
     emptyName.name = "";
     auto r3 = addMotif(doc, emptyName);
-    assert(!r3.ok);
-    assert(r3.code == DraftingResultCode::EmptyObjectId);
+    EDI_CHECK(!r3.ok);
+    EDI_CHECK(r3.code == DraftingResultCode::EmptyObjectId);
 
     // Empty objects: rejected.
     DraftingMotif emptyObjs;
     emptyObjs.name = "empty_motif";
     auto r4 = addMotif(doc, emptyObjs);
-    assert(!r4.ok);
-    assert(r4.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!r4.ok);
+    EDI_CHECK(r4.code == DraftingResultCode::InvalidSelectionTarget);
 
     // --- removeMotif ----------------------------------------------------------
 
     auto r5 = removeMotif(doc, "flower");
-    assert(r5.ok);
-    assert(doc.motifs.empty());
+    EDI_CHECK(r5.ok);
+    EDI_CHECK(doc.motifs.empty());
 
     // Remove non-existent: rejected.
     auto r6 = removeMotif(doc, "flower");
-    assert(!r6.ok);
-    assert(r6.code == DraftingResultCode::ObjectNotFound);
+    EDI_CHECK(!r6.ok);
+    EDI_CHECK(r6.code == DraftingResultCode::ObjectNotFound);
 
     // --- placeMotif (M8-S2) ---------------------------------------------------
 
@@ -155,41 +155,41 @@ int main()
     pB.bounds = computeBounds(pB.geometry);
 
     DraftingMotif m2 = buildMotifFromObjects("star", {pA, pB});
-    assert(m2.objects.size() == 2);
+    EDI_CHECK(m2.objects.size() == 2);
 
     // Place at (3.0, 4.0): each object should be offset by (3,4).
     std::vector<DraftingObjectId> ids = {"placed-1", "placed-2"};
     DraftingArrayResult placed = placeMotif(m2, {3.0, 4.0}, ids);
-    assert(placed.ok);
-    assert(placed.objects.size() == 2);
+    EDI_CHECK(placed.ok);
+    EDI_CHECK(placed.objects.size() == 2);
 
     // First object was at (0,0) → should be at (3,4).
     const auto *g0 = std::get_if<PointGeometry>(&placed.objects[0].geometry);
-    assert(g0 != nullptr);
-    assert(near(g0->point.x, 3.0) && near(g0->point.y, 4.0));
-    assert(placed.objects[0].id == "placed-1");
+    EDI_CHECK(g0 != nullptr);
+    EDI_CHECK(near(g0->point.x, 3.0) && near(g0->point.y, 4.0));
+    EDI_CHECK(placed.objects[0].id == "placed-1");
 
     // Second object was at (1,2) → should be at (4,6).
     const auto *g1 = std::get_if<PointGeometry>(&placed.objects[1].geometry);
-    assert(g1 != nullptr);
-    assert(near(g1->point.x, 4.0) && near(g1->point.y, 6.0));
-    assert(placed.objects[1].id == "placed-2");
+    EDI_CHECK(g1 != nullptr);
+    EDI_CHECK(near(g1->point.x, 4.0) && near(g1->point.y, 6.0));
+    EDI_CHECK(placed.objects[1].id == "placed-2");
 
     // No motif back-reference: metadata.blockPlacement is default (empty).
-    assert(placed.objects[0].metadata.blockPlacement.blockId.empty());
-    assert(placed.objects[1].metadata.blockPlacement.instanceId.empty());
+    EDI_CHECK(placed.objects[0].metadata.blockPlacement.blockId.empty());
+    EDI_CHECK(placed.objects[1].metadata.blockPlacement.instanceId.empty());
 
     // id-count mismatch: rejected.
     auto bad1 = placeMotif(m2, {0.0, 0.0}, {"only-one"});
-    assert(!bad1.ok);
-    assert(bad1.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!bad1.ok);
+    EDI_CHECK(bad1.code == DraftingResultCode::InvalidGeometry);
 
     // Empty motif: rejected.
     DraftingMotif empty;
     empty.name = "empty";
     auto bad2 = placeMotif(empty, {0.0, 0.0}, {});
-    assert(!bad2.ok);
-    assert(bad2.code == DraftingResultCode::InvalidGeometry);
+    EDI_CHECK(!bad2.ok);
+    EDI_CHECK(bad2.code == DraftingResultCode::InvalidGeometry);
 
     return 0;
 }

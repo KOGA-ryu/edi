@@ -6,7 +6,7 @@
 #include "drafting/DraftingGeometry.h"
 
 #include <algorithm>
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -55,18 +55,18 @@ int main()
         spec.wallThickness = 0.02;
 
         const std::vector<DraftingObject> walls = planCorridor(spec, counter());
-        assert(walls.size() == 2);
+        EDI_CHECK(walls.size() == 2);
         for (const DraftingObject &w : walls) {
-            assert(w.kind == DraftingShapeKind::Wall);
-            assert(nearlyEqual(wallOf(w).thickness, 0.02));
-            assert(w.metadata.toolProvenance == "corridor");
-            assert(isVerticalWall(w)); // both side walls run vertically
+            EDI_CHECK(w.kind == DraftingShapeKind::Wall);
+            EDI_CHECK(nearlyEqual(wallOf(w).thickness, 0.02));
+            EDI_CHECK(w.metadata.toolProvenance == "corridor");
+            EDI_CHECK(isVerticalWall(w)); // both side walls run vertically
         }
         // One side wall is half-width left of the centerline, the other half-width
         // right (x = 0.5 ± 0.03), each spanning the door gap in y.
         const double xa = wallOf(walls[0]).a.x;
         const double xb = wallOf(walls[1]).a.x;
-        assert((nearlyEqual(xa, 0.47) && nearlyEqual(xb, 0.53))
+        EDI_CHECK((nearlyEqual(xa, 0.47) && nearlyEqual(xb, 0.53))
                || (nearlyEqual(xa, 0.53) && nearlyEqual(xb, 0.47)));
     }
 
@@ -79,9 +79,9 @@ int main()
         spec.doorB = {0.5, 0.3};
         spec.edgeB = RoomEdge::South; // outward +y
         const std::vector<DraftingObject> walls = planCorridor(spec, counter());
-        assert(walls.size() == 4);
+        EDI_CHECK(walls.size() == 4);
         for (const DraftingObject &w : walls) {
-            assert(w.kind == DraftingShapeKind::Wall);
+            EDI_CHECK(w.kind == DraftingShapeKind::Wall);
         }
     }
 
@@ -94,7 +94,7 @@ int main()
         spec.doorB = {0.5, 0.6};
         spec.edgeB = RoomEdge::North;
         const std::vector<DraftingObject> walls = planCorridor(spec, counter());
-        assert(walls.size() == 6);
+        EDI_CHECK(walls.size() == 6);
     }
 
     // Degenerate: coincident doors route nothing.
@@ -104,7 +104,7 @@ int main()
         spec.edgeA = RoomEdge::South;
         spec.doorB = {0.5, 0.5};
         spec.edgeB = RoomEdge::North;
-        assert(planCorridor(spec, counter()).empty());
+        EDI_CHECK(planCorridor(spec, counter()).empty());
     }
 
     // v2 routing: with no obstacles, the routed centerline equals the direct one.
@@ -116,7 +116,7 @@ int main()
         spec.edgeB = RoomEdge::West;
         const std::vector<Point2D> direct = corridorCenterline(spec);
         const std::vector<Point2D> routed = routeCorridorCenterline(spec, {});
-        assert(routed.size() == direct.size());
+        EDI_CHECK(routed.size() == direct.size());
     }
 
     // v2 routing: an obstacle straddling the direct line forces a detour AROUND it.
@@ -130,9 +130,9 @@ int main()
         obstacles.push_back({{0.4, 0.4}, 0.2, 0.2}); // blocks the straight y=0.5 path
 
         const std::vector<Point2D> routed = routeCorridorCenterline(spec, obstacles);
-        assert(routed.size() > 2); // it detoured, not a straight line
-        assert(nearlyEqual(routed.front().x, 0.1) && nearlyEqual(routed.front().y, 0.5));
-        assert(nearlyEqual(routed.back().x, 0.9) && nearlyEqual(routed.back().y, 0.5));
+        EDI_CHECK(routed.size() > 2); // it detoured, not a straight line
+        EDI_CHECK(nearlyEqual(routed.front().x, 0.1) && nearlyEqual(routed.front().y, 0.5));
+        EDI_CHECK(nearlyEqual(routed.back().x, 0.9) && nearlyEqual(routed.back().y, 0.5));
         // No segment passes through the obstacle interior [0.4,0.6] x [0.4,0.6].
         for (std::size_t i = 1; i < routed.size(); ++i) {
             const Point2D &p = routed[i - 1];
@@ -141,11 +141,11 @@ int main()
             if (std::abs(p.y - q.y) < e) { // horizontal
                 const bool inY = p.y > lo + e && p.y < hi - e;
                 const bool overX = std::max(std::min(p.x, q.x), lo) < std::min(std::max(p.x, q.x), hi) - e;
-                assert(!(inY && overX));
+                EDI_CHECK(!(inY && overX));
             } else if (std::abs(p.x - q.x) < e) { // vertical
                 const bool inX = p.x > lo + e && p.x < hi - e;
                 const bool overY = std::max(std::min(p.y, q.y), lo) < std::min(std::max(p.y, q.y), hi) - e;
-                assert(!(inX && overY));
+                EDI_CHECK(!(inX && overY));
             }
         }
     }

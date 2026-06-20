@@ -1,6 +1,6 @@
 #include "text/TextEditorCommands.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::text;
@@ -9,56 +9,56 @@ int main()
 {
     TextDocumentStore store;
     auto acceptedResult = TextCommandResult::accepted();
-    assert(acceptedResult.ok);
-    assert(acceptedResult.code == TextResultCode::None);
+    EDI_CHECK(acceptedResult.ok);
+    EDI_CHECK(acceptedResult.code == TextResultCode::None);
     auto rejectedResult = TextCommandResult::rejected(TextResultCode::DocumentNotFound, "missing");
-    assert(!rejectedResult.ok);
-    assert(rejectedResult.code == TextResultCode::DocumentNotFound);
+    EDI_CHECK(!rejectedResult.ok);
+    EDI_CHECK(rejectedResult.code == TextResultCode::DocumentNotFound);
 
     auto create = applyTextEditorCommand(store, CreateTextDocumentCommand{makeTextDocument("text_1")});
-    assert(create.ok);
-    assert(create.code == TextResultCode::None);
+    EDI_CHECK(create.ok);
+    EDI_CHECK(create.code == TextResultCode::None);
 
     auto insert = applyTextEditorCommand(store, InsertTextCommand{"text_1", 0, "hello"});
-    assert(insert.ok);
-    assert(findDocument(store, "text_1")->text == "hello");
+    EDI_CHECK(insert.ok);
+    EDI_CHECK(findDocument(store, "text_1")->text == "hello");
     const auto revisionAfterInsert = findDocument(store, "text_1")->revision;
 
     auto invalidInsert = applyTextEditorCommand(store, InsertTextCommand{"text_1", 99, "!"});
-    assert(!invalidInsert.ok);
-    assert(invalidInsert.code == TextResultCode::InvalidRange);
-    assert(findDocument(store, "text_1")->text == "hello");
-    assert(findDocument(store, "text_1")->revision == revisionAfterInsert);
+    EDI_CHECK(!invalidInsert.ok);
+    EDI_CHECK(invalidInsert.code == TextResultCode::InvalidRange);
+    EDI_CHECK(findDocument(store, "text_1")->text == "hello");
+    EDI_CHECK(findDocument(store, "text_1")->revision == revisionAfterInsert);
 
     auto replace = applyTextEditorCommand(store, ReplaceTextRangeCommand{"text_1", {1, 4}, "ipp"});
-    assert(replace.ok);
-    assert(findDocument(store, "text_1")->text == "hippo");
+    EDI_CHECK(replace.ok);
+    EDI_CHECK(findDocument(store, "text_1")->text == "hippo");
     const auto revisionAfterReplace = findDocument(store, "text_1")->revision;
 
     auto invalidReplace = applyTextEditorCommand(store, ReplaceTextRangeCommand{"text_1", {4, 1}, "bad"});
-    assert(!invalidReplace.ok);
-    assert(invalidReplace.code == TextResultCode::InvalidRange);
-    assert(findDocument(store, "text_1")->text == "hippo");
-    assert(findDocument(store, "text_1")->revision == revisionAfterReplace);
+    EDI_CHECK(!invalidReplace.ok);
+    EDI_CHECK(invalidReplace.code == TextResultCode::InvalidRange);
+    EDI_CHECK(findDocument(store, "text_1")->text == "hippo");
+    EDI_CHECK(findDocument(store, "text_1")->revision == revisionAfterReplace);
 
     auto invalidDelete = applyTextEditorCommand(store, DeleteTextRangeCommand{"text_1", {0, 99}});
-    assert(!invalidDelete.ok);
-    assert(invalidDelete.code == TextResultCode::InvalidRange);
-    assert(findDocument(store, "text_1")->text == "hippo");
-    assert(findDocument(store, "text_1")->revision == revisionAfterReplace);
+    EDI_CHECK(!invalidDelete.ok);
+    EDI_CHECK(invalidDelete.code == TextResultCode::InvalidRange);
+    EDI_CHECK(findDocument(store, "text_1")->text == "hippo");
+    EDI_CHECK(findDocument(store, "text_1")->revision == revisionAfterReplace);
 
     auto emptyRename = applyTextEditorCommand(store, RenameTextDocumentCommand{"text_1", ""});
-    assert(!emptyRename.ok);
-    assert(emptyRename.code == TextResultCode::InvalidTitle);
-    assert(findDocument(store, "text_1")->revision == revisionAfterReplace);
+    EDI_CHECK(!emptyRename.ok);
+    EDI_CHECK(emptyRename.code == TextResultCode::InvalidTitle);
+    EDI_CHECK(findDocument(store, "text_1")->revision == revisionAfterReplace);
 
     auto missingDoc = applyTextEditorCommand(store, InsertTextCommand{"missing", 0, "x"});
-    assert(!missingDoc.ok);
-    assert(missingDoc.code == TextResultCode::DocumentNotFound);
+    EDI_CHECK(!missingDoc.ok);
+    EDI_CHECK(missingDoc.code == TextResultCode::DocumentNotFound);
 
     auto erase = applyTextEditorCommand(store, DeleteTextRangeCommand{"text_1", {1, 5}});
-    assert(erase.ok);
-    assert(findDocument(store, "text_1")->text == "h");
+    EDI_CHECK(erase.ok);
+    EDI_CHECK(findDocument(store, "text_1")->text == "h");
 
     return 0;
 }

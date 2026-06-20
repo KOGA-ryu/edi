@@ -3,7 +3,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <limits>
 
 using namespace drawing_canvas;
@@ -38,9 +38,9 @@ QVariantMap gridModel(const QVariantMap &grid)
 int main()
 {
     const DrawingCanvasProjectedGrid missing = projectedGrid({});
-    assert(missing.lines.empty());
-    assert(!missing.drawableBounds.visible);
-    assert(!missing.origin.visible);
+    EDI_CHECK(missing.lines.empty());
+    EDI_CHECK(!missing.drawableBounds.visible);
+    EDI_CHECK(!missing.origin.visible);
 
     const DrawingCanvasProjectedGrid parsed = projectedGrid(gridModel(QVariantMap{
         {QStringLiteral("lines"), QVariantList{
@@ -67,28 +67,28 @@ int main()
         {QStringLiteral("drawable_bounds"), bounds(0.1, 0.2, 0.7, 0.6)},
         {QStringLiteral("origin"), point(0.5, 0.5)},
     }));
-    assert(parsed.lines.size() == 2);
-    assert(parsed.lines[0].axis == QStringLiteral("vertical"));
-    assert(parsed.lines[0].position == 0.25);
-    assert(parsed.lines[0].major);
-    assert(parsed.lines[1].axis == QStringLiteral("horizontal"));
-    assert(parsed.lines[1].position == 0.75);
-    assert(!parsed.lines[1].major);
-    assert(parsed.drawableBounds.visible);
-    assert(parsed.drawableBounds.x == 0.1);
-    assert(parsed.drawableBounds.y == 0.2);
-    assert(parsed.drawableBounds.width == 0.7);
-    assert(parsed.drawableBounds.height == 0.6);
-    assert(parsed.origin.visible);
-    assert(parsed.origin.x == 0.5);
-    assert(parsed.origin.y == 0.5);
+    EDI_CHECK(parsed.lines.size() == 2);
+    EDI_CHECK(parsed.lines[0].axis == QStringLiteral("vertical"));
+    EDI_CHECK(parsed.lines[0].position == 0.25);
+    EDI_CHECK(parsed.lines[0].major);
+    EDI_CHECK(parsed.lines[1].axis == QStringLiteral("horizontal"));
+    EDI_CHECK(parsed.lines[1].position == 0.75);
+    EDI_CHECK(!parsed.lines[1].major);
+    EDI_CHECK(parsed.drawableBounds.visible);
+    EDI_CHECK(parsed.drawableBounds.x == 0.1);
+    EDI_CHECK(parsed.drawableBounds.y == 0.2);
+    EDI_CHECK(parsed.drawableBounds.width == 0.7);
+    EDI_CHECK(parsed.drawableBounds.height == 0.6);
+    EDI_CHECK(parsed.origin.visible);
+    EDI_CHECK(parsed.origin.x == 0.5);
+    EDI_CHECK(parsed.origin.y == 0.5);
 
     const DrawingCanvasProjectedGrid badBounds = projectedGrid(gridModel(QVariantMap{
         {QStringLiteral("drawable_bounds"), bounds(0.1, 0.2, -0.7, 0.6)},
         {QStringLiteral("origin"), point(0.5, 0.5)},
     }));
-    assert(!badBounds.drawableBounds.visible);
-    assert(badBounds.origin.visible);
+    EDI_CHECK(!badBounds.drawableBounds.visible);
+    EDI_CHECK(badBounds.origin.visible);
 
     const DrawingCanvasProjectedGrid badOrigin = projectedGrid(gridModel(QVariantMap{
         {QStringLiteral("drawable_bounds"), bounds(0.1, 0.2, 0.7, 0.6)},
@@ -97,8 +97,8 @@ int main()
             {QStringLiteral("y"), QStringLiteral("bad")},
         }},
     }));
-    assert(badOrigin.drawableBounds.visible);
-    assert(!badOrigin.origin.visible);
+    EDI_CHECK(badOrigin.drawableBounds.visible);
+    EDI_CHECK(!badOrigin.origin.visible);
 
     return 0;
 }

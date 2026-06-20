@@ -6,10 +6,12 @@
 
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "app/AppState.h"
 #include "io/SettingsStore.h"
+#include "zoo/AssetZoo.h" // the live, window-held asset catalog (D08)
 #include "widgets/ShellHost.h"
 #include "widgets/ShellPanels.h"
 #include "widgets/ShellTheme.h"
@@ -141,6 +143,20 @@ public:
     bool loadSettings(const QString &path);
     bool saveSettings(const QString &path) const;
     QStringList recentFiles() const { return m_recentFiles; }
+
+    // The live asset zoo (D08): a window-held catalog the running shell carries
+    // so a feature (D07's controller validation) can resolve a drawing's neutral
+    // assetRefs against it. Plumbing only — NO visible chrome yet (a zoo browser
+    // panel is a separate look brief). The window does not own the zoo's content,
+    // it merely holds the loaded value; the controller stays independent of it.
+    const edi::zoo::AssetZoo &assetZoo() const { return m_assetZoo; }
+    void setAssetZoo(edi::zoo::AssetZoo zoo) { m_assetZoo = std::move(zoo); }
+    // Best-effort load mirroring loadSettings/loadWorkspaceLayout: decode the
+    // catalog at `path` and, on success, store it; a decode FAILURE leaves
+    // m_assetZoo EMPTY (never falls back to fixture data, which would pollute
+    // validation). Returns whether the load landed. main() passes
+    // edi::io::defaultAssetZooPath() at startup.
+    bool loadAssetZoo(const QString &path);
 
     // Panel system (spec §2): collapse, presets, and auto-hide all funnel
     // through the pure ShellPanels model; these are the window-side verbs.
@@ -412,6 +428,10 @@ private:
     std::function<DirtyGuardChoice()> m_dirtyGuardPrompt;
     std::function<QString()> m_saveAsPathProvider;
     std::function<void(const QString &path)> m_saveFailedNotice;
+    // The live asset zoo (D08): a value member, default-constructed EMPTY. Held
+    // here (not on the controller) so the catalog stays independent of the
+    // document — the controller pulls it in on demand for validation (D07).
+    edi::zoo::AssetZoo m_assetZoo;
     QString m_settingsPath;
     QString m_profilesDir;
     QString m_activeProfile;

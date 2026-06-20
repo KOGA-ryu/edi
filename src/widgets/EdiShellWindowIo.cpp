@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "core/DrawingCore.h"
@@ -43,6 +44,7 @@
 #include "recipe/RecipeOpsStore.h"
 #include "recipe/RecipeOpsValidate.h"
 #include "text/TextEditorCommands.h"
+#include "io/AssetZooStore.h"
 #include "io/ShellLayoutStore.h"
 #include "io/TextSessionStore.h"
 #include "widgets/DraftingFeature.h"
@@ -547,6 +549,22 @@ bool EdiShellWindow::loadSettings(const QString &path)
 bool EdiShellWindow::saveSettings(const QString &path) const
 {
     return edi::io::saveSettingsToPath(path, captureSettings());
+}
+
+bool EdiShellWindow::loadAssetZoo(const QString &path)
+{
+    // Best-effort, mirroring loadSettings: a decode FAILURE must not throw and
+    // must not leave a half-populated catalog. loadAssetZoo treats a MISSING
+    // file as an empty zoo (ok), so only a genuine decode error returns false —
+    // and on that path we deliberately leave m_assetZoo EMPTY rather than seed
+    // tester fixtures, so the controller validates against the user's real
+    // catalog (or nothing), never against fixture data.
+    edi::formats::FormatResult<edi::zoo::AssetZoo> result = edi::io::loadAssetZoo(path);
+    if (!result.ok || !result.value.has_value()) {
+        return false;
+    }
+    m_assetZoo = std::move(*result.value);
+    return true;
 }
 
 bool EdiShellWindow::loadWorkspaceLayout(const QString &path)

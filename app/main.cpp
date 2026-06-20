@@ -362,6 +362,12 @@ int main(int argc, char **argv)
     window.loadSettings(edi::io::defaultSettingsPath());
     window.loadWorkspaceLayout(edi::io::defaultWorkspaceLayoutPath());
     window.loadTextSession(edi::io::defaultTextSessionPath());
+    // D08: hold a LIVE asset zoo on the running shell. Best-effort, beside the
+    // other startup loads — a decode failure leaves the window's zoo EMPTY (the
+    // loader deliberately does NOT fall back to testerAssetCatalog(): that is
+    // fixture data and would pollute D07's controller validation). No visible
+    // chrome — this is plumbing for the on-demand asset-ref validation.
+    window.loadAssetZoo(edi::io::defaultAssetZooPath());
 
     // Feed the custom-craftsman registry before any workspace mounts: run
     // edi_craft.py --list-craftsmen under python and hand the window the TOML it

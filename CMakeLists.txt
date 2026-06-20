@@ -685,6 +685,8 @@ add_executable(edi_shell_window_tests
     src/io/ProfileStore.cpp
     src/io/ProcessRunStore.h
     src/io/ProcessRunStore.cpp
+    src/io/AssetZooStore.h
+    src/io/AssetZooStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
     src/io/TextSessionStore.h
@@ -753,6 +755,7 @@ target_link_libraries(edi_shell_window_tests PRIVATE
     edi_drafting_core
     edi_recipe_core
     edi_scripting_core
+    edi_zoo_core
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets

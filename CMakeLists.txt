@@ -599,6 +599,11 @@ if(Python3_FOUND)
     # bpy/OptiX render half needs a GPU and is exercised in Blender, not ctest.
     add_test(NAME edi_realize_smoke
              COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/edi_realize_smoke.py)
+    # The ART FORGE C0 pure tier: girih_tile's closed-form tile_polys + the
+    # byte-deterministic PIL bake. No Blender, no GPU — the bake is a pure
+    # function of the params (the REPRODUCIBLE gate). PIL is guarded inside.
+    add_test(NAME girih_tile_smoke
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/girih_tile_smoke.py)
 else()
     message(STATUS "edi_craft_dry_run_smoke skipped: python >= 3.11 not found")
 endif()

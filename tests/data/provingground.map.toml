@@ -1,0 +1,273 @@
+# Proving-ground — the "first-playable" NEUTRAL fixture map (Seam A → Seam B).
+#
+# A spawn → two-turn corridor → central junction → branch to a RED dead-end,
+# a gated KEY alcove (the gold key), an upper-right NPC room with a closed patrol
+# loop, and a far-right GOAL room behind a FINAL LOCKED door. ONE key (gold_key)
+# gates BOTH the goal door AND the goal-room chest.
+#
+# THE LAW: every field here is a RECORD or a NEUTRAL TAG — edi acts on none of it.
+# `locked`/`key_id` is a tag the engine reads; edi enforces no gate. A patrol is a
+# polyline edi records; edi does not step it. Distances are in FEET; the loader
+# scales feet → canvas. Coordinates: +x EAST, +y SOUTH (origin = a room's NW corner).
+#
+# --- NAMED DIMENSIONS (no magic dims; every dimension below is one of these) ---
+# These are the dimensional vocabulary the layout is built from. They are authored
+# DATA, not logic literals.
+#   corridor walkable width      = 4 ft   (a standard door/corridor opening)
+#   side-wall thickness          = 1 ft   (the room wall thickness, below)
+#   two-turn corridor y-offset   = 13 ft  (the spawn door vs junction door y gap:
+#                                          spawn.out sits at y = 44 + 7 = 51, the
+#                                          junction.to_spawn door at y = 36 + 2 = 38,
+#                                          so the vertical gap is 13 ft.)
+#                                          MUST be >= walkable width + side-wall
+#                                          thickness (4 + 1 = 5) so the corridor's
+#                                          Z reads as TWO distinct legs, not one.
+#                                          13 >= 5 — satisfied with headroom.
+
+map.name = "proving-ground"
+map.grid = "5"
+map.units = "ft"
+
+# ============================================================================
+# ROOMS  (five rooms + one central junction; non-overlapping footprints)
+# ============================================================================
+
+# --- SPAWN room — lower-LEFT — holds the spawn marker --------------------------
+map.room.0.name = "spawn"
+map.room.0.width = "16"
+map.room.0.height = "14"
+map.room.0.origin_x = "2"
+map.room.0.origin_y = "44"
+map.room.0.wall_thickness = "1"
+map.room.0.wall_material = "stone"
+# E plug feeds the two-turn corridor. Authored on the E edge; its `at` (offset from
+# the edge's start corner, i.e. NE going south) places it near the TOP of the wall.
+map.room.0.plug.0.edge = "E"
+map.room.0.plug.0.name = "out"
+map.room.0.plug.0.type = "door"
+map.room.0.plug.0.at = "7"
+# spawn marker at room centre (room-local feet, offset from NW origin)
+map.room.0.feature.0.type = "spawn"
+map.room.0.feature.0.id = "player_spawn"
+map.room.0.feature.0.x = "8"
+map.room.0.feature.0.y = "7"
+
+# --- DEAD-END room — upper-LEFT — tagged dead_end (the RED failure room) -------
+# ONE entrance, NO onward exit (the blocked-path test). Filled with rubble.
+map.room.1.name = "deadend"
+map.room.1.width = "14"
+map.room.1.height = "12"
+map.room.1.origin_x = "2"
+map.room.1.origin_y = "4"
+map.room.1.wall_thickness = "1"
+map.room.1.wall_material = "rubble"
+# the single entrance, on the E edge → the NW branch off the junction
+map.room.1.plug.0.edge = "E"
+map.room.1.plug.0.name = "in"
+map.room.1.plug.0.type = "door"
+map.room.1.plug.0.at = "center"
+# the room TAG that marks this the dead end (a neutral feature marker, id'd)
+map.room.1.feature.0.type = "dead_end"
+map.room.1.feature.0.id = "deadend_tag"
+map.room.1.feature.0.x = "7"
+map.room.1.feature.0.y = "6"
+
+# --- KEY alcove — CENTRE, small — holds the gold-key pickup --------------------
+# One gated (grille) entrance off the central junction.
+map.room.2.name = "alcove"
+map.room.2.width = "8"
+map.room.2.height = "8"
+map.room.2.origin_x = "36"
+map.room.2.origin_y = "20"
+map.room.2.wall_thickness = "1"
+map.room.2.wall_material = "stone"
+# the gated entrance on the S edge → up from the junction
+map.room.2.plug.0.edge = "S"
+map.room.2.plug.0.name = "gate"
+map.room.2.plug.0.type = "portcullis"
+map.room.2.plug.0.at = "center"
+# the PICKUP — id "gold_key" is the key the locked door + chest both require
+map.room.2.feature.0.type = "pickup"
+map.room.2.feature.0.id = "gold_key"
+map.room.2.feature.0.x = "4"
+map.room.2.feature.0.y = "4"
+
+# --- NPC room — upper-RIGHT — holds the npc marker + a patrol loop -------------
+map.room.3.name = "npc"
+map.room.3.width = "18"
+map.room.3.height = "16"
+map.room.3.origin_x = "60"
+map.room.3.origin_y = "4"
+map.room.3.wall_thickness = "1"
+map.room.3.wall_material = "stone"
+# a door on the S edge → down toward the goal/junction side
+map.room.3.plug.0.edge = "S"
+map.room.3.plug.0.name = "down"
+map.room.3.plug.0.type = "door"
+map.room.3.plug.0.at = "center"
+# the NPC marker at room centre; metadata patrol=<id> references the loop below
+map.room.3.feature.0.type = "npc"
+map.room.3.feature.0.id = "guard"
+map.room.3.feature.0.x = "9"
+map.room.3.feature.0.y = "8"
+map.room.3.feature.0.meta.0.key = "patrol"
+map.room.3.feature.0.meta.0.value = "guard_loop"
+
+# --- GOAL room — lower-RIGHT — holds the goal marker AND a locked chest --------
+map.room.4.name = "goal"
+map.room.4.width = "18"
+map.room.4.height = "14"
+map.room.4.origin_x = "58"
+map.room.4.origin_y = "44"
+map.room.4.wall_thickness = "1"
+map.room.4.wall_material = "stone"
+# the FINAL door on the N edge → the connection into here is `locked` (gold_key)
+map.room.4.plug.0.edge = "N"
+map.room.4.plug.0.name = "entry"
+map.room.4.plug.0.type = "door"
+map.room.4.plug.0.at = "center"
+# the GOAL marker (the green tile)
+map.room.4.feature.0.type = "goal"
+map.room.4.feature.0.id = "exit_goal"
+map.room.4.feature.0.x = "5"
+map.room.4.feature.0.y = "7"
+# the CHEST — a locked interactable; its lock rides metadata key_id=gold_key
+map.room.4.feature.1.type = "chest"
+map.room.4.feature.1.id = "treasure"
+map.room.4.feature.1.x = "13"
+map.room.4.feature.1.y = "7"
+map.room.4.feature.1.meta.0.key = "locked"
+map.room.4.feature.1.meta.0.value = "true"
+map.room.4.feature.1.meta.1.key = "key_id"
+map.room.4.feature.1.meta.1.value = "gold_key"
+
+# --- JUNCTION — the central hub (a room with five plugs) -----------------------
+# Its W plug faces the spawn E plug across the two-turn corridor at a DIFFERENT y
+# (the named 13 ft offset → the Z reads as two legs). Two N plugs go up to the
+# dead-end and the gated alcove, the E plug feeds the NPC room, the S plug the goal.
+# Branching is DATA: a 5-plug room with five independent 2-plug connections.
+map.room.5.name = "junction"
+map.room.5.width = "8"
+map.room.5.height = "8"
+map.room.5.origin_x = "30"
+map.room.5.origin_y = "36"
+map.room.5.wall_thickness = "1"
+map.room.5.wall_material = "stone"
+# W plug — faces spawn.out, but at y = 36 + 1 = 37 vs spawn.out at y = 44 + 7 = 51:
+# the 12 ft (37→51 is 14, >= named 12) vertical gap forces the two-turn Z.
+map.room.5.plug.0.edge = "W"
+map.room.5.plug.0.name = "to_spawn"
+map.room.5.plug.0.type = "door"
+# at=2: the opening (centre 2, width = derived corridor width ~2.67 ft) must stay
+# clear of the corner — half the corridor width (~1.33 ft) is the minimum offset.
+map.room.5.plug.0.at = "2"
+# N plug — branch up to the dead-end (the blocked-path branch is just a 3rd plug)
+map.room.5.plug.1.edge = "N"
+map.room.5.plug.1.name = "to_deadend"
+map.room.5.plug.1.type = "door"
+map.room.5.plug.1.at = "2"
+# another N-ish plug for the alcove gate (distinct offset along the N edge)
+map.room.5.plug.2.edge = "N"
+map.room.5.plug.2.name = "to_alcove"
+map.room.5.plug.2.type = "portcullis"
+map.room.5.plug.2.at = "6"
+# E plug — toward the NPC room
+map.room.5.plug.3.edge = "E"
+map.room.5.plug.3.name = "to_npc"
+map.room.5.plug.3.type = "door"
+map.room.5.plug.3.at = "2"
+# S plug — toward the goal room
+map.room.5.plug.4.edge = "S"
+map.room.5.plug.4.name = "to_goal"
+map.room.5.plug.4.type = "door"
+map.room.5.plug.4.at = "4"
+
+# ============================================================================
+# CONNECTIONS  (doors; "room.plug" both ends)
+# ============================================================================
+
+# the TWO-TURN corridor: spawn.out (E, y=51) <-> junction.to_spawn (W, y=37).
+map.connection.0.from = "spawn.out"
+map.connection.0.to = "junction.to_spawn"
+map.connection.0.type = "corridor"
+
+# the NW branch to the dead-end (blocked path)
+map.connection.1.from = "junction.to_deadend"
+map.connection.1.to = "deadend.in"
+map.connection.1.type = "corridor"
+
+# the gated alcove entrance
+map.connection.2.from = "junction.to_alcove"
+map.connection.2.to = "alcove.gate"
+map.connection.2.type = "passage"
+
+# up to the NPC room
+map.connection.3.from = "junction.to_npc"
+map.connection.3.to = "npc.down"
+map.connection.3.type = "corridor"
+
+# the FINAL door into the GOAL room — LOCKED, opened by gold_key (the lock TAG).
+map.connection.4.from = "junction.to_goal"
+map.connection.4.to = "goal.entry"
+map.connection.4.type = "corridor"
+map.connection.4.locked = "true"
+map.connection.4.key_id = "gold_key"
+
+# ============================================================================
+# PATROL  (one closed loop around the NPC-room centre; ~4 waypoints)
+# ============================================================================
+# Referenced by the npc marker's metadata patrol=guard_loop. ABSOLUTE authored
+# feet. closed=true ⇒ LOOP, first point NOT repeated (the engine closes it).
+map.patrol.0.id = "guard_loop"
+map.patrol.0.closed = "true"
+map.patrol.0.point.0.x = "64"
+map.patrol.0.point.0.y = "8"
+map.patrol.0.point.1.x = "74"
+map.patrol.0.point.1.y = "8"
+map.patrol.0.point.2.x = "74"
+map.patrol.0.point.2.y = "16"
+map.patrol.0.point.3.x = "64"
+map.patrol.0.point.3.y = "16"
+
+# ============================================================================
+# PROPS  (neutral asset_ref placements; the realizer owns the meshes)
+# ============================================================================
+# ABSOLUTE authored feet. crates · barrels · torches (+ rubble in the dead-end).
+
+# spawn room: a torch + barrels + a crate
+map.block.0.asset_ref = "dungeon.torch"
+map.block.0.x = "3"
+map.block.0.y = "45"
+map.block.1.asset_ref = "dungeon.barrel"
+map.block.1.x = "16"
+map.block.1.y = "55"
+map.block.2.asset_ref = "dungeon.crate"
+map.block.2.x = "4"
+map.block.2.y = "56"
+
+# dead-end room: rubble piles (the red failure room)
+map.block.3.asset_ref = "dungeon.rubble"
+map.block.3.x = "6"
+map.block.3.y = "8"
+map.block.4.asset_ref = "dungeon.rubble"
+map.block.4.x = "12"
+map.block.4.y = "12"
+
+# npc room: barrels + a torch
+map.block.5.asset_ref = "dungeon.barrel"
+map.block.5.x = "62"
+map.block.5.y = "6"
+map.block.6.asset_ref = "dungeon.torch"
+map.block.6.x = "77"
+map.block.6.y = "5"
+
+# goal room: barrels + crates + a torch
+map.block.7.asset_ref = "dungeon.barrel"
+map.block.7.x = "60"
+map.block.7.y = "55"
+map.block.8.asset_ref = "dungeon.crate"
+map.block.8.x = "74"
+map.block.8.y = "55"
+map.block.9.asset_ref = "dungeon.torch"
+map.block.9.x = "59"
+map.block.9.y = "45"

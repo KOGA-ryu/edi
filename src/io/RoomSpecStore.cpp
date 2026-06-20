@@ -19,6 +19,7 @@ using edi::drafting::MapConnectionSpec;
 using edi::drafting::MapPlugRef;
 using edi::drafting::MapSpec;
 using edi::drafting::NamedRoomSpec;
+using edi::drafting::Point2D;
 using edi::drafting::RoomConnectionSpec;
 using edi::drafting::RoomEdge;
 using edi::drafting::RoomFeature;
@@ -230,7 +231,89 @@ bool parseRoomFeatures(const StaticConfig &config, const std::string &prefix, Ro
         feature.y = configDouble(config, key + ".y", 0.0);    // (room-local offset from origin)
         feature.type = configString(config, key + ".type", "");
         feature.name = configString(config, key + ".name", "");
+        // NEUTRAL identity + free-form bag — the engine reads these; edi only records.
+        // `id` defaults "" (most features are anonymous decor); a pickup/npc/chest gives
+        // one so a door's key_id / an npc's patrol can cross-reference it.
+        feature.id = configString(config, key + ".id", "");
+        // metadata is its OWN contiguous indexed sublist, keyed by `.key` (the
+        // discriminator): feature.<i>.meta.<j>.{key,value}, read until the first
+        // absent `.key`. Same op-stream dialect as openings/plugs, nested one level.
+        for (int j = 0;; ++j) {
+            const std::string mkey = key + ".meta." + std::to_string(j);
+            if (!hasKey(config, mkey + ".key")) {
+                break;
+            }
+            feature.metadata.emplace_back(configString(config, mkey + ".key", ""),
+                                          configString(config, mkey + ".value", ""));
+        }
         spec.features.push_back(feature);
+    }
+    return true;
+}
+
+// Patrol paths authored at MAP level: map.patrol.<i>.{id, closed, point.<j>.{x,y}}.
+// Discriminator is `.id` (every patrol needs one — an npc references it by id).
+// Waypoints are a nested contiguous sublist read until the first absent `.x`, and
+// — unlike features — they ARE scaled authored-feet -> canvas here, matching how
+// room/connection/plug coords are stored (the rest of MapSpec is already-scaled).
+// `closed` defaults "true" (a patrol is a loop unless told otherwise).
+bool parseMapPatrols(const StaticConfig &config, double canvasPerUnit, MapSpec &map,
+                     std::string &message)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = "map.patrol." + std::to_string(i);
+        if (!hasKey(config, key + ".id")) {
+            break;
+        }
+        edi::drafting::MapPatrolPath patrol;
+        patrol.id = configString(config, key + ".id", "");
+        if (patrol.id.empty()) {
+            message = key + ".id is required";
+            return false;
+        }
+        // "true"/anything-else: only an explicit "false" opens the loop. The engine
+        // owns the meaning; edi just records the flag.
+        patrol.closed = configString(config, key + ".closed", "true") != "false";
+        for (int j = 0;; ++j) {
+            const std::string pkey = key + ".point." + std::to_string(j);
+            if (!hasKey(config, pkey + ".x")) {
+                break;
+            }
+            patrol.waypoints.push_back(Point2D{
+                configDouble(config, pkey + ".x", 0.0) * canvasPerUnit,
+                configDouble(config, pkey + ".y", 0.0) * canvasPerUnit});
+        }
+        if (patrol.waypoints.size() < 2) {
+            message = key + " needs at least two points";
+            return false;
+        }
+        map.patrols.push_back(std::move(patrol));
+    }
+    return true;
+}
+
+// MapSpec-level prop instances: map.block.<i>.{asset_ref, x, y, rotation, scale, name}.
+// Discriminator is `.asset_ref`. CRITICAL coordinate-frame note: MapBlockSpec.position
+// is documented as ABSOLUTE AUTHORED FEET — createMapFromSpec multiplies it by
+// canvasPerAuthoredUnit when it mints the marker. So we DELIBERATELY do NOT scale here
+// (scaling would double-apply). This mirrors RoomFeature: both stay in authored feet,
+// with the controller owning the authored->canvas scale. rotation/scale are identity
+// defaults (0/1).
+bool parseMapBlocks(const StaticConfig &config, MapSpec &map)
+{
+    for (int i = 0;; ++i) {
+        const std::string key = "map.block." + std::to_string(i);
+        if (!hasKey(config, key + ".asset_ref")) {
+            break;
+        }
+        edi::drafting::MapBlockSpec block;
+        block.assetRef = configString(config, key + ".asset_ref", "");
+        block.position = Point2D{configDouble(config, key + ".x", 0.0),   // authored feet, NOT scaled
+                                 configDouble(config, key + ".y", 0.0)};
+        block.rotationDeg = configDouble(config, key + ".rotation", 0.0);
+        block.scale = configDouble(config, key + ".scale", 1.0);
+        block.name = configString(config, key + ".name", "");
+        map.blocks.push_back(std::move(block));
     }
     return true;
 }
@@ -429,7 +512,78 @@ MapSpecParseResult parseMapSpecToml(const std::string &text, double canvasPerUni
         connection.from = MapPlugRef{from->first, from->second};
         connection.to = MapPlugRef{to->first, to->second};
         connection.type = configString(config, prefix + ".type", "");
+        // NEUTRAL engine tags (M1): lock STATE + which key. `locked` defaults "false";
+        // only an explicit "true" sets it. edi records; the engine owns the gate rule.
+        connection.locked = configString(config, prefix + ".locked", "false") == "true";
+        connection.keyId = configString(config, prefix + ".key_id", "");
         map.connections.push_back(connection);
+    }
+
+    // Patrol paths + prop blocks at MAP level (after rooms/connections so the
+    // referential checks below can see everything they reference).
+    if (!parseMapPatrols(config, canvasPerUnit, map, out.message)) {
+        return out;
+    }
+    if (!parseMapBlocks(config, map)) {
+        return out;
+    }
+
+    // --- Referential integrity of AUTHORED IDS (guardrail #4) -----------------
+    // This is NOT a lock rule — edi enforces NO gate. It is the same loud
+    // dangling-ref rejection the room/plug resolution above does: an authored id
+    // that points at nothing is an authoring MISTAKE, caught in the pure parser
+    // before any geometry exists. The engine still owns all behaviour.
+    //
+    // Collect every marker id (feature.id), index features by id, and collect the
+    // set of patrol ids. Reject: duplicate marker ids, duplicate patrol ids, an npc
+    // marker whose metadata patrol=<id> names no patrol, and a connection/marker
+    // key_id with no matching pickup id.
+    std::set<std::string> markerIds;          // every non-empty feature.id, for uniqueness
+    std::set<std::string> pickupIds;          // ids that a key_id may match (any marker's id)
+    std::vector<std::pair<std::string, std::string>> patrolRefs; // (roomName, patrol id) to check
+    std::vector<std::pair<std::string, std::string>> keyRefs;    // (where, key_id) to check
+    for (const auto &room : map.rooms) {
+        for (const auto &feature : room.spec.features) {
+            if (!feature.id.empty()) {
+                if (!markerIds.insert(feature.id).second) {
+                    out.message = "marker id '" + feature.id + "' is duplicated (marker ids must be unique)";
+                    return out;
+                }
+                pickupIds.insert(feature.id); // any marker's id may be a key target
+            }
+            for (const auto &kv : feature.metadata) {
+                if (kv.first == "patrol") {
+                    patrolRefs.emplace_back(room.name, kv.second);
+                } else if (kv.first == "key_id") {
+                    keyRefs.emplace_back("marker '" + room.name + "'", kv.second);
+                }
+            }
+        }
+    }
+    std::set<std::string> patrolIds;
+    for (const auto &patrol : map.patrols) {
+        if (!patrolIds.insert(patrol.id).second) {
+            out.message = "patrol id '" + patrol.id + "' is duplicated (patrol ids must be unique)";
+            return out;
+        }
+    }
+    for (const auto &connection : map.connections) {
+        if (!connection.keyId.empty()) {
+            keyRefs.emplace_back("connection '" + connection.from.roomName + "." + connection.from.plugName + "'",
+                                 connection.keyId);
+        }
+    }
+    for (const auto &ref : patrolRefs) {
+        if (patrolIds.find(ref.second) == patrolIds.end()) {
+            out.message = "npc in room '" + ref.first + "' references unknown patrol '" + ref.second + "'";
+            return out;
+        }
+    }
+    for (const auto &ref : keyRefs) {
+        if (pickupIds.find(ref.second) == pickupIds.end()) {
+            out.message = ref.first + " references key_id '" + ref.second + "' with no matching pickup id";
+            return out;
+        }
     }
 
     out.ok = true;

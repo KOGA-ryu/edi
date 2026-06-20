@@ -128,7 +128,7 @@ what fills it (real asset ids) waits on P2's Blender lab.
 **P6 · Stubs & remaining modes (clean up or formally retire)**
 
 - Real `WorkspaceLayout`s for Text / Project / Planning. Implement or retire
-  `DrawingRecentFilesStore` + `DrawingRuntimeCore` stubs. Asset-taxonomy browser feature
+  the `DrawingRuntimeCore` stub. Asset-taxonomy browser feature
   (the shared library both the lab and the block palette read). Game-engine preview
   feature (depends on the map workspace + Seam C blocks).
 
@@ -157,7 +157,6 @@ what fills it (real asset ids) waits on P2's Blender lab.
 | block-library | Block palette tagging/taxonomy + visual polish (user owns the look) |
 | export | Export options UI (page size, resolution, coordinate system) |
 | performance | Canvas perf — full scene rebuild per paint; no culling/LOD (fine ≤~200 objects) |
-| stub | `DrawingRecentFilesStore` — load returns empty, never persists |
 | stub | `DrawingRuntimeCore` — header-only stub, empty `.cpp` |
 
 ---

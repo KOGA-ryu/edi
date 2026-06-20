@@ -317,7 +317,7 @@ restarts. (Theme/panel-layout settings wait until those UIs exist.)
 **Read first:** `src/formats/TomlReader.h` (`StaticConfig =
 std::map<std::string,std::string>` — flat string map; reader/writer exist and
 are tested), controller settings members (`m_gridSettings`, `m_snapSettings`,
-`m_plotSettings`), `DrawingRecentFilesStore` stub.
+`m_plotSettings`).
 
 **Design:**
 - `src/io/SettingsStore.{h,cpp}`: load/save a `StaticConfig` at

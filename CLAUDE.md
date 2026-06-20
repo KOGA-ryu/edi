@@ -44,8 +44,10 @@ Qt6/C++20 2D drafting (CAD) application. CMake build, widget-based UI — delibe
   decisions (2026-06-10): **TOML** for configurable settings, **MessagePack**
   for document data (the real value codec + `EDIM` envelope live in
   `src/formats/MessagePackValue.*` and `src/drafting/DraftingSerialize.*`),
-  **TOON** for AI handoffs. Never JSON. (`DrawingRecentFilesStore`,
-  `ShellLayoutStore`, `TextEditorStore` remain stubs.)
+  **TOON** for AI handoffs. Never JSON. (The dead QML-era
+  `DrawingRecentFilesStore` stub was removed in the D06 cleanup; recent-files
+  state lives in `SettingsStore`, workspace layout in the live `ShellLayoutStore`
+  (TOML), and text in `src/text/TextDocumentStore`.)
 - `tests/` — one focused test file per ops slice, registered in `CMakeLists.txt`.
 
 ## Build & verify

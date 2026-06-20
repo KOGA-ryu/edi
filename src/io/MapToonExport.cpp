@@ -37,7 +37,9 @@
 namespace edi::io {
 namespace {
 
+using edi::drafting::MapConnectionSpec;
 using edi::drafting::MapSpec;
+using edi::drafting::NamedRoomSpec;
 using edi::drafting::RoomEdge;
 
 // Minimal numeric form: "%g" prints 21, 47.5, 6 — never 21.000000 — matching how
@@ -257,13 +259,84 @@ std::string exportMapToToon(const MapSpec &spec, const std::string &title, const
     }
     out << "\n";
 
-    out << "connections[" << spec.connections.size() << "]{from,to,type}:\n";
+    // Connections — the lock columns (locked,key_id) are CONDITIONAL (invariant b):
+    // appended ONLY when at least one connection carries a lock tag. Pre-scan once so
+    // the header and every row stay consistent (a fixed-width table: once the columns
+    // are "on", every row emits them, including the unlocked rows). When NO connection
+    // is locked the header is byte-identical to the legacy {from,to,type} — that is
+    // the conditional-absence proof the reference golden pins.
+    const bool hasLock = std::any_of(spec.connections.begin(), spec.connections.end(),
+        [](const edi::drafting::MapConnectionSpec &c) { return c.locked || !c.keyId.empty(); });
+    out << "connections[" << spec.connections.size() << "]{from,to,type";
+    if (hasLock) out << ",locked,key_id";
+    out << "}:\n";
     for (const auto &connection : spec.connections) {
-        writeConnectionRow(out,
-                           plugKey(connection.from.roomName, connection.from.plugName),
-                           plugKey(connection.to.roomName, connection.to.plugName),
-                           connection.type);
+        out << "  " << cell(plugKey(connection.from.roomName, connection.from.plugName))
+            << "," << cell(plugKey(connection.to.roomName, connection.to.plugName))
+            << "," << cell(connection.type);
+        if (hasLock) {
+            out << "," << (connection.locked ? "true" : "false")
+                << "," << cell(connection.keyId); // empty -> "" via cell()
+        }
+        out << "\n";
     }
+
+    // markers[] section — the neutral entity layer (spawn/pickup/npc/goal/chest/…).
+    // CONDITIONAL (invariant b): emitted only when SOME room has a feature; an
+    // entity-less map (every existing fixture) stays byte-identical. Columns:
+    // {room,id,role,x,y,meta}. `role` is the feature's neutral `type`; `x,y` are the
+    // ROOM-LOCAL authored-feet offset (the same frame the parser stored — features are
+    // not canvas-scaled); `meta` is the metadata projected as ONE `·`-joined run of
+    // `key=value` (reusing the middle-dot separator the flags/bounded_by columns use,
+    // so the engine splits on the dot then on the first '='). The x,y cell carries a
+    // comma so cell() quotes it; the meta run has no comma (key=value pairs joined by
+    // the dot) so it stays bare unless empty.
+    const bool hasMarkers = std::any_of(spec.rooms.begin(), spec.rooms.end(),
+        [](const edi::drafting::NamedRoomSpec &r) { return !r.spec.features.empty(); });
+    if (hasMarkers) {
+        std::size_t markerCount = 0;
+        for (const auto &room : spec.rooms) markerCount += room.spec.features.size();
+        out << "\n";
+        out << "markers[" << markerCount << "]{room,id,role,x,y,meta}:\n";
+        for (const auto &room : spec.rooms) {
+            for (const auto &feature : room.spec.features) {
+                std::string metaRun;
+                for (std::size_t i = 0; i < feature.metadata.size(); ++i) {
+                    if (i != 0) metaRun += "·"; // U+00B7 MIDDLE DOT
+                    metaRun += feature.metadata[i].first + "=" + feature.metadata[i].second;
+                }
+                out << "  " << cell(room.name)
+                    << "," << cell(feature.id)        // empty -> "" via cell()
+                    << "," << cell(feature.type)      // the role
+                    << "," << cell(num(feature.x) + "," + num(feature.y)) // room-local feet, quoted
+                    << "," << cell(metaRun)
+                    << "\n";
+            }
+        }
+    }
+
+    // patrols[] section — neutral patrol paths. CONDITIONAL: emitted only when
+    // spec.patrols is non-empty. Columns: {id,closed,points}. `points` is a single
+    // `·`-joined run of `x,y` pairs (each pair has a comma, so the WHOLE run carries
+    // commas ⇒ cell() quotes it). closed is the literal true/false. The waypoints are
+    // in CANVAS units as stored; the MapSpec overload emits authored numbers directly
+    // (canvasPerUnit=1.0 on this path), matching how rooms emit their coords here.
+    if (!spec.patrols.empty()) {
+        out << "\n";
+        out << "patrols[" << spec.patrols.size() << "]{id,closed,points}:\n";
+        for (const auto &patrol : spec.patrols) {
+            std::string pts;
+            for (std::size_t i = 0; i < patrol.waypoints.size(); ++i) {
+                if (i != 0) pts += "·"; // U+00B7 MIDDLE DOT between waypoints
+                pts += num(patrol.waypoints[i].x) + "," + num(patrol.waypoints[i].y);
+            }
+            out << "  " << cell(patrol.id)
+                << "," << (patrol.closed ? "true" : "false")
+                << "," << cell(pts) // quoted: the x,y pairs carry commas
+                << "\n";
+        }
+    }
+
     return out.str();
 }
 

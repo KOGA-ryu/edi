@@ -172,6 +172,23 @@ void writeConnectionRow(std::ostringstream &out, const std::string &from,
         << "\n";
 }
 
+// Like writeConnectionRow but with the NEUTRAL lock TAG columns (locked,key_id)
+// APPENDED LAST. Called only when at least one connection in the document carries
+// a lock (conditional-emission rule, invariant b) — so an unlocked map stays
+// byte-identical to the legacy {from,to,type}. Mirrors the Seam B emission shape
+// exactly: `locked` as bare true/false, `key_id` via cell() (empty -> "").
+void writeConnectionRowWithLock(std::ostringstream &out, const std::string &from,
+                                const std::string &to, const std::string &type,
+                                bool locked, const std::string &keyId)
+{
+    out << "  " << cell(from)
+        << "," << cell(to)
+        << "," << cell(type)
+        << "," << (locked ? "true" : "false")
+        << "," << cell(keyId) // empty -> "" via cell()
+        << "\n";
+}
+
 // Like writeRoomRow but with a `level` integer column APPENDED LAST.
 // Called only when at least one room has level != 0 (conditional-emission rule,
 // invariant b). Level is a plain integer — never contains a comma or quote, so
@@ -477,10 +494,25 @@ std::string exportMapToToon(const edi::drafting::DraftingDocument &document,
         }
         return id; // fall back to the raw id if unresolved
     };
-    out << "connections[" << document.connections.size() << "]{from,to,type}:\n";
+    // Lock columns (locked,key_id) are CONDITIONAL (invariant b), mirroring the Seam B
+    // overload: appended ONLY when at least one connection carries a lock tag. Pre-scan
+    // once so header and rows stay consistent. When NO connection is locked the header
+    // is byte-identical to the legacy {from,to,type} — the conditional-absence the new
+    // reference Seam C golden pins. (Pure emit of a NEUTRAL tag — no rule interpreted.)
+    const bool hasLock = std::any_of(document.connections.begin(), document.connections.end(),
+        [](const edi::drafting::DraftingDeclaredConnection &c) { return c.locked || !c.keyId.empty(); });
+    out << "connections[" << document.connections.size() << "]{from,to,type";
+    if (hasLock) out << ",locked,key_id";
+    out << "}:\n";
     for (const auto &connection : document.connections) {
-        writeConnectionRow(out, plugNameById(connection.plugA),
-                           plugNameById(connection.plugB), connection.type);
+        if (hasLock) {
+            writeConnectionRowWithLock(out, plugNameById(connection.plugA),
+                                       plugNameById(connection.plugB), connection.type,
+                                       connection.locked, connection.keyId);
+        } else {
+            writeConnectionRow(out, plugNameById(connection.plugA),
+                               plugNameById(connection.plugB), connection.type);
+        }
     }
     out << "\n";
 

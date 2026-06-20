@@ -240,6 +240,38 @@ target_include_directories(edi_asset_link PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src
 # catalog. It links BOTH; neither core links the other.
 target_link_libraries(edi_asset_link PUBLIC edi_drafting_core edi_zoo_core)
 
+# The Qt-thin document orchestration layer. Before this, the 4567-line
+# DrawingDocumentController.cpp (plus the empty namespace-shell siblings and the
+# DrawingDocumentStore it holds as a member) were listed as RAW SOURCES in eight
+# separate targets, so the same translation units were recompiled eight times.
+# Factoring them into ONE static library means they compile ONCE and the eight
+# consumers LINK the resulting object code. This is behavior-preserving: the same
+# TUs are compiled with the same include path and the same dependency set
+# (edi_drafting_core, which carries edi_format_core transitively) — only the build
+# graph changes, not the emitted symbols. The empty shells are kept in the library
+# (rather than deleted) so the linked object set stays byte-identical to what the
+# shell linked before — deleting them is a separate, out-of-scope change.
+add_library(edi_controller_core STATIC
+    src/core/DrawingCore.h
+    src/core/DrawingCoreInternal.h
+    src/core/DrawingObjectModel.h
+    src/core/DrawingObjectModel.cpp
+    src/core/DrawingCore.cpp
+    src/core/DrawingCoreCommon.cpp
+    src/core/DrawingDocumentController.cpp
+    src/core/DrawingDocumentProjection.h
+    src/core/DrawingDocumentProjection.cpp
+    src/core/DrawingGeometry.cpp
+    src/core/DrawingObjectOps.cpp
+    src/core/DrawingCommands.cpp
+    src/core/DrawingModelBuilder.cpp
+    src/core/DrawingSvgExport.cpp
+    src/io/DrawingDocumentStore.h
+    src/io/DrawingDocumentStore.cpp
+)
+target_include_directories(edi_controller_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(edi_controller_core PUBLIC edi_drafting_core Qt6::Core)
+
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h
     src/recipe/RecipeMeasure.cpp
@@ -462,12 +494,6 @@ target_compile_definitions(map_provingground_manifest_tests PRIVATE
 # the new CryptGenerator module.  Uses QCoreApplication for the controller.
 add_executable(crypt_generator_tests
     tests/crypt_generator_tests.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
     src/io/CryptGenerator.h
@@ -477,6 +503,7 @@ target_include_directories(crypt_generator_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(crypt_generator_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     Qt6::Core
 )
@@ -490,12 +517,6 @@ add_test(NAME crypt_generator_tests COMMAND crypt_generator_tests)
 # EDI_TESTS_DATA_DIR points to tests/data/ so the test locates dungeon.map.toml.
 add_executable(map_regression_lock_tests
     tests/map_regression_lock_tests.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
     src/io/RoomSpecStore.h
@@ -508,6 +529,7 @@ target_compile_definitions(map_regression_lock_tests PRIVATE
     EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
 )
 target_link_libraries(map_regression_lock_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     edi_format_core
     Qt6::Core
@@ -522,12 +544,6 @@ add_test(NAME map_regression_lock_tests COMMAND map_regression_lock_tests)
 # canary cannot catch.  Uses the same source set as map_regression_lock_tests.
 add_executable(map_determinism_tests
     tests/map_determinism_tests.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
     src/io/RoomSpecStore.h
@@ -540,6 +556,7 @@ target_compile_definitions(map_determinism_tests PRIVATE
     EDI_TESTS_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
 )
 target_link_libraries(map_determinism_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     edi_format_core
     Qt6::Core
@@ -552,12 +569,6 @@ add_test(NAME map_determinism_tests COMMAND map_determinism_tests)
 # on interactive moves of a plug-anchored marker object.
 add_executable(drafting_graph_sync_tests
     tests/drafting_graph_sync_tests.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/MapToonExport.h
     src/io/MapToonExport.cpp
     src/io/CryptGenerator.h
@@ -567,6 +578,7 @@ target_include_directories(drafting_graph_sync_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(drafting_graph_sync_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     Qt6::Core
 )
@@ -654,17 +666,12 @@ add_test(
 
 add_executable(drawing_document_controller_tests
     tests/drawing_document_controller_tests.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
 )
 target_include_directories(drawing_document_controller_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(drawing_document_controller_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     Qt6::Core
 )
@@ -676,12 +683,6 @@ add_executable(edi_shell_window_tests
     src/io/ShellLayoutStore.cpp
     src/io/ProfileStore.h
     src/io/ProfileStore.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/ProcessRunStore.h
     src/io/ProcessRunStore.cpp
     src/io/SettingsStore.h
@@ -747,6 +748,7 @@ target_include_directories(edi_shell_window_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(edi_shell_window_tests PRIVATE
+    edi_controller_core
     edi_app_core
     edi_drafting_core
     edi_recipe_core
@@ -762,12 +764,6 @@ add_executable(drawing_canvas_widget_tests
     tests/drawing_canvas_widget_tests.cpp
     src/widgets/ShellTheme.h
     src/widgets/ShellTheme.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/widgets/DrawingCanvasWidget.h
     src/widgets/DrawingCanvasWidget.cpp
     src/widgets/DrawingCanvasPalette.h
@@ -802,6 +798,7 @@ target_include_directories(drawing_canvas_widget_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 target_link_libraries(drawing_canvas_widget_tests PRIVATE
+    edi_controller_core
     edi_drafting_core
     Qt6::Core
     Qt6::Gui
@@ -811,22 +808,6 @@ add_test(NAME drawing_canvas_widget_tests COMMAND drawing_canvas_widget_tests)
 
 add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     app/main.cpp
-    src/core/DrawingCore.h
-    src/core/DrawingCoreInternal.h
-    src/core/DrawingObjectModel.h
-    src/core/DrawingObjectModel.cpp
-    src/core/DrawingCore.cpp
-    src/core/DrawingCoreCommon.cpp
-    src/core/DrawingDocumentController.cpp
-    src/core/DrawingDocumentProjection.h
-    src/core/DrawingDocumentProjection.cpp
-    src/core/DrawingGeometry.cpp
-    src/core/DrawingObjectOps.cpp
-    src/core/DrawingCommands.cpp
-    src/core/DrawingModelBuilder.cpp
-    src/core/DrawingSvgExport.cpp
-    src/io/DrawingDocumentStore.h
-    src/io/DrawingDocumentStore.cpp
     src/io/ProcessRunStore.h
     src/io/ProcessRunStore.cpp
     src/io/RoomSpecStore.h
@@ -912,6 +893,7 @@ target_compile_definitions(${DRAFTSMAN_SHELL_TARGET_NAME} PRIVATE
 target_link_libraries(${DRAFTSMAN_SHELL_TARGET_NAME}
     PRIVATE
         drawing_runtime_core
+        edi_controller_core
         edi_app_core
         edi_drafting_core
         edi_recipe_core

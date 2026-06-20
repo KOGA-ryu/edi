@@ -179,5 +179,37 @@ int main(int argc, char **argv)
     // create a geometry object → not behavior-preserving → halt and report.
     assert(objCount == 170);
 
+    // -------------------------------------------------------------------------
+    // Step 4 (D15-A3) — the lock TAG survives author -> createMapFromSpec ->
+    // document.  Before D15 the document twin DraftingDeclaredConnection had no
+    // locked/keyId, so createMapFromSpec copied only `type` and the lock was
+    // dropped silently.  Mark one authored connection locked, re-materialize,
+    // and assert the document connection now carries it.  (Neutral tag copy —
+    // edi never branches on it; the engine owns the rule past Seam B.)
+    // -------------------------------------------------------------------------
+    {
+        edi::drafting::MapSpec lockedSpec = parsed.spec;
+        assert(!lockedSpec.connections.empty());
+        lockedSpec.connections[0].locked = true;
+        lockedSpec.connections[0].keyId = "gold_key";
+
+        DrawingDocumentController lockedController;
+        assert(lockedController.createMapFromSpec(lockedSpec, 1.0));
+
+        const auto &docConns = lockedController.draftingDocument().connections;
+        // Exactly one connection carries the lock (the one we marked); the rest stay
+        // neutral-default.  Order-independent: count by predicate, not by index.
+        std::size_t lockedCount = 0;
+        for (const auto &c : docConns) {
+            if (c.locked) {
+                ++lockedCount;
+                assert(c.keyId == "gold_key");
+            } else {
+                assert(c.keyId.empty());
+            }
+        }
+        assert(lockedCount == 1);
+    }
+
     return 0;
 }

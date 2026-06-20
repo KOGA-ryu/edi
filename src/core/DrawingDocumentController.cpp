@@ -3459,6 +3459,14 @@ bool DrawingDocumentController::createMapFromSpec(const edi::drafting::MapSpec &
         connection.plugA = from->second;
         connection.plugB = to->second;
         connection.type = request.type;
+        // D15: carry the neutral lock TAG from the Seam B authoring twin
+        // (MapConnectionSpec) into the document twin. Without this,
+        // author->createMapFromSpec->document dropped locked/keyId, so
+        // author->document->Seam C exported differently from the direct
+        // author->Seam B path. This is a pure copy of NEUTRAL tags — no rule is
+        // interpreted here (the engine owns that past Seam B).
+        connection.locked = request.locked;
+        connection.keyId = request.keyId;
         connections.push_back(std::move(connection));
 
         // v1: draw the corridor between the two doors (orthogonal L/Z, leaving each

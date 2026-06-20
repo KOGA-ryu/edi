@@ -114,8 +114,17 @@ k/v in a chest marker's metadata). The Seam B (MapSpec) TOON gains conditional `
 (spawn→two-turn corridor→dead-end branch→gated key alcove(gold_key)→npc+patrol→goal behind a locked
 door; ONE gold_key gates the goal door AND a chest). SHAs M1 `8f240b5` / M2 `68e3b94` / M3 `1f93288`
 / M4 `a5a4f13`. Closeout + engine manifest: `docs/closeouts/dungeon-map-proving-ground.md`. Prior art:
-`docs/research/marker-patrol-lock-prior-art.md`. **Deferred:** lock on `DraftingDeclaredConnection` +
-conditional `.edidraw` codec (only when a live-document export needs it). **Triage (pre-existing, NOT
+`docs/research/marker-patrol-lock-prior-art.md`. ~~Deferred: lock on `DraftingDeclaredConnection` +
+conditional `.edidraw` codec~~ → **DONE** by the cleanup campaign below (D15 full parity).
+
+### Cleanup — D15 lock-tag Seam B/C parity + D18 determinism scope ✅ DONE (2026-06-19, S1–S5)
+Clipboard items (`~/dept-bus/hub/briefs/cleanup-clipboard.md`). **D15:** closed the Seam B/Seam C
+lock-tag asymmetry with FULL PARITY — `locked`/`keyId` now on `DraftingDeclaredConnection` (S1),
+conditional `.edidraw` codec byte-identical, no version bump (S2), carried author→document through
+`createMapFromSpec` (S3), Seam C export emits conditional lock columns + a NEW reference Seam C golden
+(S4). **D18:** rescoped the determinism-test header to in-process, deferring the cross-build byte
+guarantee to `map_regression_lock_tests`' sha256 (S5). SHAs S1 `b6a5b24` / S2 `8fc0a25` / S3 `0102b79`
+/ S4 `5f14e37` / S5 `3d02f9e`. Closeout: `docs/closeouts/dungeon-map-lock-tag-seam-parity.md`. **Triage (pre-existing, NOT
 this campaign):** drafting-core has a 7-test Release-build SEGFAULT (Debug clean) + `--export-map`
 aborts on CLI teardown after writing the file — both predate `e34e773`; flagged to the hub.
 

@@ -150,13 +150,23 @@ struct DraftingPlug {
 // A declared connection is a NEUTRAL edge: "plug A links to plug B". It references
 // plugs BY ID only (never raw coordinates), so moving or renaming a plug never
 // orphans the edge. It is a DECLARATION, nothing more — there is deliberately no
-// `passable`, no `weight`, no `direction`, no `locked`: reachability and access
-// rules are the engine's job, and that absence is the design, not an omission.
+// `passable`, no `weight`, no `direction`: reachability rules are the engine's job,
+// and that absence is the design, not an omission.
 struct DraftingDeclaredConnection {
     DraftingConnectionId id;         // opaque, minted ("conn_0001")
     DraftingPlugId plugA;
     DraftingPlugId plugB;
     std::string type;                // neutral role tag, default empty ("corridor"/...)
+    // NEUTRAL engine-interpreted TAGS — NOT a rule edi enforces. `locked` is the lock
+    // STATE the engine reads; `keyId` names which key opens it (matching a pickup
+    // marker's `id`). edi records the tag and simulates NOTHING: it never reads `locked`
+    // to gate anything, because it never models movement. A TAG the engine interprets is
+    // squarely inside the mandate; only SERIALIZE and EXPORT touch these fields (pure
+    // record/emit). This mirrors MapConnectionSpec (the Seam B authoring twin) so the
+    // document is a faithful neutral source: author→document→Seam C now preserves the
+    // lock. Defaults false/"" keep every existing connection byte-identical.
+    bool locked = false;
+    std::string keyId;
     // Discrete elevation band (Phase-1 decision 8/10). 0 = ground; same additive
     // template as DraftingMapRoom::level and DraftingPlug::level (slice 3a/3f).
     // A future vertical-transition connection will carry differing endpoint levels

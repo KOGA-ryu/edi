@@ -179,5 +179,140 @@ int main(int argc, char **argv)
     // create a geometry object → not behavior-preserving → halt and report.
     EDI_CHECK(objCount == 170);
 
+    // -------------------------------------------------------------------------
+    // Step 4 (D15-A4) — Seam C (DOCUMENT overload) reference golden.
+    //
+    // WHY this golden is NEW: the reviewer caught that NO golden pinned the
+    // Seam C path — `map_regression_lock_tests` pinned only Seam B (Step 2);
+    // Seam C was only diffed against itself in map_determinism_tests. So the
+    // byte-identity claim for the document export shipped UNVERIFIED. This pins
+    // it. The reference dungeon has NO locked connection, so the lock columns
+    // are ABSENT — the header is the legacy {from,to,type}, proving the
+    // conditional emission keeps the unlocked map byte-identical. (Seam C plug
+    // names resolve to "room.plug" via plugNameById, matching the Seam B form.)
+    //
+    // HALT PROTOCOL: do NOT re-bless this string. A drift means a new field's
+    // default is not neutral OR the lock emission is not conditional → STOP.
+    // -------------------------------------------------------------------------
+    {
+        const std::string seamC = edi::io::exportMapToToon(controller.draftingDocument(), "dungeon");
+
+        // clang-format off
+        const std::string expectedSeamC =
+            "kind: map\n"
+            "title: dungeon\n"
+            "units: feet\n"
+            "\n"
+            "rooms[12]{name,origin,size,material}:\n"
+            "  entrance,\"21,47.5\",\"6,2\",stone\n"
+            "  room1,\"18,35\",\"12,11\",stone\n"
+            "  room2,\"18,17\",\"12,14\",stone\n"
+            "  room3,\"2,19\",\"11,11\",stone\n"
+            "  room4,\"2,34\",\"12,12\",stone\n"
+            "  room5,\"34,18\",\"13,13\",stone\n"
+            "  room6,\"34,34\",\"13,4\",stone\n"
+            "  room7,\"34,40\",\"13,4\",stone\n"
+            "  room8,\"34,46\",\"13,3\",stone\n"
+            "  room9,\"31,2\",\"16,13\",stone\n"
+            "  room10,\"2,2\",\"12,12\",stone\n"
+            "  junction,\"20,6\",\"5,4\",stone\n"
+            "\n"
+            "plugs[26]{room,name,edge,type,connected,flags}:\n"
+            "  entrance,up,N,door,true,\"\"\n"
+            "  room1,entrance,S,door,true,\"\"\n"
+            "  room1,to_2,N,door,true,\"\"\n"
+            "  room2,to_1,S,door,true,\"\"\n"
+            "  room2,to_j,N,door,true,\"\"\n"
+            "  room2,to_3,W,door,true,\"\"\n"
+            "  room2,to_5,E,door,true,\"\"\n"
+            "  room3,to_2,E,door,true,\"\"\n"
+            "  room3,to_4,S,door,true,\"\"\n"
+            "  room4,to_3,N,door,true,\"\"\n"
+            "  room4,secret_s,S,secret,false,\"\"\n"
+            "  room5,to_2,W,door,true,\"\"\n"
+            "  room5,to_9,N,door,true,\"\"\n"
+            "  room5,to_6,S,door,true,\"\"\n"
+            "  room6,to_5,N,door,true,\"\"\n"
+            "  room6,to_7,S,door,true,\"\"\n"
+            "  room7,to_6,N,door,true,\"\"\n"
+            "  room7,to_8,S,door,true,\"\"\n"
+            "  room8,to_7,N,door,true,\"\"\n"
+            "  room9,to_j,W,door,true,\"\"\n"
+            "  room9,to_5,S,door,true,\"\"\n"
+            "  room10,to_j,E,door,true,\"\"\n"
+            "  room10,secret_ne,N,secret,false,\"\"\n"
+            "  junction,to_2,S,door,true,\"\"\n"
+            "  junction,to_10,W,door,true,\"\"\n"
+            "  junction,to_9,E,door,true,\"\"\n"
+            "\n"
+            "connections[12]{from,to,type}:\n" // NO lock columns: no connection is locked
+            "  entrance.up,room1.entrance,corridor\n"
+            "  room1.to_2,room2.to_1,corridor\n"
+            "  room2.to_3,room3.to_2,corridor\n"
+            "  room2.to_5,room5.to_2,corridor\n"
+            "  room2.to_j,junction.to_2,corridor\n"
+            "  junction.to_10,room10.to_j,corridor\n"
+            "  junction.to_9,room9.to_j,corridor\n"
+            "  room3.to_4,room4.to_3,corridor\n"
+            "  room5.to_9,room9.to_5,corridor\n"
+            "  room5.to_6,room6.to_5,corridor\n"
+            "  room6.to_7,room7.to_6,corridor\n"
+            "  room7.to_8,room8.to_7,corridor\n"
+            "\n"
+            "blocks[0]{room,asset,origin,scale,rotation}:\n";
+        // clang-format on
+
+        EDI_CHECK(seamC == expectedSeamC);
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 5 (D15-A3) — the lock TAG survives author -> createMapFromSpec ->
+    // document.  Before D15 the document twin DraftingDeclaredConnection had no
+    // locked/keyId, so createMapFromSpec copied only `type` and the lock was
+    // dropped silently.  Mark one authored connection locked, re-materialize,
+    // and assert the document connection now carries it.  (Neutral tag copy —
+    // edi never branches on it; the engine owns the rule past Seam B.)
+    // -------------------------------------------------------------------------
+    {
+        edi::drafting::MapSpec lockedSpec = parsed.spec;
+        EDI_CHECK(!lockedSpec.connections.empty());
+        lockedSpec.connections[0].locked = true;
+        lockedSpec.connections[0].keyId = "gold_key";
+
+        DrawingDocumentController lockedController;
+        EDI_CHECK(lockedController.createMapFromSpec(lockedSpec, 1.0));
+
+        const auto &docConns = lockedController.draftingDocument().connections;
+        // Exactly one connection carries the lock (the one we marked); the rest stay
+        // neutral-default.  Order-independent: count by predicate, not by index.
+        std::size_t lockedCount = 0;
+        for (const auto &c : docConns) {
+            if (c.locked) {
+                ++lockedCount;
+                EDI_CHECK(c.keyId == "gold_key");
+            } else {
+                EDI_CHECK(c.keyId.empty());
+            }
+        }
+        EDI_CHECK(lockedCount == 1);
+
+        // (D15-A4 acceptance b) author -> document -> Seam C: once a connection is
+        // locked, the document overload must TURN ON the lock columns, matching the
+        // Seam B form exactly. Header gains ",locked,key_id"; the locked row carries
+        // "true,gold_key"; every other (unlocked) row carries "false,\"\"" (the
+        // fixed-width table rule — once a column is on, EVERY row emits it).
+        const std::string seamCLocked =
+            edi::io::exportMapToToon(lockedController.draftingDocument(), "dungeon");
+        EDI_CHECK(seamCLocked.find("connections[12]{from,to,type,locked,key_id}:\n") != std::string::npos);
+        // The locked edge is the first authored connection: entrance.up -> room1.entrance.
+        EDI_CHECK(seamCLocked.find("  entrance.up,room1.entrance,corridor,true,gold_key\n") != std::string::npos);
+        // An unlocked edge emits the columns with the neutral defaults.
+        EDI_CHECK(seamCLocked.find("  room1.to_2,room2.to_1,corridor,false,\"\"\n") != std::string::npos);
+        // Matches the Seam B form for the same locked spec (the two seams now AGREE).
+        const std::string seamBLocked = edi::io::exportMapToToon(lockedSpec, "dungeon");
+        EDI_CHECK(seamBLocked.find("connections[12]{from,to,type,locked,key_id}:\n") != std::string::npos);
+        EDI_CHECK(seamBLocked.find("  entrance.up,room1.entrance,corridor,true,gold_key\n") != std::string::npos);
+    }
+
     return 0;
 }

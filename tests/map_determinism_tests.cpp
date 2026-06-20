@@ -1,15 +1,25 @@
 // Phase-1 DETERMINISM GATE (brief 069) — "same input → same dungeon".
 //
-// WHY a DOUBLE-RUN test owns determinism that a single golden cannot:
+// WHAT THIS TEST CATCHES — and what it CANNOT (read this before trusting it):
 //
-//   The regression-lock canary (map_regression_lock_tests) checks that one run
-//   matches a pre-recorded golden.  If the dungeon happened to be consistent
-//   (e.g. the unordered_map hash collisions always fell the same way on this
-//   build) the canary would stay green even though a DIFFERENT machine or
-//   build produces a different dungeon.  A double-run test sidesteps that
-//   entirely: run createMapFromSpec TWICE with IDENTICAL input, then diff the
-//   exported TOON strings.  If they differ, non-determinism is proven regardless
-//   of what the golden says.  This test owns the invariant globally.
+//   It runs createMapFromSpec TWICE in ONE process (ctrlA + ctrlB in the same
+//   main()), then diffs the exported TOON strings.  So it catches SAME-PROCESS
+//   ordering / creation non-determinism: any source whose result varies between
+//   two runs that share the same address space and entropy.  That is exactly the
+//   class of bug it was written to guard — the unordered_map -> std::map fix
+//   below (the iteration order that decided corridor obstacle order).
+//
+//   It CANNOT catch CROSS-PROCESS / ASLR variance.  Two runs in one process see
+//   the SAME address-space layout and the SAME process-lifetime hash seed, so an
+//   unordered_map whose order depends on ASLR or a per-process seed would iterate
+//   IDENTICALLY in both ctrlA and ctrlB — this test would stay green while a fresh
+//   process (or a different build/machine) produced a different dungeon.  This
+//   test does NOT own that guarantee.
+//
+//   The build-independent BYTE guarantee is owned elsewhere: map_regression_lock_tests
+//   pins the reference-dungeon TOON to a RECORDED sha256
+//   (6c632293...b0e3).  That fixed hash is what actually fails if a different build
+//   emits different bytes — it is the cross-build anchor this in-process diff is not.
 //
 // WHY unordered_map iteration was the culprit (and why std::map fixes it):
 //

@@ -13,7 +13,11 @@ PIL is guarded: if Pillow is somehow absent, the pure tile_polys asserts still
 run and the PNG ones SKIP with a clear message (so ctest stays green on a
 PIL-less box). Pillow IS present here, so the PNG asserts run.
 
-DOES NOT assert seamless edge-match — that is C1's gate, not C0's.
+C1 adds the SEAMLESS gate (rubric #1, the top priority): the baked cell is a
+true translational tile — column x=0 equals column x=W-1 and row y=0 equals row
+y=H-1 EXACTLY (ε=0, because PIL's polygon fill is hard-edged / no AA on the
+boundary). This is the load-bearing offline check; the 3x3 lay-up is the visual
+proof the reviewer eyeballs.
 """
 
 import math
@@ -100,6 +104,35 @@ def main() -> int:
         colors = im.getcolors(maxcolors=1 << 24)
         assert colors is not None and len(colors) > 1, \
             f"baked PNG must render the motif (> 1 distinct color), got {colors}"
+
+        # --- SEAMLESS edge-match (C1 gate, rubric #1) — ε = 0 EXACT ------------
+        # The cell is the square translational unit; framing [0,cell)x[0,cell)
+        # (half-open: a point at x=cell lands on pixel pxPerCell, OFF the
+        # pxPerCell-wide image, so no doubled seam column) makes opposite edges
+        # pixel-equal by lattice-translation invariance. PIL fills are hard-edged
+        # (no AA), so we claim 0, not a few/255.
+        px = im.load()
+        W, H = im.size
+        assert (W, H) == (px_size := defaults["pxPerCell"], px_size), \
+            f"seam check expects a square cell, got {im.size}"
+        col_diff = max(
+            max(abs(a - b) for a, b in zip(px[0, y], px[W - 1, y]))
+            for y in range(H)
+        )
+        row_diff = max(
+            max(abs(a - b) for a, b in zip(px[x, 0], px[x, H - 1]))
+            for x in range(W)
+        )
+        assert col_diff == 0, f"SEAMLESS: col(x=0) must equal col(x=W-1) exactly, max|Δ|={col_diff}"
+        assert row_diff == 0, f"SEAMLESS: row(y=0) must equal row(y=H-1) exactly, max|Δ|={row_diff}"
+
+        # The edge_match helper (used by the re-bake CLI) must agree with the
+        # direct pixel read — one owner for the seam math.
+        em_col, em_row = girih_tile.edge_match(defaults)
+        assert em_col == 0 and em_row == 0, \
+            f"edge_match must report ε=0, got col={em_col} row={em_row}"
+        assert (em_col, em_row) == (col_diff, row_diff), \
+            "edge_match must agree with the direct PNG edge read"
     finally:
         for p in (tmp_a, tmp_b):
             if os.path.exists(p):

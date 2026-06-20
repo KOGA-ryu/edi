@@ -251,14 +251,104 @@ def bake_png(params: dict, out_path: str):
     return out_path
 
 
+def edge_match(params: dict):
+    """OFFLINE SEAMLESS gate (rubric #1). Bake ONE cell IN MEMORY and return
+    (max|col(x=0) - col(x=W-1)|, max|row(y=0) - row(y=H-1)|) over all channels.
+
+    WHY this proves seamlessness: a wallpaper pattern is invariant under its
+    lattice translation vectors — translating by `cell` maps the pattern onto
+    itself. We FRAME exactly the square translational cell [0,cell)x[0,cell)
+    (the half-open convention: a point at x=cell maps to pixel pxPerCell, which is
+    OFF the pxPerCell-wide image and belongs to the NEXT tile — no doubled seam
+    column). Because the construction is lattice-periodic AND the boundary region
+    is symmetric ground, the first and last in-cell columns/rows are pixel-equal.
+
+    ε = 0 (EXACT): PIL's polygon fill is hard-edged (no anti-aliasing), so the
+    boundary pixels are exact — we claim 0, not a few/255 (the reviewer's §9 pin).
+    Returns a pair of ints (both 0 when seamless). Pure of disk (uses an
+    in-memory Image); needs PIL like bake_png."""
+    from PIL import Image, ImageDraw  # PIL-tier, same guard as bake_png
+
+    cell = float(params.get("cell", 1.0))
+    px_per_cell = int(float(params.get("pxPerCell", 1024)))
+    line_w_frac = float(params.get("lineWidth", 0.02))
+    line_rgb = _color_rgb(params.get("lineColor", "black"))
+    ground_rgb = _color_rgb(params.get("groundColor", "indigo"))
+
+    size = px_per_cell  # the seam gate measures ONE cell (repeat is irrelevant)
+    img = Image.new("RGB", (size, size), ground_rgb)
+    draw = ImageDraw.Draw(img)
+    scale = px_per_cell / cell
+
+    def to_px(pt):
+        return (pt[0] * scale, size - pt[1] * scale)
+
+    line_w = max(3, round(line_w_frac * px_per_cell))
+    polys = tile_polys(params)
+    for polygon, color_key in polys:
+        draw.polygon([to_px(p) for p in polygon], fill=_color_rgb(color_key))
+    for polygon, _color_key in polys:
+        pts = [to_px(p) for p in polygon]
+        draw.line(pts + [pts[0]], fill=line_rgb, width=line_w, joint="curve")
+
+    px = img.load()
+    w, h = img.size
+
+    def chan_max(a, b):
+        m = 0
+        for pa, pb in zip(a, b):
+            for ca, cb in zip(pa, pb):
+                d = abs(ca - cb)
+                if d > m:
+                    m = d
+        return m
+
+    col0 = [px[0, y] for y in range(h)]
+    colw = [px[w - 1, y] for y in range(h)]
+    row0 = [px[x, 0] for x in range(w)]
+    rowh = [px[x, h - 1] for x in range(w)]
+    return (chan_max(col0, colw), chan_max(row0, rowh))
+
+
+def bake_layup_png(params: dict, out_path: str, n: int = 3):
+    """VISUAL SEAMLESS proof: bake ONE cell, then PIL-paste it n x n by pure
+    translation into a single PNG (default 3x3) — the lattice lay-up the
+    reviewer eyeballs. NO new motif math: it reuses bake_png's single-cell
+    output, so the proof and the gate share the one generator.
+
+    The proof reads: no seam line at the joins, no doubled/missing motif, and
+    the azure QUARTER-crosses at the cell corners COMPLETE into full crosses
+    where four tiles meet (the corner construction wraps under translation by
+    `cell`). Byte-deterministic (bake_png is)."""
+    from PIL import Image  # PIL-tier guard
+
+    tile_path = out_path + ".__tile.png"
+    bake_png(params, tile_path)
+    try:
+        tile = Image.open(tile_path).convert("RGB")
+        w, h = tile.size
+        big = Image.new("RGB", (w * n, h * n))
+        for ry in range(n):
+            for rx in range(n):
+                big.paste(tile, (rx * w, ry * h))  # pure translation = the lattice
+        big.save(out_path, "PNG")
+    finally:
+        if os.path.exists(tile_path):
+            os.remove(tile_path)
+    return out_path
+
+
 # -----------------------------------------------------------------------------
 # CLI — mirrors edi_craft.py's --key=value arg style.
 # -----------------------------------------------------------------------------
 
 def _parse_args(argv: list[str]) -> dict:
-    """--out=<png> plus optional --<param>=<value> overrides of the defaults."""
+    """--out=<png> plus optional --<param>=<value> overrides of the defaults.
+    --layup=<png> bakes the N x N seam proof (--layupN=<int>, default 3)."""
     params = _defaults()
     out = None
+    layup = None
+    layup_n = 3
     int_keys = {p["key"] for p in MANIFEST["params"] if p["type"] == "integer"}
     num_keys = {p["key"] for p in MANIFEST["params"] if p["type"] == "number"}
     for arg in argv:
@@ -267,26 +357,36 @@ def _parse_args(argv: list[str]) -> dict:
         key, val = arg[2:].split("=", 1)
         if key == "out":
             out = val
+        elif key == "layup":
+            layup = val
+        elif key == "layupN":
+            layup_n = max(1, int(float(val)))
         elif key in int_keys:
             params[key] = int(float(val))
         elif key in num_keys:
             params[key] = float(val)
         elif key in params:
             params[key] = val
-    return {"out": out, "params": params}
+    return {"out": out, "layup": layup, "layupN": layup_n, "params": params}
 
 
 def main(argv: list[str]) -> int:
     parsed = _parse_args(argv)
     out = parsed["out"]
-    if not out:
-        print("usage: girih_tile.py --out=<png> "
+    layup = parsed["layup"]
+    if not out and not layup:
+        print("usage: girih_tile.py --out=<png> [--layup=<png> [--layupN=3]] "
               "[--points=.. --skip=.. --cell=.. --starRadius=.. --pxPerCell=..]",
               file=sys.stderr)
         return 2
-    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
-    bake_png(parsed["params"], out)
-    print(f"baked {out}")
+    if out:
+        os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+        bake_png(parsed["params"], out)
+        print(f"baked {out}")
+    if layup:
+        os.makedirs(os.path.dirname(os.path.abspath(layup)), exist_ok=True)
+        bake_layup_png(parsed["params"], layup, parsed["layupN"])
+        print(f"baked {layup} ({parsed['layupN']}x{parsed['layupN']} lay-up)")
     return 0
 
 

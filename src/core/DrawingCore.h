@@ -9,6 +9,8 @@
 
 #include "io/DrawingDocumentStore.h"
 
+#include "assetlink/AssetLinkResolve.h" // D07: validate the document's asset refs against a zoo
+
 #include "drafting/DraftingArray.h"
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingRoom.h"
@@ -97,6 +99,13 @@ public:
     // bindings against the live drafting document and grid. Read-only — the
     // recipe feature consumes drafting data, it never mutates it.
     const edi::drafting::DraftingDocument &draftingDocument() const { return m_document; }
+    // D07: validate the live document's NEUTRAL asset refs against a zoo catalog
+    // (the window holds the live one, D08). A PURE PULL query — const, stores
+    // nothing, caches nothing, emits nothing, and is deliberately NOT wired into
+    // any modelChanged path: there are 43 emit sites and an O(document) scan per
+    // emit is the forbidden pattern. The caller asks when it wants the answer.
+    edi::assetlink::DocumentAssetRefValidation
+    validateAssetRefs(const edi::zoo::AssetZoo &zoo) const;
     // DM-01: the union of every object's bounds, or nullopt for an empty document —
     // a read-only getter edi-ui's fit-view reads (thin wrapper over the core free
     // function, the data-oriented split).

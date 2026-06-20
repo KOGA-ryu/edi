@@ -515,6 +515,17 @@ bool DrawingDocumentController::isDocumentDirty() const
     return m_documentEpoch != m_savedEpoch;
 }
 
+edi::assetlink::DocumentAssetRefValidation
+DrawingDocumentController::validateAssetRefs(const edi::zoo::AssetZoo &zoo) const
+{
+    // A pure pull: delegate straight to the assetlink bridge over the LIVE
+    // document. No caching, no signal, no member — the result is recomputed on
+    // demand precisely because doing this on every modelChanged would be an
+    // O(document) scan 43 times over. The bridge is the only place the two
+    // isolated cores meet; the controller just forwards its document into it.
+    return edi::assetlink::validateDocumentAssetRefs(m_document, zoo);
+}
+
 QVariantMap DrawingDocumentController::modelDocument() const
 {
     // Two-part projection: the DOCUMENT-shaped model is expensive (full

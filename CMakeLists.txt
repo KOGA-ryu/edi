@@ -271,6 +271,14 @@ add_library(edi_controller_core STATIC
 )
 target_include_directories(edi_controller_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(edi_controller_core PUBLIC edi_drafting_core Qt6::Core)
+# D07: the controller validates a document's asset refs against the zoo via the
+# assetlink bridge. PRIVATE because validation is an implementation detail of the
+# controller's .cpp, not part of any caller's compile — but the bridge's HEADER
+# (the return type) is pulled into DrawingCore.h, so consumers still see it; they
+# get the OBJECT CODE transitively through this link and must NOT double-list it.
+# The dependency direction is legal: controller -> edi_asset_link ->
+# {edi_drafting_core, edi_zoo_core}; neither core depends on the other or on this.
+target_link_libraries(edi_controller_core PRIVATE edi_asset_link)
 
 add_library(edi_recipe_core STATIC
     src/recipe/RecipeMeasure.h

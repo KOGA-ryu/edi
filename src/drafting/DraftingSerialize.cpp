@@ -652,14 +652,27 @@ DraftingPlug readPlug(const MsgPackValue &v)
 
 MsgPackValue connectionValue(const DraftingDeclaredConnection &connection)
 {
-    return MsgPackValue::map({
+    std::vector<std::pair<std::string, MsgPackValue>> fields{
         {"id",     MsgPackValue::text(connection.id)},
         {"plug_a", MsgPackValue::text(connection.plugA)},
         {"plug_b", MsgPackValue::text(connection.plugB)},
         {"type",   MsgPackValue::text(connection.type)},
         // Additive + tolerant (slice 3f): same always-write + asInt(...,0) template.
         {"level",  MsgPackValue::integer(connection.level)},
-    });
+    };
+    // Additive + tolerant, like `flags` / `bounded_by`: emit the lock TAG ONLY when it
+    // actually carries something, so every connection authored before D15 (locked=false,
+    // empty keyId) stays BYTE-IDENTICAL and the tolerant read below defaults a missing
+    // key to false/"". `level` above uses the always-write template, which would break
+    // byte-identity here, so the lock keys deliberately follow the conditional one. No
+    // version bump — a missing key already decodes to the struct default.
+    if (connection.locked) {
+        fields.emplace_back("locked", MsgPackValue::boolean(connection.locked));
+    }
+    if (!connection.keyId.empty()) {
+        fields.emplace_back("key_id", MsgPackValue::text(connection.keyId));
+    }
+    return MsgPackValue::map(std::move(fields));
 }
 
 DraftingDeclaredConnection readConnection(const MsgPackValue &v)
@@ -669,6 +682,11 @@ DraftingDeclaredConnection readConnection(const MsgPackValue &v)
     connection.plugA = asString(child(v, "plug_a"), connection.plugA);
     connection.plugB = asString(child(v, "plug_b"), connection.plugB);
     connection.type  = asString(child(v, "type"),   connection.type);
+    // Tolerant: a connection without `locked`/`key_id` (every file before D15) decodes
+    // to false/"" — the same defaults the struct fields carry, so the round-trip is
+    // lossless for both old files and newly authored locked connections.
+    connection.locked = asBool(child(v, "locked"), connection.locked);
+    connection.keyId  = asString(child(v, "key_id"), connection.keyId);
     // Additive + tolerant (slice 3f): missing "level" ⇒ 0.
     connection.level = static_cast<int>(asInt(child(v, "level"), connection.level));
     return connection;

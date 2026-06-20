@@ -188,6 +188,8 @@ void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
         const auto &cb = b.connections[i];
         assert(ca.id == cb.id && ca.plugA == cb.plugA);
         assert(ca.plugB == cb.plugB && ca.type == cb.type);
+        // D15: the neutral lock TAG round-trips field-equal too.
+        assert(ca.locked == cb.locked && ca.keyId == cb.keyId);
     }
 }
 
@@ -414,7 +416,18 @@ int main()
         edge.plugA = "plug_0001";
         edge.plugB = "plug_0002";
         edge.type = "corridor";
-        graphDoc.connections.push_back(edge);
+        graphDoc.connections.push_back(edge); // no lock: exercises emit-only-when-set
+
+        // D15: a LOCKED connection carries the neutral lock TAG (locked + keyId). Both
+        // round-trip; the unlocked edge above proves the conditional-emit byte-identity.
+        DraftingDeclaredConnection locked;
+        locked.id = "conn_0002";
+        locked.plugA = "plug_0002";
+        locked.plugB = "plug_0001";
+        locked.type = "door";
+        locked.locked = true;
+        locked.keyId = "gold_key";
+        graphDoc.connections.push_back(locked);
 
         auto restored = draftingDocumentFromValue(draftingDocumentToValue(graphDoc));
         assert(restored.ok && restored.value);
@@ -424,7 +437,10 @@ int main()
         assert(decoded.ok && decoded.value);
         assertDocumentsEqual(graphDoc, *decoded.value);
         assert(decoded.value->plugs.size() == 2);
-        assert(decoded.value->connections.size() == 1);
+        assert(decoded.value->connections.size() == 2);
+        // D15: the lock survives the byte round-trip; the unlocked edge stays clear.
+        assert(!decoded.value->connections[0].locked && decoded.value->connections[0].keyId.empty());
+        assert(decoded.value->connections[1].locked && decoded.value->connections[1].keyId == "gold_key");
         // DM-05: flags survive the byte round-trip; the no-flags plug stays empty.
         const std::vector<std::string> expectedFlags{"window", "passes_light"};
         assert(decoded.value->plugs[0].flags == expectedFlags);
@@ -447,6 +463,25 @@ int main()
                 for (const auto &kv : plugArr[1].mapValue) secondHasFlags |= (kv.first == "flags");
                 assert(firstHasFlags);   // north carried flags
                 assert(!secondHasFlags); // east did not -> key absent entirely
+            }
+            // D15: the unlocked connection emits NO `locked`/`key_id` keys at all
+            // (emit-when-set), so a pre-D15 file is BYTE-IDENTICAL; the locked one does.
+            for (const auto &dm : entry.second.mapValue) {
+                if (dm.first != "connections") continue;
+                const auto &connArr = dm.second.arrayValue;
+                assert(connArr.size() == 2);
+                bool unlockedHasLock = false, unlockedHasKey = false;
+                bool lockedHasLock = false, lockedHasKey = false;
+                for (const auto &kv : connArr[0].mapValue) {
+                    unlockedHasLock |= (kv.first == "locked");
+                    unlockedHasKey  |= (kv.first == "key_id");
+                }
+                for (const auto &kv : connArr[1].mapValue) {
+                    lockedHasLock |= (kv.first == "locked");
+                    lockedHasKey  |= (kv.first == "key_id");
+                }
+                assert(!unlockedHasLock && !unlockedHasKey); // key absent entirely
+                assert(lockedHasLock && lockedHasKey);       // locked edge carries both
             }
         }
 

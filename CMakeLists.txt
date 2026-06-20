@@ -832,8 +832,6 @@ add_executable(${DRAFTSMAN_SHELL_TARGET_NAME}
     src/io/AssetZooStore.cpp
     src/io/SettingsStore.h
     src/io/SettingsStore.cpp
-    src/io/DrawingRecentFilesStore.h
-    src/io/DrawingRecentFilesStore.cpp
     src/io/ShellLayoutStore.h
     src/io/ShellLayoutStore.cpp
     src/io/ProfileStore.h

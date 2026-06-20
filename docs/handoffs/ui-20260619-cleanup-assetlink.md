@@ -72,11 +72,28 @@ a DEFERRED user-look decision — expose the data, paint NO new surface.
 touch shared rebase-contract files (CMakeLists.txt: D17 heavy/D07 light; app/main.cpp:
 D08; EdiShellWindow: D08+D07) — serialize on master, don't parallelize.
 
-### Builder batch — <pending> — edi-ui-builder
-- Slices implemented (each with its commit):
-- Green gate (build / ctest 120/120 + new / scan):
-- Facts reported:
-- Noticed-but-didn't-do:
+### Builder batch — 2026-06-19 — edi-ui-builder (afc98a403992ee9ef)
+- Slices: D17 `f6725e6` (edi_controller_core lib + 8 targets link it) · D08 `a0fec6b`
+  (m_assetZoo on EdiShellWindow, best-effort load, empty-on-miss, getter) · D07
+  `4688714` (validateAssetRefs(zoo) const query; edi_asset_link PRIVATE on lib).
+- Green gate: clean build + ctest 120/120 + scan, plus a from-scratch /tmp build
+  confirming all 8 targets link with no undefined refs (no symbol set changed).
+- Deviation (in-scope): added AssetZooStore.cpp + edi_zoo_core to edi_shell_window_tests
+  because EdiShellWindowIo.cpp now calls loadAssetZoo. Reviewer confirmed minimal/correct.
+- Noticed-but-didn't-do: no warning chrome (D07), no zoo panel (D08) — deferred look
+  decisions; no empty-shell deletion (kept byte-identical archive); no magic dims.
+
+### Reviewer-accept gate — 2026-06-19 — edi-ui-reviewer (aed2743612dd1979c)
+- **ACCEPT all three. No must-fix.** Re-ran build + ctest 121/121 (post drafting-merge).
+- D17: membership/link/8-target edits exact; watch-item honored (MapToonExport/Crypt/
+  RoomSpec stay per-target); behavior-preserving.
+- D08: zoo on the window not the controller (no core→zoo inversion); empty-on-miss
+  verified; NO look surface; no dangling (assetZoo() has zero callers yet).
+- D07 SIGNAL-SAFETY PASS: validateAssetRefs has ZERO call sites — not wired to any of
+  the 44 modelChanged emits; no member/cache/signal; returns by value (no aliasing).
+  edi_asset_link PRIVATE; header exposure limited to the by-value return type. Legal acyclic dep.
+
+**CAMPAIGN COMPLETE** — all 3 slices landed + reviewer-accepted on master @4688714.
 
 ## Open questions / blockers
 - DEFERRED user-look decisions to surface to the user (NOT built in this campaign):

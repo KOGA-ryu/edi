@@ -3,7 +3,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <limits>
 
 using namespace drawing_canvas;
@@ -56,17 +56,17 @@ int main()
         },
         true));
 
-    assert(parsed.hasPlotBounds);
-    assert(parsed.travelSegments.size() == 1);
-    assert(parsed.travelSegments[0].x1 == 0.1);
-    assert(parsed.travelSegments[0].y1 == 0.2);
-    assert(parsed.travelSegments[0].x2 == 0.3);
-    assert(parsed.travelSegments[0].y2 == 0.4);
-    assert(parsed.strokeSegments.size() == 1);
-    assert(parsed.strokeSegments[0].x1 == 0.5);
-    assert(parsed.strokeSegments[0].y1 == 0.6);
-    assert(parsed.strokeSegments[0].x2 == 0.7);
-    assert(parsed.strokeSegments[0].y2 == 0.8);
+    EDI_CHECK(parsed.hasPlotBounds);
+    EDI_CHECK(parsed.travelSegments.size() == 1);
+    EDI_CHECK(parsed.travelSegments[0].x1 == 0.1);
+    EDI_CHECK(parsed.travelSegments[0].y1 == 0.2);
+    EDI_CHECK(parsed.travelSegments[0].x2 == 0.3);
+    EDI_CHECK(parsed.travelSegments[0].y2 == 0.4);
+    EDI_CHECK(parsed.strokeSegments.size() == 1);
+    EDI_CHECK(parsed.strokeSegments[0].x1 == 0.5);
+    EDI_CHECK(parsed.strokeSegments[0].y1 == 0.6);
+    EDI_CHECK(parsed.strokeSegments[0].x2 == 0.7);
+    EDI_CHECK(parsed.strokeSegments[0].y2 == 0.8);
 
     const DrawingCanvasProjectedPlotPreview filtered = projectedPlotPreview(plotSummary(
         QVariantList{
@@ -90,27 +90,27 @@ int main()
                 {QStringLiteral("x2"), 0.7},
             },
         }));
-    assert(filtered.travelSegments.empty());
-    assert(filtered.strokeSegments.empty());
-    assert(!filtered.hasPlotBounds);
+    EDI_CHECK(filtered.travelSegments.empty());
+    EDI_CHECK(filtered.strokeSegments.empty());
+    EDI_CHECK(!filtered.hasPlotBounds);
 
     const DrawingCanvasProjectedPlotPreview missing = projectedPlotPreview({});
-    assert(missing.travelSegments.empty());
-    assert(missing.strokeSegments.empty());
-    assert(!missing.hasPlotBounds);
+    EDI_CHECK(missing.travelSegments.empty());
+    EDI_CHECK(missing.strokeSegments.empty());
+    EDI_CHECK(!missing.hasPlotBounds);
 
     const DrawingCanvasProjectedPlotPreview boundsOnly = projectedPlotPreview(QVariantMap{
         {QStringLiteral("has_plot_bounds"), true},
     });
-    assert(boundsOnly.travelSegments.empty());
-    assert(boundsOnly.strokeSegments.empty());
-    assert(boundsOnly.hasPlotBounds);
+    EDI_CHECK(boundsOnly.travelSegments.empty());
+    EDI_CHECK(boundsOnly.strokeSegments.empty());
+    EDI_CHECK(boundsOnly.hasPlotBounds);
 
     const DrawingCanvasProjectedBoundsOverlay invisible = projectedPlotBoundsOverlay(QVariantMap{
         {QStringLiteral("has_plot_bounds"), false},
         {QStringLiteral("plot_bounds"), bounds(0.1, 0.2, 0.3, 0.4)},
     });
-    assert(!invisible.visible);
+    EDI_CHECK(!invisible.visible);
 
     const DrawingCanvasProjectedBoundsOverlay overlay = projectedPlotBoundsOverlay(QVariantMap{
         {QStringLiteral("has_plot_bounds"), true},
@@ -123,14 +123,14 @@ int main()
         {QStringLiteral("first_warning_kind"), QStringLiteral("plot_outside_bounds")},
         {QStringLiteral("first_warning_object_id"), QStringLiteral("object_1")},
     });
-    assert(overlay.visible);
-    assert(overlay.bounds.x == 0.1);
-    assert(overlay.bounds.y == 0.2);
-    assert(overlay.bounds.width == 0.3);
-    assert(overlay.bounds.height == 0.4);
-    assert(overlay.calibratedBoundsWarning);
-    assert(overlay.warningKind == QStringLiteral("plot_outside_bounds"));
-    assert(overlay.warningObjectId == QStringLiteral("object_1"));
+    EDI_CHECK(overlay.visible);
+    EDI_CHECK(overlay.bounds.x == 0.1);
+    EDI_CHECK(overlay.bounds.y == 0.2);
+    EDI_CHECK(overlay.bounds.width == 0.3);
+    EDI_CHECK(overlay.bounds.height == 0.4);
+    EDI_CHECK(overlay.calibratedBoundsWarning);
+    EDI_CHECK(overlay.warningKind == QStringLiteral("plot_outside_bounds"));
+    EDI_CHECK(overlay.warningObjectId == QStringLiteral("object_1"));
 
     const DrawingCanvasProjectedBoundsOverlay badBounds = projectedPlotBoundsOverlay(QVariantMap{
         {QStringLiteral("has_plot_bounds"), true},
@@ -139,9 +139,9 @@ int main()
             QVariantMap{{QStringLiteral("kind"), QStringLiteral("calibrated_plot_out_of_drawable_bounds")}},
         }},
     });
-    assert(!badBounds.visible);
-    assert(!badBounds.calibratedBoundsWarning);
-    assert(badBounds.warningKind.isEmpty());
+    EDI_CHECK(!badBounds.visible);
+    EDI_CHECK(!badBounds.calibratedBoundsWarning);
+    EDI_CHECK(badBounds.warningKind.isEmpty());
 
     const DrawingCanvasProjectedBoundsOverlay noWarning = projectedPlotBoundsOverlay(QVariantMap{
         {QStringLiteral("has_plot_bounds"), true},
@@ -151,42 +151,42 @@ int main()
             QVariantMap{},
         }},
     });
-    assert(noWarning.visible);
-    assert(!noWarning.calibratedBoundsWarning);
-    assert(noWarning.warningKind.isEmpty());
+    EDI_CHECK(noWarning.visible);
+    EDI_CHECK(!noWarning.calibratedBoundsWarning);
+    EDI_CHECK(noWarning.warningKind.isEmpty());
 
     const DrawingCanvasProjectedSelectionBoundsOverlay noSelection = projectedSelectionBoundsOverlay(QVariantMap{
         {QStringLiteral("has_selection_plot_bounds"), false},
         {QStringLiteral("selection_plot_bounds"), bounds(0.1, 0.2, 0.3, 0.4)},
     });
-    assert(!noSelection.visible);
+    EDI_CHECK(!noSelection.visible);
 
     const DrawingCanvasProjectedSelectionBoundsOverlay selection = projectedSelectionBoundsOverlay(QVariantMap{
         {QStringLiteral("has_selection_plot_bounds"), true},
         {QStringLiteral("selection_plot_bounds"), bounds(0.2, 0.3, 0.4, 0.5)},
         {QStringLiteral("selection_plot_bounds_status"), QStringLiteral("inside")},
     });
-    assert(selection.visible);
-    assert(selection.bounds.x == 0.2);
-    assert(selection.bounds.y == 0.3);
-    assert(selection.bounds.width == 0.4);
-    assert(selection.bounds.height == 0.5);
-    assert(selection.status == QStringLiteral("inside"));
+    EDI_CHECK(selection.visible);
+    EDI_CHECK(selection.bounds.x == 0.2);
+    EDI_CHECK(selection.bounds.y == 0.3);
+    EDI_CHECK(selection.bounds.width == 0.4);
+    EDI_CHECK(selection.bounds.height == 0.5);
+    EDI_CHECK(selection.status == QStringLiteral("inside"));
 
     const DrawingCanvasProjectedSelectionBoundsOverlay badSelection = projectedSelectionBoundsOverlay(QVariantMap{
         {QStringLiteral("has_selection_plot_bounds"), true},
         {QStringLiteral("selection_plot_bounds"), bounds(0.2, 0.3, 0.4, std::numeric_limits<double>::quiet_NaN())},
         {QStringLiteral("selection_plot_bounds_status"), QStringLiteral("inside")},
     });
-    assert(!badSelection.visible);
-    assert(badSelection.status.isEmpty());
+    EDI_CHECK(!badSelection.visible);
+    EDI_CHECK(badSelection.status.isEmpty());
 
     const DrawingCanvasProjectedSelectionBoundsOverlay missingStatus = projectedSelectionBoundsOverlay(QVariantMap{
         {QStringLiteral("has_selection_plot_bounds"), true},
         {QStringLiteral("selection_plot_bounds"), bounds(0.0, 0.0, 1.0, 1.0)},
     });
-    assert(missingStatus.visible);
-    assert(missingStatus.status.isEmpty());
+    EDI_CHECK(missingStatus.visible);
+    EDI_CHECK(missingStatus.status.isEmpty());
 
     return 0;
 }

@@ -2,7 +2,7 @@
 #include "drafting/DraftingDocument.h"
 #include "drafting/DraftingGeometry.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <limits>
 #include <string>
@@ -126,68 +126,68 @@ DraftingDocument buildSampleDocument()
 
 void assertDocumentsEqual(const DraftingDocument &a, const DraftingDocument &b)
 {
-    assert(a.id == b.id);
-    assert(a.title == b.title);
-    assert(a.activeLayerId == b.activeLayerId);
-    assert(a.revision == b.revision);
-    assert(a.selectedObjectIds == b.selectedObjectIds);
-    assert(a.activeObjectId == b.activeObjectId);
+    EDI_CHECK(a.id == b.id);
+    EDI_CHECK(a.title == b.title);
+    EDI_CHECK(a.activeLayerId == b.activeLayerId);
+    EDI_CHECK(a.revision == b.revision);
+    EDI_CHECK(a.selectedObjectIds == b.selectedObjectIds);
+    EDI_CHECK(a.activeObjectId == b.activeObjectId);
 
-    assert(a.layers.size() == b.layers.size());
+    EDI_CHECK(a.layers.size() == b.layers.size());
     for (std::size_t i = 0; i < a.layers.size(); ++i) {
         const auto &la = a.layers[i];
         const auto &lb = b.layers[i];
-        assert(la.id == lb.id && la.name == lb.name && la.order == lb.order);
-        assert(la.visible == lb.visible && la.locked == lb.locked);
-        assert(la.plot.penId == lb.plot.penId && la.plot.strokeColor == lb.plot.strokeColor);
-        assert(la.plot.strokeWidth == lb.plot.strokeWidth && la.plot.plotEnabled == lb.plot.plotEnabled);
+        EDI_CHECK(la.id == lb.id && la.name == lb.name && la.order == lb.order);
+        EDI_CHECK(la.visible == lb.visible && la.locked == lb.locked);
+        EDI_CHECK(la.plot.penId == lb.plot.penId && la.plot.strokeColor == lb.plot.strokeColor);
+        EDI_CHECK(la.plot.strokeWidth == lb.plot.strokeWidth && la.plot.plotEnabled == lb.plot.plotEnabled);
     }
 
-    assert(a.objects.size() == b.objects.size());
+    EDI_CHECK(a.objects.size() == b.objects.size());
     for (std::size_t i = 0; i < a.objects.size(); ++i) {
         const auto &oa = a.objects[i];
         const auto &ob = b.objects[i];
-        assert(oa.id == ob.id);
-        assert(oa.kind == ob.kind);
-        assert(oa.layerId == ob.layerId);
-        assert(oa.visible == ob.visible && oa.locked == ob.locked);
-        assert(oa.styleId == ob.styleId);
-        assert(oa.stroke.width == ob.stroke.width && oa.stroke.opacity == ob.stroke.opacity);
-        assert(oa.stroke.color == ob.stroke.color && oa.stroke.lineStyle == ob.stroke.lineStyle);
-        assert(oa.fill.opacity == ob.fill.opacity && oa.fill.color == ob.fill.color);
-        assert(oa.transform.translateX == ob.transform.translateX);
-        assert(oa.transform.rotationDeg == ob.transform.rotationDeg);
-        assert(oa.metadata.author == ob.metadata.author);
-        assert(oa.metadata.measurement.unit == ob.metadata.measurement.unit);
-        assert(oa.metadata.measurement.canvasUnitsPerRealUnit == ob.metadata.measurement.canvasUnitsPerRealUnit);
-        assert(oa.metadata.guideVisual.label == ob.metadata.guideVisual.label);
-        assert(oa.metadata.guideVisual.showLabel == ob.metadata.guideVisual.showLabel);
-        assert(oa.metadata.dimensionVisual.showLabel == ob.metadata.dimensionVisual.showLabel);
-        assert(oa.metadata.lineVisual.endArrow == ob.metadata.lineVisual.endArrow);
-        assert(oa.metadata.lineVisual.startArrow == ob.metadata.lineVisual.startArrow);
-        assert(oa.metadata.role == ob.metadata.role);
-        assert(oa.metadata.material == ob.metadata.material);
-        assert(oa.metadata.exportGroup == ob.metadata.exportGroup);
-        assert(oa.metadata.tags == ob.metadata.tags);
-        assert(boundsEqual(oa.bounds, ob.bounds));
+        EDI_CHECK(oa.id == ob.id);
+        EDI_CHECK(oa.kind == ob.kind);
+        EDI_CHECK(oa.layerId == ob.layerId);
+        EDI_CHECK(oa.visible == ob.visible && oa.locked == ob.locked);
+        EDI_CHECK(oa.styleId == ob.styleId);
+        EDI_CHECK(oa.stroke.width == ob.stroke.width && oa.stroke.opacity == ob.stroke.opacity);
+        EDI_CHECK(oa.stroke.color == ob.stroke.color && oa.stroke.lineStyle == ob.stroke.lineStyle);
+        EDI_CHECK(oa.fill.opacity == ob.fill.opacity && oa.fill.color == ob.fill.color);
+        EDI_CHECK(oa.transform.translateX == ob.transform.translateX);
+        EDI_CHECK(oa.transform.rotationDeg == ob.transform.rotationDeg);
+        EDI_CHECK(oa.metadata.author == ob.metadata.author);
+        EDI_CHECK(oa.metadata.measurement.unit == ob.metadata.measurement.unit);
+        EDI_CHECK(oa.metadata.measurement.canvasUnitsPerRealUnit == ob.metadata.measurement.canvasUnitsPerRealUnit);
+        EDI_CHECK(oa.metadata.guideVisual.label == ob.metadata.guideVisual.label);
+        EDI_CHECK(oa.metadata.guideVisual.showLabel == ob.metadata.guideVisual.showLabel);
+        EDI_CHECK(oa.metadata.dimensionVisual.showLabel == ob.metadata.dimensionVisual.showLabel);
+        EDI_CHECK(oa.metadata.lineVisual.endArrow == ob.metadata.lineVisual.endArrow);
+        EDI_CHECK(oa.metadata.lineVisual.startArrow == ob.metadata.lineVisual.startArrow);
+        EDI_CHECK(oa.metadata.role == ob.metadata.role);
+        EDI_CHECK(oa.metadata.material == ob.metadata.material);
+        EDI_CHECK(oa.metadata.exportGroup == ob.metadata.exportGroup);
+        EDI_CHECK(oa.metadata.tags == ob.metadata.tags);
+        EDI_CHECK(boundsEqual(oa.bounds, ob.bounds));
     }
 
-    assert(a.plugs.size() == b.plugs.size());
+    EDI_CHECK(a.plugs.size() == b.plugs.size());
     for (std::size_t i = 0; i < a.plugs.size(); ++i) {
         const auto &pa = a.plugs[i];
         const auto &pb = b.plugs[i];
-        assert(pa.id == pb.id && pa.anchorObjectId == pb.anchorObjectId);
-        assert(pa.name == pb.name && pa.type == pb.type);
-        assert(pa.flags == pb.flags);
-        assert(pa.anchor.x == pb.anchor.x && pa.anchor.y == pb.anchor.y);
+        EDI_CHECK(pa.id == pb.id && pa.anchorObjectId == pb.anchorObjectId);
+        EDI_CHECK(pa.name == pb.name && pa.type == pb.type);
+        EDI_CHECK(pa.flags == pb.flags);
+        EDI_CHECK(pa.anchor.x == pb.anchor.x && pa.anchor.y == pb.anchor.y);
     }
 
-    assert(a.connections.size() == b.connections.size());
+    EDI_CHECK(a.connections.size() == b.connections.size());
     for (std::size_t i = 0; i < a.connections.size(); ++i) {
         const auto &ca = a.connections[i];
         const auto &cb = b.connections[i];
-        assert(ca.id == cb.id && ca.plugA == cb.plugA);
-        assert(ca.plugB == cb.plugB && ca.type == cb.type);
+        EDI_CHECK(ca.id == cb.id && ca.plugA == cb.plugA);
+        EDI_CHECK(ca.plugB == cb.plugB && ca.type == cb.type);
     }
 }
 
@@ -201,8 +201,8 @@ int main()
     {
         MsgPackValue value = draftingDocumentToValue(document);
         auto restored = draftingDocumentFromValue(value);
-        assert(restored.ok);
-        assert(restored.value);
+        EDI_CHECK(restored.ok);
+        EDI_CHECK(restored.value);
         assertDocumentsEqual(document, *restored.value);
     }
 
@@ -215,42 +215,42 @@ int main()
         hostile.objects[2].fill.opacity = -3.0;
         hostile.objects[3].stroke.opacity = std::numeric_limits<double>::quiet_NaN();
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(hostile), "fixture");
-        assert(decoded.ok);
-        assert(decoded.value->objects[2].stroke.opacity == 1.0); // ...the decoder clamps
-        assert(decoded.value->objects[2].fill.opacity == 0.0);
-        assert(decoded.value->objects[3].stroke.opacity == 1.0); // NaN -> fully opaque
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value->objects[2].stroke.opacity == 1.0); // ...the decoder clamps
+        EDI_CHECK(decoded.value->objects[2].fill.opacity == 0.0);
+        EDI_CHECK(decoded.value->objects[3].stroke.opacity == 1.0); // NaN -> fully opaque
     }
 
     // Byte-level round-trip is byte-stable across save/open/save.
     {
         auto bytes1 = encodeDraftingDocument(document);
         auto decoded = decodeDraftingDocument(bytes1, "fixture");
-        assert(decoded.ok);
-        assert(decoded.value);
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value);
         assertDocumentsEqual(document, *decoded.value);
         auto bytes2 = encodeDraftingDocument(*decoded.value);
-        assert(bytes1 == bytes2);
+        EDI_CHECK(bytes1 == bytes2);
     }
 
     // Geometry fidelity spot checks across alternatives.
     {
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(document), "fixture");
-        assert(decoded.ok);
+        EDI_CHECK(decoded.ok);
         const auto &objects = decoded.value->objects;
-        assert(std::get<GuideGeometry>(objects[7].geometry).orientation == GuideOrientation::Vertical);
-        assert(std::get<GuideGeometry>(objects[7].geometry).position == 0.42);
-        assert(std::get<DimensionGeometry>(objects[9].geometry).kind == DimensionKind::Radius);
-        assert(std::get<DimensionGeometry>(objects[9].geometry).offset == 0.07);
-        assert(pointsEqual(std::get<LineGeometry>(objects[1].geometry).b, {0.5, 0.6}));
+        EDI_CHECK(std::get<GuideGeometry>(objects[7].geometry).orientation == GuideOrientation::Vertical);
+        EDI_CHECK(std::get<GuideGeometry>(objects[7].geometry).position == 0.42);
+        EDI_CHECK(std::get<DimensionGeometry>(objects[9].geometry).kind == DimensionKind::Radius);
+        EDI_CHECK(std::get<DimensionGeometry>(objects[9].geometry).offset == 0.07);
+        EDI_CHECK(pointsEqual(std::get<LineGeometry>(objects[1].geometry).b, {0.5, 0.6}));
         const auto &rectGeo = std::get<RectangleGeometry>(objects[2].geometry);
-        assert(rectGeo.cornerRadius == 0.04 && rectGeo.inset == 0.015);
-        assert(std::get<PolygonGeometry>(objects[5].geometry).vertices.size() == 4);
+        EDI_CHECK(rectGeo.cornerRadius == 0.04 && rectGeo.inset == 0.015);
+        EDI_CHECK(std::get<PolygonGeometry>(objects[5].geometry).vertices.size() == 4);
         const auto &arcGeo = std::get<ArcGeometry>(objects[4].geometry);
-        assert(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);
+        EDI_CHECK(arcGeo.startAngleDeg == 15.0 && arcGeo.endAngleDeg == 120.0);
         const auto &ellipseGeo = std::get<EllipseGeometry>(objects[10].geometry);
-        assert(ellipseGeo.rx == 0.18 && ellipseGeo.ry == 0.1);
+        EDI_CHECK(ellipseGeo.rx == 0.18 && ellipseGeo.ry == 0.1);
         const auto &wallGeo = std::get<WallGeometry>(objects[11].geometry);
-        assert(wallGeo.a.x == 0.12 && wallGeo.b.y == 0.12 && wallGeo.thickness == 0.07);
+        EDI_CHECK(wallGeo.a.x == 0.12 && wallGeo.b.y == 0.12 && wallGeo.thickness == 0.07);
     }
 
     // Unknown-field tolerance: extra keys at every level are ignored on read.
@@ -263,7 +263,7 @@ int main()
                 documentMap = &entry.second;
             }
         }
-        assert(documentMap);
+        EDI_CHECK(documentMap);
         documentMap->mapValue.emplace_back("future_doc", MsgPackValue::integer(99));
         for (auto &entry : documentMap->mapValue) {
             if (entry.first == "objects" && !entry.second.arrayValue.empty()) {
@@ -271,7 +271,7 @@ int main()
             }
         }
         auto restored = draftingDocumentFromValue(value);
-        assert(restored.ok);
+        EDI_CHECK(restored.ok);
         assertDocumentsEqual(document, *restored.value);
     }
 
@@ -284,8 +284,8 @@ int main()
             }
         }
         auto restored = draftingDocumentFromValue(value);
-        assert(!restored.ok);
-        assert(restored.code == edi::formats::FormatResultCode::UnsupportedSchema);
+        EDI_CHECK(!restored.ok);
+        EDI_CHECK(restored.code == edi::formats::FormatResultCode::UnsupportedSchema);
     }
 
     // Bad version rejected.
@@ -297,8 +297,8 @@ int main()
             }
         }
         auto restored = draftingDocumentFromValue(value);
-        assert(!restored.ok);
-        assert(restored.code == edi::formats::FormatResultCode::UnsupportedVersion);
+        EDI_CHECK(!restored.ok);
+        EDI_CHECK(restored.code == edi::formats::FormatResultCode::UnsupportedVersion);
     }
 
     // Missing document section rejected.
@@ -308,7 +308,7 @@ int main()
             {"version", MsgPackValue::integer(kDraftingDocumentVersion)},
         });
         auto restored = draftingDocumentFromValue(value);
-        assert(!restored.ok);
+        EDI_CHECK(!restored.ok);
     }
 
     // Unknown object kind rejected.
@@ -329,7 +329,7 @@ int main()
             }
         }
         auto restored = draftingDocumentFromValue(value);
-        assert(!restored.ok);
+        EDI_CHECK(!restored.ok);
     }
 
     // Corrupt envelope magic rejected.
@@ -337,8 +337,8 @@ int main()
         auto bytes = encodeDraftingDocument(document);
         bytes[1] = 'X';
         auto decoded = decodeDraftingDocument(bytes, "fixture");
-        assert(!decoded.ok);
-        assert(decoded.code == edi::formats::FormatResultCode::UnsupportedSchema);
+        EDI_CHECK(!decoded.ok);
+        EDI_CHECK(decoded.code == edi::formats::FormatResultCode::UnsupportedSchema);
     }
 
     // Corrupting a structural payload byte (the top map's framing tag, the
@@ -347,7 +347,7 @@ int main()
         auto bytes = encodeDraftingDocument(document);
         bytes[5] ^= 0x40;
         auto decoded = decodeDraftingDocument(bytes, "fixture");
-        assert(!decoded.ok);
+        EDI_CHECK(!decoded.ok);
     }
 
     // M1.3: a wall's neutral type round-trips; a record with NO wall_visual (every
@@ -361,8 +361,8 @@ int main()
 
         MsgPackValue value = draftingDocumentToValue(doc);
         auto restored = draftingDocumentFromValue(value);
-        assert(restored.ok && restored.value);
-        assert(restored.value->objects[0].metadata.wallVisual.type == WallType::Secret);
+        EDI_CHECK(restored.ok && restored.value);
+        EDI_CHECK(restored.value->objects[0].metadata.wallVisual.type == WallType::Secret);
 
         // Strip wall_visual from the serialized metadata -> tolerant decode to Solid.
         for (auto &entry : value.mapValue) {
@@ -381,8 +381,8 @@ int main()
             }
         }
         auto tolerant = draftingDocumentFromValue(value);
-        assert(tolerant.ok && tolerant.value);
-        assert(tolerant.value->objects[0].metadata.wallVisual.type == WallType::Solid);
+        EDI_CHECK(tolerant.ok && tolerant.value);
+        EDI_CHECK(tolerant.value->objects[0].metadata.wallVisual.type == WallType::Solid);
     }
 
     // S3: the map graph round-trips through both the value layer and the byte
@@ -417,20 +417,20 @@ int main()
         graphDoc.connections.push_back(edge);
 
         auto restored = draftingDocumentFromValue(draftingDocumentToValue(graphDoc));
-        assert(restored.ok && restored.value);
+        EDI_CHECK(restored.ok && restored.value);
         assertDocumentsEqual(graphDoc, *restored.value);
 
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(graphDoc), "fixture");
-        assert(decoded.ok && decoded.value);
+        EDI_CHECK(decoded.ok && decoded.value);
         assertDocumentsEqual(graphDoc, *decoded.value);
-        assert(decoded.value->plugs.size() == 2);
-        assert(decoded.value->connections.size() == 1);
+        EDI_CHECK(decoded.value->plugs.size() == 2);
+        EDI_CHECK(decoded.value->connections.size() == 1);
         // DM-05: flags survive the byte round-trip; the no-flags plug stays empty.
         const std::vector<std::string> expectedFlags{"window", "passes_light"};
-        assert(decoded.value->plugs[0].flags == expectedFlags);
-        assert(decoded.value->plugs[1].flags.empty());
+        EDI_CHECK(decoded.value->plugs[0].flags == expectedFlags);
+        EDI_CHECK(decoded.value->plugs[1].flags.empty());
         // No version bump — flags are additive-tolerant, like wall_visual / asset_ref.
-        assert(kDraftingDocumentVersion == 2);
+        EDI_CHECK(kDraftingDocumentVersion == 2);
 
         // Additive-tolerant on the WRITE side too: a plug with no flags emits NO
         // `flags` key at all (emit-when-non-empty), so a pre-DM-05 file is byte-equal.
@@ -440,13 +440,13 @@ int main()
             for (const auto &dm : entry.second.mapValue) {
                 if (dm.first != "plugs") continue;
                 const auto &plugArr = dm.second.arrayValue;
-                assert(plugArr.size() == 2);
+                EDI_CHECK(plugArr.size() == 2);
                 bool firstHasFlags = false;
                 bool secondHasFlags = false;
                 for (const auto &kv : plugArr[0].mapValue) firstHasFlags |= (kv.first == "flags");
                 for (const auto &kv : plugArr[1].mapValue) secondHasFlags |= (kv.first == "flags");
-                assert(firstHasFlags);   // north carried flags
-                assert(!secondHasFlags); // east did not -> key absent entirely
+                EDI_CHECK(firstHasFlags);   // north carried flags
+                EDI_CHECK(!secondHasFlags); // east did not -> key absent entirely
             }
         }
 
@@ -460,9 +460,9 @@ int main()
             }
         }
         auto stripped = draftingDocumentFromValue(value);
-        assert(stripped.ok && stripped.value);
-        assert(stripped.value->plugs.empty());
-        assert(stripped.value->connections.empty());
+        EDI_CHECK(stripped.ok && stripped.value);
+        EDI_CHECK(stripped.value->plugs.empty());
+        EDI_CHECK(stripped.value->connections.empty());
     }
 
     // Seam C: named map rooms round-trip through the value + byte layers (footprint
@@ -475,17 +475,17 @@ int main()
         roomDoc.rooms.push_back(DraftingMapRoom{"hall", {18.0, 35.0}, 12.0, 11.0, "wood"});
 
         auto restored = draftingDocumentFromValue(draftingDocumentToValue(roomDoc));
-        assert(restored.ok && restored.value);
-        assert(restored.value->canvasPerAuthoredUnit == 0.02); // scale survives the round-trip
-        assert(restored.value->rooms.size() == 2);
+        EDI_CHECK(restored.ok && restored.value);
+        EDI_CHECK(restored.value->canvasPerAuthoredUnit == 0.02); // scale survives the round-trip
+        EDI_CHECK(restored.value->rooms.size() == 2);
         const auto &r0 = restored.value->rooms[0];
-        assert(r0.name == "entrance" && r0.material == "stone");
-        assert(r0.origin.x == 21.0 && r0.origin.y == 47.5);
-        assert(r0.width == 6.0 && r0.height == 2.0);
-        assert(restored.value->rooms[1].name == "hall" && restored.value->rooms[1].material == "wood");
+        EDI_CHECK(r0.name == "entrance" && r0.material == "stone");
+        EDI_CHECK(r0.origin.x == 21.0 && r0.origin.y == 47.5);
+        EDI_CHECK(r0.width == 6.0 && r0.height == 2.0);
+        EDI_CHECK(restored.value->rooms[1].name == "hall" && restored.value->rooms[1].material == "wood");
 
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(roomDoc), "fixture");
-        assert(decoded.ok && decoded.value && decoded.value->rooms.size() == 2);
+        EDI_CHECK(decoded.ok && decoded.value && decoded.value->rooms.size() == 2);
 
         MsgPackValue value = draftingDocumentToValue(roomDoc);
         for (auto &entry : value.mapValue) {
@@ -496,7 +496,7 @@ int main()
             }
         }
         auto strippedRooms = draftingDocumentFromValue(value);
-        assert(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
+        EDI_CHECK(strippedRooms.ok && strippedRooms.value && strippedRooms.value->rooms.empty());
     }
 
     // Phase-1 slice 3a — DraftingMapRoom::level (brief 055).
@@ -520,15 +520,15 @@ int main()
 
         // Value-layer round-trip.
         auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
-        assert(vRestored.ok && vRestored.value);
-        assert(vRestored.value->rooms.size() == 1);
-        assert(vRestored.value->rooms[0].level == 2);
+        EDI_CHECK(vRestored.ok && vRestored.value);
+        EDI_CHECK(vRestored.value->rooms.size() == 1);
+        EDI_CHECK(vRestored.value->rooms[0].level == 2);
 
         // Byte-layer round-trip (full MessagePack encode/decode path).
         auto bRestored = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
-        assert(bRestored.ok && bRestored.value);
-        assert(bRestored.value->rooms.size() == 1);
-        assert(bRestored.value->rooms[0].level == 2);
+        EDI_CHECK(bRestored.ok && bRestored.value);
+        EDI_CHECK(bRestored.value->rooms.size() == 1);
+        EDI_CHECK(bRestored.value->rooms[0].level == 2);
 
         // --- Forward-compat / tolerant-default: missing "level" key → 0. ---
         // Simulates an older .edidraw file that has no "level" key in the room map.
@@ -550,10 +550,10 @@ int main()
             }
         }
         auto noLevel = draftingDocumentFromValue(docVal);
-        assert(noLevel.ok && noLevel.value);
-        assert(noLevel.value->rooms.size() == 1);
+        EDI_CHECK(noLevel.ok && noLevel.value);
+        EDI_CHECK(noLevel.value->rooms.size() == 1);
         // Missing key must yield the default (0), not garbage or an error.
-        assert(noLevel.value->rooms[0].level == 0);
+        EDI_CHECK(noLevel.value->rooms[0].level == 0);
     }
 
     // Phase-1 slice 3b — RoomDerivation enum + DraftingMapRoom::derivation (brief 056).
@@ -566,14 +566,14 @@ int main()
         // is ever extended; name strings are stable and human-readable in the file.
         // Unknown strings fall back to Placed so future enumerators are safe
         // to add without bumping a format version.
-        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::Placed))
+        EDI_CHECK(roomDerivationFromName(roomDerivationName(RoomDerivation::Placed))
                == RoomDerivation::Placed);
-        assert(roomDerivationFromName(roomDerivationName(RoomDerivation::SpanDerived))
+        EDI_CHECK(roomDerivationFromName(roomDerivationName(RoomDerivation::SpanDerived))
                == RoomDerivation::SpanDerived);
-        assert(std::string(roomDerivationName(RoomDerivation::Placed)) == "placed");
-        assert(std::string(roomDerivationName(RoomDerivation::SpanDerived)) == "span_derived");
-        assert(roomDerivationFromName("unknown_future_value") == RoomDerivation::Placed);
-        assert(roomDerivationFromName("") == RoomDerivation::Placed);
+        EDI_CHECK(std::string(roomDerivationName(RoomDerivation::Placed)) == "placed");
+        EDI_CHECK(std::string(roomDerivationName(RoomDerivation::SpanDerived)) == "span_derived");
+        EDI_CHECK(roomDerivationFromName("unknown_future_value") == RoomDerivation::Placed);
+        EDI_CHECK(roomDerivationFromName("") == RoomDerivation::Placed);
 
         // --- Additive round-trip: SpanDerived survives encode → decode. ---
         DraftingDocument derivDoc = makeDraftingDocument("derivation-rt");
@@ -588,13 +588,13 @@ int main()
 
         // Value-layer round-trip.
         auto vRestored = draftingDocumentFromValue(draftingDocumentToValue(derivDoc));
-        assert(vRestored.ok && vRestored.value);
-        assert(vRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+        EDI_CHECK(vRestored.ok && vRestored.value);
+        EDI_CHECK(vRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
 
         // Byte-layer round-trip (full MessagePack encode/decode path).
         auto bRestored = decodeDraftingDocument(encodeDraftingDocument(derivDoc), "fixture");
-        assert(bRestored.ok && bRestored.value);
-        assert(bRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
+        EDI_CHECK(bRestored.ok && bRestored.value);
+        EDI_CHECK(bRestored.value->rooms[0].derivation == RoomDerivation::SpanDerived);
 
         // --- Forward-compat: missing "derivation" key ⇒ Placed. ---
         // Simulates an older .edidraw without this key (every file before slice 3b).
@@ -613,8 +613,8 @@ int main()
             }
         }
         auto noDerivation = draftingDocumentFromValue(docVal);
-        assert(noDerivation.ok && noDerivation.value);
-        assert(noDerivation.value->rooms[0].derivation == RoomDerivation::Placed);
+        EDI_CHECK(noDerivation.ok && noDerivation.value);
+        EDI_CHECK(noDerivation.value->rooms[0].derivation == RoomDerivation::Placed);
     }
 
     // Phase-1 slice 3c — DraftingNode round-trip + forward-compat (brief 061).
@@ -643,26 +643,26 @@ int main()
 
         // Value layer.
         auto vr = draftingDocumentFromValue(draftingDocumentToValue(nodeDoc));
-        assert(vr.ok && vr.value);
-        assert(vr.value->nodes.size() == 2);
+        EDI_CHECK(vr.ok && vr.value);
+        EDI_CHECK(vr.value->nodes.size() == 2);
         const DraftingNode &va = vr.value->nodes[0];
-        assert(va.id == "node_0001");
-        assert(va.anchor.x == 3.0 && va.anchor.y == 7.0);
-        assert(va.radius == 1.5);
-        assert(va.type == "junction");
-        assert(va.name == "cross_point");
+        EDI_CHECK(va.id == "node_0001");
+        EDI_CHECK(va.anchor.x == 3.0 && va.anchor.y == 7.0);
+        EDI_CHECK(va.radius == 1.5);
+        EDI_CHECK(va.type == "junction");
+        EDI_CHECK(va.name == "cross_point");
         const DraftingNode &vb = vr.value->nodes[1];
-        assert(vb.id == "node_0002");
-        assert(vb.radius == kDefaultNodeRadius);
-        assert(vb.type == "anchor");
+        EDI_CHECK(vb.id == "node_0002");
+        EDI_CHECK(vb.radius == kDefaultNodeRadius);
+        EDI_CHECK(vb.type == "anchor");
 
         // Byte layer (full MessagePack encode/decode path).
         auto br = decodeDraftingDocument(encodeDraftingDocument(nodeDoc), "fixture");
-        assert(br.ok && br.value);
-        assert(br.value->nodes.size() == 2);
-        assert(br.value->nodes[0].id == "node_0001");
-        assert(br.value->nodes[0].radius == 1.5);
-        assert(br.value->nodes[1].id == "node_0002");
+        EDI_CHECK(br.ok && br.value);
+        EDI_CHECK(br.value->nodes.size() == 2);
+        EDI_CHECK(br.value->nodes[0].id == "node_0001");
+        EDI_CHECK(br.value->nodes[0].radius == 1.5);
+        EDI_CHECK(br.value->nodes[1].id == "node_0002");
 
         // --- Forward-compat: missing "nodes" key ⇒ empty vector. ---
         // Simulates every file written before slice 3c — they have no "nodes" key
@@ -676,8 +676,8 @@ int main()
             }
         }
         auto noNodes = draftingDocumentFromValue(docVal);
-        assert(noNodes.ok && noNodes.value);
-        assert(noNodes.value->nodes.empty());
+        EDI_CHECK(noNodes.ok && noNodes.value);
+        EDI_CHECK(noNodes.value->nodes.empty());
     }
 
     // Phase-1 slice 3d — OverlapPolicy enum + document.overlapPolicy (brief 062).
@@ -685,29 +685,29 @@ int main()
     // every existing map byte-identical. NOT on the TOON wire this slice.
     {
         // --- Name↔enum round-trip for all three values + unknown → PickOne. ---
-        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::PickOne))
+        EDI_CHECK(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::PickOne))
                == OverlapPolicy::PickOne);
-        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Merge))
+        EDI_CHECK(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Merge))
                == OverlapPolicy::Merge);
-        assert(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Allow))
+        EDI_CHECK(overlapPolicyFromName(overlapPolicyName(OverlapPolicy::Allow))
                == OverlapPolicy::Allow);
-        assert(std::string(overlapPolicyName(OverlapPolicy::PickOne))  == "pick_one");
-        assert(std::string(overlapPolicyName(OverlapPolicy::Merge))    == "merge");
-        assert(std::string(overlapPolicyName(OverlapPolicy::Allow))    == "allow");
-        assert(overlapPolicyFromName("unknown_future_policy") == OverlapPolicy::PickOne);
-        assert(overlapPolicyFromName("") == OverlapPolicy::PickOne);
+        EDI_CHECK(std::string(overlapPolicyName(OverlapPolicy::PickOne))  == "pick_one");
+        EDI_CHECK(std::string(overlapPolicyName(OverlapPolicy::Merge))    == "merge");
+        EDI_CHECK(std::string(overlapPolicyName(OverlapPolicy::Allow))    == "allow");
+        EDI_CHECK(overlapPolicyFromName("unknown_future_policy") == OverlapPolicy::PickOne);
+        EDI_CHECK(overlapPolicyFromName("") == OverlapPolicy::PickOne);
 
         // --- Document round-trip: Merge survives value + byte layers. ---
         DraftingDocument policyDoc = makeDraftingDocument("policy-rt");
         policyDoc.overlapPolicy = OverlapPolicy::Merge;
 
         auto vr = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
-        assert(vr.ok && vr.value);
-        assert(vr.value->overlapPolicy == OverlapPolicy::Merge);
+        EDI_CHECK(vr.ok && vr.value);
+        EDI_CHECK(vr.value->overlapPolicy == OverlapPolicy::Merge);
 
         auto br = decodeDraftingDocument(encodeDraftingDocument(policyDoc), "fixture");
-        assert(br.ok && br.value);
-        assert(br.value->overlapPolicy == OverlapPolicy::Merge);
+        EDI_CHECK(br.ok && br.value);
+        EDI_CHECK(br.value->overlapPolicy == OverlapPolicy::Merge);
 
         // --- Forward-compat: missing "overlap_policy" key ⇒ PickOne. ---
         // Strip the key from the document map — simulates every .edidraw written
@@ -721,13 +721,13 @@ int main()
             }
         }
         auto noPolicy = draftingDocumentFromValue(docVal);
-        assert(noPolicy.ok && noPolicy.value);
-        assert(noPolicy.value->overlapPolicy == OverlapPolicy::PickOne);
+        EDI_CHECK(noPolicy.ok && noPolicy.value);
+        EDI_CHECK(noPolicy.value->overlapPolicy == OverlapPolicy::PickOne);
 
         // Allow round-trips correctly too.
         policyDoc.overlapPolicy = OverlapPolicy::Allow;
         auto ar = draftingDocumentFromValue(draftingDocumentToValue(policyDoc));
-        assert(ar.ok && ar.value && ar.value->overlapPolicy == OverlapPolicy::Allow);
+        EDI_CHECK(ar.ok && ar.value && ar.value->overlapPolicy == OverlapPolicy::Allow);
     }
 
     // Phase-1 slice 3f — int level=0 on DraftingPlug + DraftingDeclaredConnection (brief 067).
@@ -760,17 +760,17 @@ int main()
 
         // --- Value-layer round-trip ---
         auto vr = draftingDocumentFromValue(draftingDocumentToValue(lvlDoc));
-        assert(vr.ok && vr.value);
-        assert(vr.value->plugs.size() == 1);
-        assert(vr.value->plugs[0].level == 3);
-        assert(vr.value->connections.size() == 1);
-        assert(vr.value->connections[0].level == 1);
+        EDI_CHECK(vr.ok && vr.value);
+        EDI_CHECK(vr.value->plugs.size() == 1);
+        EDI_CHECK(vr.value->plugs[0].level == 3);
+        EDI_CHECK(vr.value->connections.size() == 1);
+        EDI_CHECK(vr.value->connections[0].level == 1);
 
         // --- Byte-layer round-trip ---
         auto br = decodeDraftingDocument(encodeDraftingDocument(lvlDoc), "fixture");
-        assert(br.ok && br.value);
-        assert(br.value->plugs[0].level == 3);
-        assert(br.value->connections[0].level == 1);
+        EDI_CHECK(br.ok && br.value);
+        EDI_CHECK(br.value->plugs[0].level == 3);
+        EDI_CHECK(br.value->connections[0].level == 1);
 
         // --- Forward-compat: strip "level" from plug and connection maps ⇒ 0 each. ---
         // Simulates an older .edidraw (every file before slice 3f has no "level" key
@@ -792,9 +792,9 @@ int main()
             }
         }
         auto noLevel = draftingDocumentFromValue(docVal);
-        assert(noLevel.ok && noLevel.value);
-        assert(noLevel.value->plugs[0].level      == 0); // missing ⇒ default 0
-        assert(noLevel.value->connections[0].level == 0);
+        EDI_CHECK(noLevel.ok && noLevel.value);
+        EDI_CHECK(noLevel.value->plugs[0].level      == 0); // missing ⇒ default 0
+        EDI_CHECK(noLevel.value->connections[0].level == 0);
     }
 
     // DM-12: a placed-instance object's BlockPlacementMetadata round-trips its
@@ -818,11 +818,11 @@ int main()
         placeDoc.objects = {spun, flat};
 
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(placeDoc), "fixture");
-        assert(decoded.ok && decoded.value && decoded.value->objects.size() == 2);
+        EDI_CHECK(decoded.ok && decoded.value && decoded.value->objects.size() == 2);
         const auto &back0 = decoded.value->objects[0].metadata.blockPlacement;
-        assert(back0.rotationDeg == 30.0 && back0.scale == 2.0); // non-identity survives
+        EDI_CHECK(back0.rotationDeg == 30.0 && back0.scale == 2.0); // non-identity survives
         const auto &back1 = decoded.value->objects[1].metadata.blockPlacement;
-        assert(back1.rotationDeg == 0.0 && back1.scale == 1.0);  // identity read back as default
+        EDI_CHECK(back1.rotationDeg == 0.0 && back1.scale == 1.0);  // identity read back as default
 
         // Write-side additivity: the identity placement's block_placement map carries
         // NO rotation_deg / scale key; the non-identity one carries BOTH.
@@ -832,7 +832,7 @@ int main()
             for (const auto &dm : entry.second.mapValue) {
                 if (dm.first != "objects") continue;
                 const auto &objArr = dm.second.arrayValue;
-                assert(objArr.size() == 2);
+                EDI_CHECK(objArr.size() == 2);
                 const auto hasKey = [](const MsgPackValue &obj, const std::string &key) {
                     for (const auto &kv : obj.mapValue) {
                         if (kv.first != "metadata") continue;
@@ -845,11 +845,11 @@ int main()
                     }
                     return false;
                 };
-                assert(hasKey(objArr[0], "rotation_deg") && hasKey(objArr[0], "scale")); // non-identity
-                assert(!hasKey(objArr[1], "rotation_deg") && !hasKey(objArr[1], "scale")); // identity -> absent
+                EDI_CHECK(hasKey(objArr[0], "rotation_deg") && hasKey(objArr[0], "scale")); // non-identity
+                EDI_CHECK(!hasKey(objArr[1], "rotation_deg") && !hasKey(objArr[1], "scale")); // identity -> absent
             }
         }
-        assert(kDraftingDocumentVersion == 2); // additive — no bump
+        EDI_CHECK(kDraftingDocumentVersion == 2); // additive — no bump
     }
 
     // Angular dimension serialize round-trip (S4 / S7).
@@ -880,12 +880,12 @@ int main()
         singleDoc.objects.push_back(angObj);
 
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(singleDoc), "angular-rt");
-        assert(decoded.ok);
+        EDI_CHECK(decoded.ok);
         const auto &roundTripped = std::get<DimensionGeometry>(decoded.value->objects[0].geometry);
-        assert(roundTripped.kind == DimensionKind::Angular);
-        assert(roundTripped.a.x == 0.0 && roundTripped.a.y == 0.0);
-        assert(roundTripped.b.x == 0.1 && roundTripped.b.y == 0.0);
-        assert(roundTripped.offset == 90.0);
+        EDI_CHECK(roundTripped.kind == DimensionKind::Angular);
+        EDI_CHECK(roundTripped.a.x == 0.0 && roundTripped.a.y == 0.0);
+        EDI_CHECK(roundTripped.b.x == 0.1 && roundTripped.b.y == 0.0);
+        EDI_CHECK(roundTripped.offset == 90.0);
     }
 
     // M8-S1: motif round-trip — name + object count + geometry preserved.
@@ -915,22 +915,22 @@ int main()
         motifDoc.motifs.push_back(motif);
 
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(motifDoc), "motif-rt");
-        assert(decoded.ok);
-        assert(decoded.value->motifs.size() == 1);
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value->motifs.size() == 1);
 
         const DraftingMotif &rt = decoded.value->motifs[0];
-        assert(rt.name == "chevron");
-        assert(rt.objects.size() == 2);
+        EDI_CHECK(rt.name == "chevron");
+        EDI_CHECK(rt.objects.size() == 2);
 
         // Geometry round-trips.
         const auto *lineGeo = std::get_if<LineGeometry>(&rt.objects[0].geometry);
-        assert(lineGeo != nullptr);
-        assert(lineGeo->a.x == 0.0 && lineGeo->a.y == 0.0);
-        assert(lineGeo->b.x == 1.0 && lineGeo->b.y == 0.5);
+        EDI_CHECK(lineGeo != nullptr);
+        EDI_CHECK(lineGeo->a.x == 0.0 && lineGeo->a.y == 0.0);
+        EDI_CHECK(lineGeo->b.x == 1.0 && lineGeo->b.y == 0.5);
 
         const auto *ptGeo = std::get_if<PointGeometry>(&rt.objects[1].geometry);
-        assert(ptGeo != nullptr);
-        assert(ptGeo->point.x == 0.5 && ptGeo->point.y == 0.25);
+        EDI_CHECK(ptGeo != nullptr);
+        EDI_CHECK(ptGeo->point.x == 0.5 && ptGeo->point.y == 0.25);
     }
 
     // P2-A3 (brief 075): DraftingMapRoom.boundedBy MessagePack round-trip.
@@ -950,18 +950,18 @@ int main()
         bbDoc.rooms.push_back(spanRoom);
 
         auto vr = draftingDocumentFromValue(draftingDocumentToValue(bbDoc));
-        assert(vr.ok && vr.value);
-        assert(vr.value->rooms.size() == 1);
-        assert(vr.value->rooms[0].boundedBy.size() == 2);
-        assert(vr.value->rooms[0].boundedBy[0] == "node_0001");
-        assert(vr.value->rooms[0].boundedBy[1] == "node_0002");
+        EDI_CHECK(vr.ok && vr.value);
+        EDI_CHECK(vr.value->rooms.size() == 1);
+        EDI_CHECK(vr.value->rooms[0].boundedBy.size() == 2);
+        EDI_CHECK(vr.value->rooms[0].boundedBy[0] == "node_0001");
+        EDI_CHECK(vr.value->rooms[0].boundedBy[1] == "node_0002");
 
         // --- Byte-layer round-trip ---
         auto br = decodeDraftingDocument(encodeDraftingDocument(bbDoc), "bounded-by-test");
-        assert(br.ok && br.value);
-        assert(br.value->rooms[0].boundedBy.size() == 2);
-        assert(br.value->rooms[0].boundedBy[0] == "node_0001");
-        assert(br.value->rooms[0].boundedBy[1] == "node_0002");
+        EDI_CHECK(br.ok && br.value);
+        EDI_CHECK(br.value->rooms[0].boundedBy.size() == 2);
+        EDI_CHECK(br.value->rooms[0].boundedBy[0] == "node_0001");
+        EDI_CHECK(br.value->rooms[0].boundedBy[1] == "node_0002");
 
         // --- Forward-compat: missing "bounded_by" key decodes to empty. ---
         // Strip the "bounded_by" key from the room map to simulate a pre-A3 file.
@@ -979,8 +979,8 @@ int main()
             }
         }
         auto noKey = draftingDocumentFromValue(docVal);
-        assert(noKey.ok && noKey.value);
-        assert(noKey.value->rooms[0].boundedBy.empty()); // missing key => empty
+        EDI_CHECK(noKey.ok && noKey.value);
+        EDI_CHECK(noKey.value->rooms[0].boundedBy.empty()); // missing key => empty
 
         // --- Placed room: bounded_by key is ABSENT in the encoded output. ---
         // (Conditional write: empty vector => key omitted, like plug.flags when empty.)
@@ -1000,7 +1000,7 @@ int main()
                 }
             }
         }
-        assert(!foundBoundedBy); // empty boundedBy => key absent (byte-stable for Placed rooms)
+        EDI_CHECK(!foundBoundedBy); // empty boundedBy => key absent (byte-stable for Placed rooms)
     }
 
     // M8-S1: absent "motifs" key → decodes to empty (backward-compat tolerance).
@@ -1011,8 +1011,8 @@ int main()
         // absent key" case is structurally identical (both decode to size==0).
         DraftingDocument noMotifDoc = makeDraftingDocument("no-motif");
         auto decoded = decodeDraftingDocument(encodeDraftingDocument(noMotifDoc), "no-motif");
-        assert(decoded.ok);
-        assert(decoded.value->motifs.empty());
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value->motifs.empty());
     }
 
     return 0;

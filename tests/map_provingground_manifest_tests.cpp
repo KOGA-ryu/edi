@@ -19,7 +19,7 @@
 #include "io/MapToonExport.h"
 #include "io/RoomSpecStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <fstream>
 #include <string>
 
@@ -30,7 +30,7 @@
 static std::string readFile(const std::string &path)
 {
     std::ifstream f(path);
-    assert(f.is_open() && "fixture not found — check EDI_TESTS_DATA_DIR");
+    EDI_CHECK(f.is_open() && "fixture not found — check EDI_TESTS_DATA_DIR");
     return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
@@ -47,43 +47,43 @@ int main()
     // canvasPerUnit=1.0 keeps authored feet == the numbers in the TOON (the CLI's
     // export-map path uses the same), so the manifest assertions read in feet.
     const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(toml, 1.0);
-    assert(parsed.ok && "provingground.map.toml must parse without errors");
-    assert(parsed.spec.rooms.size() == 6);
-    assert(parsed.spec.connections.size() == 5);
-    assert(parsed.spec.patrols.size() == 1);
+    EDI_CHECK(parsed.ok && "provingground.map.toml must parse without errors");
+    EDI_CHECK(parsed.spec.rooms.size() == 6);
+    EDI_CHECK(parsed.spec.connections.size() == 5);
+    EDI_CHECK(parsed.spec.patrols.size() == 1);
 
     const std::string toon = edi::io::exportMapToToon(parsed.spec, "provingground");
 
     // --- markers: spawn / pickup / npc / goal / chest -------------------------
-    assert(has(toon, "markers["));
+    EDI_CHECK(has(toon, "markers["));
     // spawn marker in the spawn room.
-    assert(has(toon, "spawn,player_spawn,spawn,"));
+    EDI_CHECK(has(toon, "spawn,player_spawn,spawn,"));
     // pickup gold_key in the alcove.
-    assert(has(toon, "alcove,gold_key,pickup,"));
+    EDI_CHECK(has(toon, "alcove,gold_key,pickup,"));
     // npc with metadata patrol=guard_loop.
-    assert(has(toon, "npc,guard,npc,"));
-    assert(has(toon, "patrol=guard_loop"));
+    EDI_CHECK(has(toon, "npc,guard,npc,"));
+    EDI_CHECK(has(toon, "patrol=guard_loop"));
     // goal marker.
-    assert(has(toon, "goal,exit_goal,goal,"));
+    EDI_CHECK(has(toon, "goal,exit_goal,goal,"));
     // chest marker carrying the lock metadata.
-    assert(has(toon, "goal,treasure,chest,"));
-    assert(has(toon, "key_id=gold_key"));
+    EDI_CHECK(has(toon, "goal,treasure,chest,"));
+    EDI_CHECK(has(toon, "key_id=gold_key"));
 
     // --- patrol: the closed loop the npc references ---------------------------
-    assert(has(toon, "patrols[1]{id,closed,points}:"));
-    assert(has(toon, "guard_loop,true,"));
+    EDI_CHECK(has(toon, "patrols[1]{id,closed,points}:"));
+    EDI_CHECK(has(toon, "guard_loop,true,"));
     // ~4 waypoints: count the comma-separated x,y pairs in the patrol's points run.
-    assert(parsed.spec.patrols[0].id == "guard_loop");
-    assert(parsed.spec.patrols[0].closed);
-    assert(parsed.spec.patrols[0].waypoints.size() == 4);
+    EDI_CHECK(parsed.spec.patrols[0].id == "guard_loop");
+    EDI_CHECK(parsed.spec.patrols[0].closed);
+    EDI_CHECK(parsed.spec.patrols[0].waypoints.size() == 4);
 
     // --- the FINAL goal-room door: locked + key_id gold_key -------------------
-    assert(has(toon, "connections[5]{from,to,type,locked,key_id}:"));
-    assert(has(toon, "junction.to_goal,goal.entry,corridor,true,gold_key"));
+    EDI_CHECK(has(toon, "connections[5]{from,to,type,locked,key_id}:"));
+    EDI_CHECK(has(toon, "junction.to_goal,goal.entry,corridor,true,gold_key"));
 
     // --- the dead-end room tag ------------------------------------------------
     // Authored as a neutral marker (type=dead_end) in the upper-left room.
-    assert(has(toon, "deadend,deadend_tag,dead_end,"));
+    EDI_CHECK(has(toon, "deadend,deadend_tag,dead_end,"));
 
     // --- gold_key matches across pickup id / door keyId / chest meta key_id ---
     // The key-before-door indirection: ONE id string ties the three together.
@@ -99,7 +99,7 @@ int main()
             }
         }
     }
-    assert(pickupMatch && "a pickup marker must have id gold_key");
+    EDI_CHECK(pickupMatch && "a pickup marker must have id gold_key");
 
     // 2) the locked door connection's keyId.
     bool doorMatch = false;
@@ -108,7 +108,7 @@ int main()
             doorMatch = true;
         }
     }
-    assert(doorMatch && "a locked connection must carry keyId gold_key");
+    EDI_CHECK(doorMatch && "a locked connection must carry keyId gold_key");
 
     // 3) the chest marker's metadata key_id.
     bool chestMatch = false;
@@ -124,12 +124,12 @@ int main()
             }
         }
     }
-    assert(chestMatch && "the chest marker's metadata key_id must be gold_key");
+    EDI_CHECK(chestMatch && "the chest marker's metadata key_id must be gold_key");
 
     // All three resolved to the SAME id string — the manifest is internally
     // consistent (the parser's referential-integrity check guarantees this, and
     // this asserts it end-to-end on the shipped fixture).
-    assert(pickupMatch && doorMatch && chestMatch);
+    EDI_CHECK(pickupMatch && doorMatch && chestMatch);
 
     return 0;
 }

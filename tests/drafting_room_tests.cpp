@@ -1,7 +1,7 @@
 #include "drafting/DraftingGeometry.h"
 #include "drafting/DraftingRoom.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <functional>
 #include <memory>
@@ -41,27 +41,27 @@ int main()
         spec.height = 0.2;
         spec.wallThickness = 0.05;
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok);
-        assert(plan.objects.size() == 4);
+        EDI_CHECK(plan.ok);
+        EDI_CHECK(plan.objects.size() == 4);
         for (const DraftingObject &wall : plan.objects) {
-            assert(wall.kind == DraftingShapeKind::Wall);
-            assert(nearlyEqual(wallOf(wall).thickness, 0.05));
-            assert(wall.metadata.material == "stone"); // neutral classification carried
+            EDI_CHECK(wall.kind == DraftingShapeKind::Wall);
+            EDI_CHECK(nearlyEqual(wallOf(wall).thickness, 0.05));
+            EDI_CHECK(wall.metadata.material == "stone"); // neutral classification carried
         }
         // N(NW->NE) E(NE->SE) S(SE->SW) W(SW->NW), clockwise.
         const WallGeometry n = wallOf(plan.objects[0]);
         const WallGeometry e = wallOf(plan.objects[1]);
         const WallGeometry s = wallOf(plan.objects[2]);
         const WallGeometry w = wallOf(plan.objects[3]);
-        assert(nearlyEqual(n.a.x, 0.2) && nearlyEqual(n.a.y, 0.3));
-        assert(nearlyEqual(n.b.x, 0.6) && nearlyEqual(n.b.y, 0.3));
-        assert(nearlyEqual(e.b.x, 0.6) && nearlyEqual(e.b.y, 0.5));
-        assert(nearlyEqual(s.b.x, 0.2) && nearlyEqual(s.b.y, 0.5));
-        assert(nearlyEqual(w.b.x, 0.2) && nearlyEqual(w.b.y, 0.3));
+        EDI_CHECK(nearlyEqual(n.a.x, 0.2) && nearlyEqual(n.a.y, 0.3));
+        EDI_CHECK(nearlyEqual(n.b.x, 0.6) && nearlyEqual(n.b.y, 0.3));
+        EDI_CHECK(nearlyEqual(e.b.x, 0.6) && nearlyEqual(e.b.y, 0.5));
+        EDI_CHECK(nearlyEqual(s.b.x, 0.2) && nearlyEqual(s.b.y, 0.5));
+        EDI_CHECK(nearlyEqual(w.b.x, 0.2) && nearlyEqual(w.b.y, 0.3));
         // Corners coincide: each edge's end is the next edge's start.
-        assert(nearlyEqual(n.b.x, e.a.x) && nearlyEqual(n.b.y, e.a.y));
-        assert(nearlyEqual(e.b.x, s.a.x) && nearlyEqual(e.b.y, s.a.y));
-        assert(nearlyEqual(w.b.x, n.a.x) && nearlyEqual(w.b.y, n.a.y));
+        EDI_CHECK(nearlyEqual(n.b.x, e.a.x) && nearlyEqual(n.b.y, e.a.y));
+        EDI_CHECK(nearlyEqual(e.b.x, s.a.x) && nearlyEqual(e.b.y, s.a.y));
+        EDI_CHECK(nearlyEqual(w.b.x, n.a.x) && nearlyEqual(w.b.y, n.a.y));
     }
 
     // The guard-antechamber layout: openings on three edges become GAPS, so each
@@ -79,16 +79,16 @@ int main()
             {RoomEdge::South, 0.30, 0.05, "door"},
         };
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok);
-        assert(plan.objects.size() == 7);
+        EDI_CHECK(plan.ok);
+        EDI_CHECK(plan.objects.size() == 7);
 
         // The N edge (NW(0.1,0.1) -> NE(0.7,0.1)) with a gap [0.25,0.35] yields a
         // first segment (0.1,0.1)->(0.35,0.1) and a second (0.45,0.1)->(0.7,0.1).
         const WallGeometry n0 = wallOf(plan.objects[0]);
         const WallGeometry n1 = wallOf(plan.objects[1]);
-        assert(nearlyEqual(n0.a.x, 0.1) && nearlyEqual(n0.b.x, 0.35));
-        assert(nearlyEqual(n1.a.x, 0.45) && nearlyEqual(n1.b.x, 0.7));
-        assert(nearlyEqual(n0.a.y, 0.1) && nearlyEqual(n1.b.y, 0.1)); // both on the N edge
+        EDI_CHECK(nearlyEqual(n0.a.x, 0.1) && nearlyEqual(n0.b.x, 0.35));
+        EDI_CHECK(nearlyEqual(n1.a.x, 0.45) && nearlyEqual(n1.b.x, 0.7));
+        EDI_CHECK(nearlyEqual(n0.a.y, 0.1) && nearlyEqual(n1.b.y, 0.1)); // both on the N edge
     }
 
     // Two openings on one edge split it into THREE segments (the complement of
@@ -103,12 +103,12 @@ int main()
             {RoomEdge::North, 0.65, 0.10, "door"}, // gap [0.60, 0.70]
         };
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok);
-        assert(plan.objects.size() == 6); // 3 (N) + 1 + 1 + 1
+        EDI_CHECK(plan.ok);
+        EDI_CHECK(plan.objects.size() == 6); // 3 (N) + 1 + 1 + 1
         // N spans: [0,0.20], [0.30,0.60], [0.70,1.0].
-        assert(nearlyEqual(wallOf(plan.objects[0]).b.x, 0.20));
-        assert(nearlyEqual(wallOf(plan.objects[1]).a.x, 0.30) && nearlyEqual(wallOf(plan.objects[1]).b.x, 0.60));
-        assert(nearlyEqual(wallOf(plan.objects[2]).a.x, 0.70));
+        EDI_CHECK(nearlyEqual(wallOf(plan.objects[0]).b.x, 0.20));
+        EDI_CHECK(nearlyEqual(wallOf(plan.objects[1]).a.x, 0.30) && nearlyEqual(wallOf(plan.objects[1]).b.x, 0.60));
+        EDI_CHECK(nearlyEqual(wallOf(plan.objects[2]).a.x, 0.70));
     }
 
     // An opening flush to a corner leaves that corner OPEN: the edge yields one
@@ -120,11 +120,11 @@ int main()
         spec.height = 0.4;
         spec.openings = {{RoomEdge::North, 0.05, 0.10, "door"}}; // gap [0.0, 0.10], flush to NW
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok);
+        EDI_CHECK(plan.ok);
         // N edge: single span [0.10, 0.40]; its start is NOT the NW corner.
         const WallGeometry n = wallOf(plan.objects[0]);
-        assert(nearlyEqual(n.a.x, 0.10) && nearlyEqual(n.b.x, 0.40));
-        assert(plan.objects.size() == 4); // 1 (N) + 1 + 1 + 1 (one opening, three solid edges)
+        EDI_CHECK(nearlyEqual(n.a.x, 0.10) && nearlyEqual(n.b.x, 0.40));
+        EDI_CHECK(plan.objects.size() == 4); // 1 (N) + 1 + 1 + 1 (one opening, three solid edges)
     }
 
     // A solid room with no openings is still four walls (the opening machinery is
@@ -135,7 +135,7 @@ int main()
         spec.width = 0.5;
         spec.height = 0.5;
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok && plan.objects.size() == 4);
+        EDI_CHECK(plan.ok && plan.objects.size() == 4);
     }
 
     // Validation: degenerate size, an oversized opening, and overlapping openings
@@ -145,14 +145,14 @@ int main()
         bad.origin = {0.0, 0.0};
         bad.width = 0.0; // degenerate
         bad.height = 0.3;
-        assert(!planDraftingRoom(bad, counter()).ok);
+        EDI_CHECK(!planDraftingRoom(bad, counter()).ok);
 
         RoomSpec oversized;
         oversized.origin = {0.0, 0.0};
         oversized.width = 0.3;
         oversized.height = 0.3;
         oversized.openings = {{RoomEdge::North, 0.15, 0.5, "door"}}; // wider than the 0.3 edge
-        assert(!planDraftingRoom(oversized, counter()).ok);
+        EDI_CHECK(!planDraftingRoom(oversized, counter()).ok);
 
         RoomSpec overlapping;
         overlapping.origin = {0.0, 0.0};
@@ -162,7 +162,7 @@ int main()
             {RoomEdge::North, 0.15, 0.12, "door"}, // [0.09, 0.21]
             {RoomEdge::North, 0.22, 0.12, "door"}, // [0.16, 0.28] overlaps
         };
-        assert(!planDraftingRoom(overlapping, counter()).ok);
+        EDI_CHECK(!planDraftingRoom(overlapping, counter()).ok);
     }
 
     // A plug authored on an edge emits a Point marker at its offset (tagged
@@ -176,8 +176,8 @@ int main()
         spec.plugs = {{RoomEdge::North, 0.1, "north_door", "door"}};
 
         const DraftingRoomPlan plan = planDraftingRoom(spec, counter());
-        assert(plan.ok);
-        assert(plan.plugs.size() == 1);
+        EDI_CHECK(plan.ok);
+        EDI_CHECK(plan.plugs.size() == 1);
 
         int markerCount = 0;
         const DraftingObject *marker = nullptr;
@@ -187,16 +187,16 @@ int main()
                 marker = &o;
             }
         }
-        assert(markerCount == 1 && marker != nullptr);
-        assert(marker->metadata.toolProvenance == "plug");
-        assert(marker->metadata.tags.size() == 1 && marker->metadata.tags[0] == "plug:north_door");
+        EDI_CHECK(markerCount == 1 && marker != nullptr);
+        EDI_CHECK(marker->metadata.toolProvenance == "plug");
+        EDI_CHECK(marker->metadata.tags.size() == 1 && marker->metadata.tags[0] == "plug:north_door");
         const PointGeometry pg = std::get<PointGeometry>(marker->geometry);
-        assert(nearlyEqual(pg.point.x, 0.1) && nearlyEqual(pg.point.y, 0.0)); // N edge, origin + 0.1
+        EDI_CHECK(nearlyEqual(pg.point.x, 0.1) && nearlyEqual(pg.point.y, 0.0)); // N edge, origin + 0.1
 
         const RoomPlugPlacement &placement = plan.plugs[0];
-        assert(placement.anchorObjectId == marker->id);
-        assert(placement.name == "north_door" && placement.type == "door");
-        assert(nearlyEqual(placement.anchor.x, 0.1) && nearlyEqual(placement.anchor.y, 0.0));
+        EDI_CHECK(placement.anchorObjectId == marker->id);
+        EDI_CHECK(placement.name == "north_door" && placement.type == "door");
+        EDI_CHECK(nearlyEqual(placement.anchor.x, 0.1) && nearlyEqual(placement.anchor.y, 0.0));
     }
 
     // A plug off its wall is rejected.
@@ -206,29 +206,29 @@ int main()
         spec.width = 0.4;
         spec.height = 0.2;
         spec.plugs = {{RoomEdge::North, 0.9, "too_far", "door"}}; // 0.9 > width 0.4
-        assert(!planDraftingRoom(spec, counter()).ok);
+        EDI_CHECK(!planDraftingRoom(spec, counter()).ok);
     }
 
     // Phase-1 slice 3e — RoomKind enum + per-edge wall presence (brief 065).
     // Types and fields only; drawing logic honours them in Phase 2.
     {
         // --- roomKindName / roomKindFromName round-trip + unknown → Enclosed. ---
-        assert(roomKindFromName(roomKindName(RoomKind::Enclosed)) == RoomKind::Enclosed);
-        assert(roomKindFromName(roomKindName(RoomKind::Open))     == RoomKind::Open);
-        assert(std::string(roomKindName(RoomKind::Enclosed)) == "enclosed");
-        assert(std::string(roomKindName(RoomKind::Open))     == "open");
-        assert(roomKindFromName("unknown_future_kind") == RoomKind::Enclosed);
-        assert(roomKindFromName("") == RoomKind::Enclosed);
+        EDI_CHECK(roomKindFromName(roomKindName(RoomKind::Enclosed)) == RoomKind::Enclosed);
+        EDI_CHECK(roomKindFromName(roomKindName(RoomKind::Open))     == RoomKind::Open);
+        EDI_CHECK(std::string(roomKindName(RoomKind::Enclosed)) == "enclosed");
+        EDI_CHECK(std::string(roomKindName(RoomKind::Open))     == "open");
+        EDI_CHECK(roomKindFromName("unknown_future_kind") == RoomKind::Enclosed);
+        EDI_CHECK(roomKindFromName("") == RoomKind::Enclosed);
 
         // --- Default RoomSpec: Enclosed + all four edge walls present. ---
         // A default-constructed RoomSpec must be byte-identical to the pre-3e spec:
         // planDraftingRoom still emits four walls for a plain rectangular room.
         RoomSpec defaultSpec;
-        assert(defaultSpec.kind  == RoomKind::Enclosed);
-        assert(defaultSpec.wallN == true);
-        assert(defaultSpec.wallE == true);
-        assert(defaultSpec.wallS == true);
-        assert(defaultSpec.wallW == true);
+        EDI_CHECK(defaultSpec.kind  == RoomKind::Enclosed);
+        EDI_CHECK(defaultSpec.wallN == true);
+        EDI_CHECK(defaultSpec.wallE == true);
+        EDI_CHECK(defaultSpec.wallS == true);
+        EDI_CHECK(defaultSpec.wallW == true);
 
         // --- Behavior-preserving: planDraftingRoom on a default RoomSpec still
         //     emits 4 walls (the new fields are inert this slice). ---
@@ -237,11 +237,11 @@ int main()
         defaultSpec.height = 0.2;
         defaultSpec.wallThickness = 0.05;
         const DraftingRoomPlan plan = planDraftingRoom(defaultSpec, counter());
-        assert(plan.ok);
+        EDI_CHECK(plan.ok);
         // 4 solid perimeter walls — same as before the new fields existed.
-        assert(plan.objects.size() == 4);
+        EDI_CHECK(plan.objects.size() == 4);
         for (const DraftingObject &wall : plan.objects) {
-            assert(wall.kind == DraftingShapeKind::Wall);
+            EDI_CHECK(wall.kind == DraftingShapeKind::Wall);
         }
 
         // --- RoomSpec can hold Open + suppressed edges without compile error.
@@ -251,11 +251,11 @@ int main()
         openSpec.wallN = false;
         openSpec.wallS = false;
         // wallE and wallW still true by default.
-        assert(openSpec.kind  == RoomKind::Open);
-        assert(openSpec.wallN == false);
-        assert(openSpec.wallE == true);
-        assert(openSpec.wallS == false);
-        assert(openSpec.wallW == true);
+        EDI_CHECK(openSpec.kind  == RoomKind::Open);
+        EDI_CHECK(openSpec.wallN == false);
+        EDI_CHECK(openSpec.wallE == true);
+        EDI_CHECK(openSpec.wallS == false);
+        EDI_CHECK(openSpec.wallW == true);
     }
 
     return 0;

@@ -6,7 +6,7 @@
 
 #include "drafting/DraftingRoom.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::io;
@@ -22,13 +22,13 @@ int main()
             "map.room.1.plug.0.edge = \"W\"\nmap.room.1.plug.0.name = \"w\"\n"
             "map.connection.0.from = \"a.e\"\nmap.connection.0.to = \"b.w\"\nmap.connection.0.type = \"corridor\"\n",
             1.0);
-        assert(parsed.ok);
-        assert(parsed.spec.rooms.size() == 2);
-        assert(parsed.spec.rooms[0].name == "a" && parsed.spec.rooms[1].name == "b");
-        assert(parsed.spec.connections.size() == 1);
-        assert(parsed.spec.connections[0].from.roomName == "a" && parsed.spec.connections[0].from.plugName == "e");
-        assert(parsed.spec.connections[0].to.roomName == "b" && parsed.spec.connections[0].to.plugName == "w");
-        assert(parsed.spec.connections[0].type == "corridor");
+        EDI_CHECK(parsed.ok);
+        EDI_CHECK(parsed.spec.rooms.size() == 2);
+        EDI_CHECK(parsed.spec.rooms[0].name == "a" && parsed.spec.rooms[1].name == "b");
+        EDI_CHECK(parsed.spec.connections.size() == 1);
+        EDI_CHECK(parsed.spec.connections[0].from.roomName == "a" && parsed.spec.connections[0].from.plugName == "e");
+        EDI_CHECK(parsed.spec.connections[0].to.roomName == "b" && parsed.spec.connections[0].to.plugName == "w");
+        EDI_CHECK(parsed.spec.connections[0].type == "corridor");
     }
 
     // A 3-way junction is a junction ROOM with three distinct plugs and THREE
@@ -46,13 +46,13 @@ int main()
             "map.connection.1.from = \"j.to_b\"\nmap.connection.1.to = \"b.p\"\n"
             "map.connection.2.from = \"j.to_c\"\nmap.connection.2.to = \"c.p\"\n",
             1.0);
-        assert(parsed.ok);
-        assert(parsed.spec.rooms.size() == 4);
-        assert(parsed.spec.connections.size() == 3);
+        EDI_CHECK(parsed.ok);
+        EDI_CHECK(parsed.spec.rooms.size() == 4);
+        EDI_CHECK(parsed.spec.connections.size() == 3);
         // All three edges leave the junction by its three DISTINCT plugs.
-        assert(parsed.spec.connections[0].from.roomName == "j" && parsed.spec.connections[0].from.plugName == "to_a");
-        assert(parsed.spec.connections[1].from.plugName == "to_b");
-        assert(parsed.spec.connections[2].from.plugName == "to_c");
+        EDI_CHECK(parsed.spec.connections[0].from.roomName == "j" && parsed.spec.connections[0].from.plugName == "to_a");
+        EDI_CHECK(parsed.spec.connections[1].from.plugName == "to_b");
+        EDI_CHECK(parsed.spec.connections[2].from.plugName == "to_c");
     }
 
     // Two rooms may share a plug NAME — names are room-scoped, so this is accepted
@@ -63,8 +63,8 @@ int main()
             "map.room.1.name = \"b\"\nmap.room.1.width = \"10\"\nmap.room.1.height = \"10\"\nmap.room.1.origin_x = \"20\"\nmap.room.1.plug.0.edge = \"W\"\nmap.room.1.plug.0.name = \"door\"\n"
             "map.connection.0.from = \"a.door\"\nmap.connection.0.to = \"b.door\"\n",
             1.0);
-        assert(parsed.ok);
-        assert(parsed.spec.connections.size() == 1);
+        EDI_CHECK(parsed.ok);
+        EDI_CHECK(parsed.spec.connections.size() == 1);
     }
 
     // A dead-end plug (declared, referenced by no connection) is allowed — that is
@@ -74,10 +74,10 @@ int main()
             "map.room.0.name = \"vault\"\nmap.room.0.width = \"10\"\nmap.room.0.height = \"10\"\n"
             "map.room.0.plug.0.edge = \"S\"\nmap.room.0.plug.0.name = \"secret\"\nmap.room.0.plug.0.type = \"secret\"\n",
             1.0);
-        assert(parsed.ok);
-        assert(parsed.spec.rooms.size() == 1);
-        assert(parsed.spec.rooms[0].spec.plugs.size() == 1);
-        assert(parsed.spec.connections.empty());
+        EDI_CHECK(parsed.ok);
+        EDI_CHECK(parsed.spec.rooms.size() == 1);
+        EDI_CHECK(parsed.spec.rooms[0].spec.plugs.size() == 1);
+        EDI_CHECK(parsed.spec.connections.empty());
     }
 
     // --- M1/M2: marker id+metadata, patrols, connection lock, prop blocks ----
@@ -107,28 +107,28 @@ int main()
             "map.patrol.0.point.3.x = \"1\"\nmap.patrol.0.point.3.y = \"9\"\n"
             "map.block.0.asset_ref = \"dungeon.barrel\"\nmap.block.0.x = \"3\"\nmap.block.0.y = \"4\"\n",
             2.0); // canvasPerUnit = 2.0 to prove waypoint scaling (feet*2) vs feature/block (unscaled)
-        assert(parsed.ok);
+        EDI_CHECK(parsed.ok);
         // feature id + metadata round-trip (features stay in authored feet).
-        assert(parsed.spec.rooms[0].spec.features[0].id == "gold_key");
-        assert(parsed.spec.rooms[0].spec.features[0].x == 5.0); // NOT scaled
-        assert(parsed.spec.rooms[0].spec.features[1].metadata.size() == 1);
-        assert(parsed.spec.rooms[0].spec.features[1].metadata[0].first == "patrol");
-        assert(parsed.spec.rooms[0].spec.features[1].metadata[0].second == "loop");
-        assert(parsed.spec.rooms[1].spec.features[0].metadata[0].first == "key_id");
-        assert(parsed.spec.rooms[1].spec.features[0].metadata[0].second == "gold_key");
+        EDI_CHECK(parsed.spec.rooms[0].spec.features[0].id == "gold_key");
+        EDI_CHECK(parsed.spec.rooms[0].spec.features[0].x == 5.0); // NOT scaled
+        EDI_CHECK(parsed.spec.rooms[0].spec.features[1].metadata.size() == 1);
+        EDI_CHECK(parsed.spec.rooms[0].spec.features[1].metadata[0].first == "patrol");
+        EDI_CHECK(parsed.spec.rooms[0].spec.features[1].metadata[0].second == "loop");
+        EDI_CHECK(parsed.spec.rooms[1].spec.features[0].metadata[0].first == "key_id");
+        EDI_CHECK(parsed.spec.rooms[1].spec.features[0].metadata[0].second == "gold_key");
         // connection lock tags round-trip.
-        assert(parsed.spec.connections[0].locked);
-        assert(parsed.spec.connections[0].keyId == "gold_key");
+        EDI_CHECK(parsed.spec.connections[0].locked);
+        EDI_CHECK(parsed.spec.connections[0].keyId == "gold_key");
         // patrol round-trips: 4 waypoints, closed, SCALED to canvas (feet * 2).
-        assert(parsed.spec.patrols.size() == 1);
-        assert(parsed.spec.patrols[0].id == "loop");
-        assert(parsed.spec.patrols[0].closed);
-        assert(parsed.spec.patrols[0].waypoints.size() == 4);
-        assert(parsed.spec.patrols[0].waypoints[1].x == 18.0); // 9 ft * 2.0 canvasPerUnit
+        EDI_CHECK(parsed.spec.patrols.size() == 1);
+        EDI_CHECK(parsed.spec.patrols[0].id == "loop");
+        EDI_CHECK(parsed.spec.patrols[0].closed);
+        EDI_CHECK(parsed.spec.patrols[0].waypoints.size() == 4);
+        EDI_CHECK(parsed.spec.patrols[0].waypoints[1].x == 18.0); // 9 ft * 2.0 canvasPerUnit
         // prop block round-trips: position stays AUTHORED FEET (the controller scales it).
-        assert(parsed.spec.blocks.size() == 1);
-        assert(parsed.spec.blocks[0].assetRef == "dungeon.barrel");
-        assert(parsed.spec.blocks[0].position.x == 3.0); // NOT scaled
+        EDI_CHECK(parsed.spec.blocks.size() == 1);
+        EDI_CHECK(parsed.spec.blocks[0].assetRef == "dungeon.barrel");
+        EDI_CHECK(parsed.spec.blocks[0].position.x == 3.0); // NOT scaled
     }
 
     // closed defaults to true; an explicit "false" opens the loop.
@@ -139,16 +139,16 @@ int main()
             "map.patrol.0.point.0.x = \"1\"\nmap.patrol.0.point.0.y = \"1\"\n"
             "map.patrol.0.point.1.x = \"2\"\nmap.patrol.0.point.1.y = \"2\"\n",
             1.0);
-        assert(parsed.ok);
-        assert(!parsed.spec.patrols[0].closed);
+        EDI_CHECK(parsed.ok);
+        EDI_CHECK(!parsed.spec.patrols[0].closed);
     }
 
     // --- rejections, each naming the offending key ---------------------------
 
     auto rejects = [](const std::string &toml, const std::string &needle) {
         const MapSpecParseResult r = parseMapSpecToml(toml, 1.0);
-        assert(!r.ok);
-        assert(r.message.find(needle) != std::string::npos);
+        EDI_CHECK(!r.ok);
+        EDI_CHECK(r.message.find(needle) != std::string::npos);
     };
 
     // zero rooms.
@@ -225,7 +225,7 @@ int main()
             "map.room.0.feature.1.type = \"chest\"\nmap.room.0.feature.1.id = \"c\"\n"
             "map.room.0.feature.1.meta.0.key = \"key_id\"\nmap.room.0.feature.1.meta.0.value = \"k\"\n",
             1.0);
-        assert(ok.ok);
+        EDI_CHECK(ok.ok);
     }
 
     return 0;

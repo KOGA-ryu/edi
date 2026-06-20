@@ -10,7 +10,7 @@
 //    b   = 1 byte   1 unit    bytes [10,11)  units [5,6)
 #include "text/TextEncoding.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <string>
 
 using namespace edi::text;
@@ -18,72 +18,72 @@ using namespace edi::text;
 int main()
 {
     const std::string text = "\x61\xC3\xA9\xE6\xB0\x97\xF0\x9F\x9C\xB2\x62";
-    assert(text.size() == 11);
+    EDI_CHECK(text.size() == 11);
 
     // ---- UTF-16 position -> byte offset, every character start. ----
-    assert(byteOffsetForUtf16(text, 0) == 0);
-    assert(byteOffsetForUtf16(text, 1) == 1);  // after a
-    assert(byteOffsetForUtf16(text, 2) == 3);  // after é
-    assert(byteOffsetForUtf16(text, 3) == 6);  // after 気
+    EDI_CHECK(byteOffsetForUtf16(text, 0) == 0);
+    EDI_CHECK(byteOffsetForUtf16(text, 1) == 1);  // after a
+    EDI_CHECK(byteOffsetForUtf16(text, 2) == 3);  // after é
+    EDI_CHECK(byteOffsetForUtf16(text, 3) == 6);  // after 気
     // Position 4 lands BETWEEN the surrogate pair's two units — there is no
     // byte for "half a character", so the caret snaps past the whole 🜲.
-    assert(byteOffsetForUtf16(text, 4) == 10);
-    assert(byteOffsetForUtf16(text, 5) == 10); // after 🜲
-    assert(byteOffsetForUtf16(text, 6) == 11); // after b == end
-    assert(byteOffsetForUtf16(text, 99) == 11); // clamped
+    EDI_CHECK(byteOffsetForUtf16(text, 4) == 10);
+    EDI_CHECK(byteOffsetForUtf16(text, 5) == 10); // after 🜲
+    EDI_CHECK(byteOffsetForUtf16(text, 6) == 11); // after b == end
+    EDI_CHECK(byteOffsetForUtf16(text, 99) == 11); // clamped
 
     // ---- byte offset -> UTF-16 position, including mid-sequence snaps. ----
-    assert(utf16OffsetForByte(text, 0) == 0);
-    assert(utf16OffsetForByte(text, 1) == 1);
-    assert(utf16OffsetForByte(text, 2) == 1);  // inside é -> é's own position
-    assert(utf16OffsetForByte(text, 3) == 2);
-    assert(utf16OffsetForByte(text, 6) == 3);
-    assert(utf16OffsetForByte(text, 7) == 3);  // inside 🜲
-    assert(utf16OffsetForByte(text, 10) == 5);
-    assert(utf16OffsetForByte(text, 11) == 6);
-    assert(utf16OffsetForByte(text, 99) == 6); // clamped
+    EDI_CHECK(utf16OffsetForByte(text, 0) == 0);
+    EDI_CHECK(utf16OffsetForByte(text, 1) == 1);
+    EDI_CHECK(utf16OffsetForByte(text, 2) == 1);  // inside é -> é's own position
+    EDI_CHECK(utf16OffsetForByte(text, 3) == 2);
+    EDI_CHECK(utf16OffsetForByte(text, 6) == 3);
+    EDI_CHECK(utf16OffsetForByte(text, 7) == 3);  // inside 🜲
+    EDI_CHECK(utf16OffsetForByte(text, 10) == 5);
+    EDI_CHECK(utf16OffsetForByte(text, 11) == 6);
+    EDI_CHECK(utf16OffsetForByte(text, 99) == 6); // clamped
 
     // ---- The round trip holds at every character boundary. ----
     for (const std::size_t byte : {std::size_t(0), std::size_t(1), std::size_t(3),
                                    std::size_t(6), std::size_t(10), std::size_t(11)}) {
-        assert(byteOffsetForUtf16(text, utf16OffsetForByte(text, byte)) == byte);
+        EDI_CHECK(byteOffsetForUtf16(text, utf16OffsetForByte(text, byte)) == byte);
     }
 
     // ---- Backspace's question: where does the previous character start? ----
-    assert(previousCharBoundary(text, 11) == 10); // b
-    assert(previousCharBoundary(text, 10) == 6);  // 🜲 — all four bytes
-    assert(previousCharBoundary(text, 6) == 3);   // 気
-    assert(previousCharBoundary(text, 3) == 1);   // é
-    assert(previousCharBoundary(text, 1) == 0);   // a
-    assert(previousCharBoundary(text, 0) == 0);   // at the start: stay
-    assert(previousCharBoundary(text, 8) == 6);   // from INSIDE 🜲: its start
+    EDI_CHECK(previousCharBoundary(text, 11) == 10); // b
+    EDI_CHECK(previousCharBoundary(text, 10) == 6);  // 🜲 — all four bytes
+    EDI_CHECK(previousCharBoundary(text, 6) == 3);   // 気
+    EDI_CHECK(previousCharBoundary(text, 3) == 1);   // é
+    EDI_CHECK(previousCharBoundary(text, 1) == 0);   // a
+    EDI_CHECK(previousCharBoundary(text, 0) == 0);   // at the start: stay
+    EDI_CHECK(previousCharBoundary(text, 8) == 6);   // from INSIDE 🜲: its start
 
     // ---- Delete's question: where does the next character start? ----
-    assert(nextCharBoundary(text, 0) == 1);
-    assert(nextCharBoundary(text, 1) == 3);
-    assert(nextCharBoundary(text, 3) == 6);
-    assert(nextCharBoundary(text, 6) == 10);
-    assert(nextCharBoundary(text, 10) == 11);
-    assert(nextCharBoundary(text, 11) == 11); // at the end: stay
+    EDI_CHECK(nextCharBoundary(text, 0) == 1);
+    EDI_CHECK(nextCharBoundary(text, 1) == 3);
+    EDI_CHECK(nextCharBoundary(text, 3) == 6);
+    EDI_CHECK(nextCharBoundary(text, 6) == 10);
+    EDI_CHECK(nextCharBoundary(text, 10) == 11);
+    EDI_CHECK(nextCharBoundary(text, 11) == 11); // at the end: stay
 
     // ---- ASCII degenerates to the identity, byte == unit. ----
     const std::string ascii = "hello";
     for (std::size_t i = 0; i <= ascii.size(); ++i) {
-        assert(byteOffsetForUtf16(ascii, i) == i);
-        assert(utf16OffsetForByte(ascii, i) == i);
+        EDI_CHECK(byteOffsetForUtf16(ascii, i) == i);
+        EDI_CHECK(utf16OffsetForByte(ascii, i) == i);
     }
 
     // ---- Malformed input terminates and degrades, never hangs: a lone
     // continuation byte counts as one character. ----
     const std::string garbage = "\x80\x80";
-    assert(utf16OffsetForByte(garbage, 2) == 2);
-    assert(previousCharBoundary(garbage, 1) == 0);
+    EDI_CHECK(utf16OffsetForByte(garbage, 2) == 2);
+    EDI_CHECK(previousCharBoundary(garbage, 1) == 0);
 
     // ---- Empty text: every function answers 0. ----
-    assert(byteOffsetForUtf16({}, 5) == 0);
-    assert(utf16OffsetForByte({}, 5) == 0);
-    assert(previousCharBoundary({}, 5) == 0);
-    assert(nextCharBoundary({}, 5) == 0);
+    EDI_CHECK(byteOffsetForUtf16({}, 5) == 0);
+    EDI_CHECK(utf16OffsetForByte({}, 5) == 0);
+    EDI_CHECK(previousCharBoundary({}, 5) == 0);
+    EDI_CHECK(nextCharBoundary({}, 5) == 0);
 
     return 0;
 }

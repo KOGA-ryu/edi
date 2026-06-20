@@ -31,7 +31,7 @@
 #include <QCoreApplication>
 #include <QString>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <optional>
 #include <string>
@@ -53,13 +53,13 @@ int main(int argc, char **argv)
     const MapSpec spec = edi::io::buildCryptMapSpec(1.0);
 
     DrawingDocumentController controller;
-    assert(controller.createMapFromSpec(spec, 1.0));
+    EDI_CHECK(controller.createMapFromSpec(spec, 1.0));
 
     // The crypt has at least one plug — use the first one as the test anchor.
     // We find the anchor marker object via plug.anchorObjectId and verify
     // that after the controller move path, plug.anchor tracks the new position.
     const DraftingDocument &doc = controller.draftingDocument();
-    assert(!doc.plugs.empty());
+    EDI_CHECK(!doc.plugs.empty());
 
     // Capture the FIRST plug's pre-move state: its anchor position and the id of
     // the marker object it rides on.
@@ -69,19 +69,19 @@ int main(int argc, char **argv)
 
     // Verify the anchor marker object exists in the document.
     const DraftingObject *anchorObj = findObject(doc, anchorObjId);
-    assert(anchorObj != nullptr);
+    EDI_CHECK(anchorObj != nullptr);
 
     // Select the anchor marker, then move it +5 in X (canvas units = authored feet).
     // moveSelectionNormalized(dx, dy) goes through applyCommandAndEmit, which
     // (post-052) calls syncGraphForMovedObject for every selected object.
     const bool selected = controller.selectObjectById(
         QString::fromStdString(anchorObjId));
-    assert(selected);
+    EDI_CHECK(selected);
 
     // dx=5.0, dy=0.0 in canvas units.
     const double dx = 5.0;
     const double dy = 0.0;
-    assert(controller.moveSelectionNormalized(dx, dy));
+    EDI_CHECK(controller.moveSelectionNormalized(dx, dy));
 
     // After the move, re-read the plug (reference was into the pre-mutation document
     // snapshot; read afresh from the live document).
@@ -92,16 +92,16 @@ int main(int argc, char **argv)
     // If syncGraphForMovedObject was NOT called, plugAfter.anchor would still hold
     // preMoveAnchor (the pre-052 drift bug).  With the fix it must equal the
     // object's new geometry.
-    assert(nearlyEqual(plugAfter.anchor.x, preMoveAnchor.x + dx));
-    assert(nearlyEqual(plugAfter.anchor.y, preMoveAnchor.y + dy));
+    EDI_CHECK(nearlyEqual(plugAfter.anchor.x, preMoveAnchor.x + dx));
+    EDI_CHECK(nearlyEqual(plugAfter.anchor.y, preMoveAnchor.y + dy));
 
     // The marker object's live geometry also matches.
     const DraftingObject *movedObj = findObject(docAfter, anchorObjId);
-    assert(movedObj != nullptr);
+    EDI_CHECK(movedObj != nullptr);
     const auto *ptGeom = std::get_if<PointGeometry>(&movedObj->geometry);
-    assert(ptGeom != nullptr);
-    assert(nearlyEqual(ptGeom->point.x, preMoveAnchor.x + dx));
-    assert(nearlyEqual(ptGeom->point.y, preMoveAnchor.y + dy));
+    EDI_CHECK(ptGeom != nullptr);
+    EDI_CHECK(nearlyEqual(ptGeom->point.x, preMoveAnchor.x + dx));
+    EDI_CHECK(nearlyEqual(ptGeom->point.y, preMoveAnchor.y + dy));
 
     return 0;
 }

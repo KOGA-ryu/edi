@@ -11,7 +11,7 @@
 
 #include "recipe_doric_fixture.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -40,7 +40,7 @@ bool sameSegment(const MouldingSegment &a, const MouldingSegment &b)
 std::string slurp(const std::string &path)
 {
     std::ifstream in(path, std::ios::binary);
-    assert(in.is_open());
+    EDI_CHECK(in.is_open());
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
@@ -54,75 +54,75 @@ int main()
     // the column-convention lint (it is the convention's own source).
     {
         const OpValidationReport report = validateRecipeOps(doric.ops);
-        assert(report.ok);
+        EDI_CHECK(report.ok);
         for (const OpFinding &finding : report.findings) {
-            assert(finding.severity == OpFinding::Severity::Warning);
+            EDI_CHECK(finding.severity == OpFinding::Severity::Warning);
         }
-        assert(lintColumnConventions(doric.ops).empty());
+        EDI_CHECK(lintColumnConventions(doric.ops).empty());
     }
 
     // ---- TOML round trip: every op, every field, exactly. ----
     {
         const OpStreamTextResult written = recipeOpsToToml(doric);
-        assert(written.ok);
+        EDI_CHECK(written.ok);
         // Pointable keys, the user's op vocabulary verbatim.
-        assert(written.text.find("op.3.type = \"AddCylinder\"") != std::string::npos);
-        assert(written.text.find("op.3.taper_top_radius = \"4.3\"") != std::string::npos);
-        assert(written.text.find("op.4.target = \"shaft.tapered_fluted_core\"") != std::string::npos);
-        assert(written.text.find("op.2.seq.1.term = \"torus\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.3.type = \"AddCylinder\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.3.taper_top_radius = \"4.3\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.4.target = \"shaft.tapered_fluted_core\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.2.seq.1.term = \"torus\"") != std::string::npos);
 
         // The committed sample IS this construction — drift fails the suite.
-        assert(written.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_ops.toml"));
+        EDI_CHECK(written.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_ops.toml"));
 
         const OpStreamParseResult reloaded = recipeOpsFromToml(written.text, "round_trip");
-        assert(reloaded.ok);
-        assert(reloaded.stream.id == doric.id);
-        assert(reloaded.stream.ops.size() == doric.ops.size());
+        EDI_CHECK(reloaded.ok);
+        EDI_CHECK(reloaded.stream.id == doric.id);
+        EDI_CHECK(reloaded.stream.ops.size() == doric.ops.size());
 
         const auto *shaft = std::get_if<AddCylinderOp>(&reloaded.stream.ops[3]);
-        assert(shaft != nullptr);
-        assert(shaft->name == "shaft.tapered_fluted_core");
-        assert(near(shaft->radius, 5.0));
-        assert(shaft->taperTopRadius.has_value() && near(*shaft->taperTopRadius, 4.3));
-        assert(shaft->entasis);
-        assert(near(shaft->entasisRatio, 0.045)); // v0's constant, now data
-        assert(shaft->vertices == 128);
+        EDI_CHECK(shaft != nullptr);
+        EDI_CHECK(shaft->name == "shaft.tapered_fluted_core");
+        EDI_CHECK(near(shaft->radius, 5.0));
+        EDI_CHECK(shaft->taperTopRadius.has_value() && near(*shaft->taperTopRadius, 4.3));
+        EDI_CHECK(shaft->entasis);
+        EDI_CHECK(near(shaft->entasisRatio, 0.045)); // v0's constant, now data
+        EDI_CHECK(shaft->vertices == 128);
 
         const auto *flutes = std::get_if<CutFlutesOp>(&reloaded.stream.ops[4]);
-        assert(flutes != nullptr);
-        assert(flutes->count == 20 && near(flutes->depth, 0.45) && near(flutes->widthRatio, 0.34));
-        assert(flutes->startZ.has_value() && near(*flutes->startZ, 6.5));
+        EDI_CHECK(flutes != nullptr);
+        EDI_CHECK(flutes->count == 20 && near(flutes->depth, 0.45) && near(flutes->widthRatio, 0.34));
+        EDI_CHECK(flutes->startZ.has_value() && near(*flutes->startZ, 6.5));
 
         const auto *moulding = std::get_if<AddProfileMouldingOp>(&reloaded.stream.ops[2]);
-        assert(moulding != nullptr);
-        assert(moulding->sequence.size() == 4);
+        EDI_CHECK(moulding != nullptr);
+        EDI_CHECK(moulding->sequence.size() == 4);
         const auto *original = std::get_if<AddProfileMouldingOp>(&doric.ops[2]);
         for (std::size_t i = 0; i < 4; ++i) {
-            assert(sameSegment(moulding->sequence[i], original->sequence[i]));
+            EDI_CHECK(sameSegment(moulding->sequence[i], original->sequence[i]));
         }
 
         const auto *entablature = std::get_if<AddBoxOp>(&reloaded.stream.ops[8]);
-        assert(entablature != nullptr && entablature->material == "limestone");
+        EDI_CHECK(entablature != nullptr && entablature->material == "limestone");
     }
 
     // ---- Compile: profile mouldings lower to explicit points; the chain
     // reproduces the P1 goldens through the op layer. ----
     {
         const RecipeCompileResult compiled = compileRecipeOps(doric.ops);
-        assert(compiled.ok);
-        assert(compiled.ops.size() == doric.ops.size());
+        EDI_CHECK(compiled.ok);
+        EDI_CHECK(compiled.ops.size() == doric.ops.size());
         for (const RecipeOp &op : compiled.ops) {
-            assert(std::string(recipeOpTypeName(op)) != "AddProfileMoulding");
+            EDI_CHECK(std::string(recipeOpTypeName(op)) != "AddProfileMoulding");
         }
         const auto *lowered = std::get_if<AddMouldingOp>(&compiled.ops[2]);
-        assert(lowered != nullptr);
-        assert(lowered->name == "base.torus_scotia_moulding");
-        assert(near(lowered->baseZ, 4.0));
-        assert(lowered->profile.size() == 11);
-        assert(lowered->profile[2].term == "torus_01");
-        assert(near(lowered->profile[2].radius, 5.7219)); // v0's expanded number
+        EDI_CHECK(lowered != nullptr);
+        EDI_CHECK(lowered->name == "base.torus_scotia_moulding");
+        EDI_CHECK(near(lowered->baseZ, 4.0));
+        EDI_CHECK(lowered->profile.size() == 11);
+        EDI_CHECK(lowered->profile[2].term == "torus_01");
+        EDI_CHECK(near(lowered->profile[2].radius, 5.7219)); // v0's expanded number
         // The compiled stream still validates (lowered mouldings are sane).
-        assert(validateRecipeOps(compiled.ops).ok);
+        EDI_CHECK(validateRecipeOps(compiled.ops).ok);
 
         // The committed compiled sample — the artifact the Blender driver
         // reads — IS this compile, serialized. Drift at the C++/python
@@ -134,17 +134,17 @@ int main()
         compiledStream.name = doric.name;
         compiledStream.ops = compiled.ops;
         const OpStreamTextResult compiledWritten = recipeOpsToToml(compiledStream);
-        assert(compiledWritten.ok);
-        assert(compiledWritten.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_ops_compiled.toml"));
+        EDI_CHECK(compiledWritten.ok);
+        EDI_CHECK(compiledWritten.text == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_ops_compiled.toml"));
 
         // A failing sequence surfaces the term compiler's own message.
         RecipeOpStream broken = doric;
         auto *badMoulding = std::get_if<AddProfileMouldingOp>(&broken.ops[2]);
         badMoulding->sequence[0].startRadius.reset();
         const RecipeCompileResult refused = compileRecipeOps(broken.ops);
-        assert(!refused.ok);
-        assert(refused.message == "base.torus_scotia_moulding first segment needs start_radius.");
-        assert(refused.ops.empty());
+        EDI_CHECK(!refused.ok);
+        EDI_CHECK(refused.message == "base.torus_scotia_moulding first segment needs start_radius.");
+        EDI_CHECK(refused.ops.empty());
 
         // An unresolved lathe reference cannot compile: compile has no
         // drawing to read, and guessing points is the forbidden move.
@@ -152,9 +152,9 @@ int main()
         unresolved.name = "shaft.turned";
         unresolved.profile = "shaft";
         const RecipeCompileResult lathe = compileRecipeOps({RecipeOp{unresolved}});
-        assert(!lathe.ok);
-        assert(lathe.message == "AddRevolvedProfile must be resolved before compiling: shaft.turned");
-        assert(lathe.ops.empty());
+        EDI_CHECK(!lathe.ok);
+        EDI_CHECK(lathe.message == "AddRevolvedProfile must be resolved before compiling: shaft.turned");
+        EDI_CHECK(lathe.ops.empty());
     }
 
     // ---- Validators: ported findings fire with v0 codes; port divergences
@@ -193,7 +193,7 @@ int main()
         ops.push_back(ring);
 
         const OpValidationReport report = validateRecipeOps(ops);
-        assert(!report.ok);
+        EDI_CHECK(!report.ok);
         const auto has = [&report](const char *code) {
             for (const OpFinding &finding : report.findings) {
                 if (finding.code == code) {
@@ -202,14 +202,14 @@ int main()
             }
             return false;
         };
-        assert(has("bad_box_dimensions"));
-        assert(has("duplicate_name"));
-        assert(has("low_cylinder_vertices"));
-        assert(has("bad_taper_radius"));
-        assert(has("unknown_material"));
-        assert(has("flute_missing_target"));
-        assert(has("bad_flute_z_range"));
-        assert(has("ring_overhang_alias"));
+        EDI_CHECK(has("bad_box_dimensions"));
+        EDI_CHECK(has("duplicate_name"));
+        EDI_CHECK(has("low_cylinder_vertices"));
+        EDI_CHECK(has("bad_taper_radius"));
+        EDI_CHECK(has("unknown_material"));
+        EDI_CHECK(has("flute_missing_target"));
+        EDI_CHECK(has("bad_flute_z_range"));
+        EDI_CHECK(has("ring_overhang_alias"));
     }
 
     // Order matters for flute targets: cutting BEFORE the shaft exists is
@@ -224,9 +224,9 @@ int main()
         shaft.radius = 1.0;
         shaft.height = 4.0;
         const OpValidationReport wrongOrder = validateRecipeOps({early, shaft});
-        assert(!wrongOrder.ok);
+        EDI_CHECK(!wrongOrder.ok);
         const OpValidationReport rightOrder = validateRecipeOps({RecipeOp(shaft), RecipeOp(early)});
-        assert(rightOrder.ok);
+        EDI_CHECK(rightOrder.ok);
     }
 
     // ---- Column lint stays quarantined: a non-column recipe is never
@@ -237,7 +237,7 @@ int main()
         slab.width = 4;
         slab.depth = 2;
         slab.height = 0.1;
-        assert(lintColumnConventions({RecipeOp(slab)}).empty());
+        EDI_CHECK(lintColumnConventions({RecipeOp(slab)}).empty());
 
         AddBoxOp plinthOnly;
         plinthOnly.name = "plinth.lower_step";
@@ -245,22 +245,22 @@ int main()
         plinthOnly.depth = 4;
         plinthOnly.height = 1;
         const std::vector<OpFinding> lint = lintColumnConventions({RecipeOp(plinthOnly)});
-        assert(lint.size() == 1);
-        assert(lint[0].code == "missing_shaft");
+        EDI_CHECK(lint.size() == 1);
+        EDI_CHECK(lint[0].code == "missing_shaft");
     }
 
     // ---- Strict store negatives: every offender named. ----
     {
         const OpStreamParseResult unknownType = recipeOpsFromToml(
             "op.0.type = \"AddDodecahedron\"\n", "bad");
-        assert(!unknownType.ok);
-        assert(unknownType.message.find("AddDodecahedron") != std::string::npos);
+        EDI_CHECK(!unknownType.ok);
+        EDI_CHECK(unknownType.message.find("AddDodecahedron") != std::string::npos);
 
         const OpStreamParseResult missingField = recipeOpsFromToml(
             "op.0.type = \"AddBox\"\n"
             "op.0.name = \"a.box\"\n", "bad");
-        assert(!missingField.ok);
-        assert(missingField.message.find("op.0.width") != std::string::npos);
+        EDI_CHECK(!missingField.ok);
+        EDI_CHECK(missingField.message.find("op.0.width") != std::string::npos);
 
         const OpStreamParseResult typoField = recipeOpsFromToml(
             "op.0.type = \"AddBox\"\n"
@@ -270,8 +270,8 @@ int main()
             "op.0.height = \"1\"\n"
             "op.0.z = \"0\"\n"
             "op.0.heigth = \"2\"\n", "bad"); // the classic typo
-        assert(!typoField.ok);
-        assert(typoField.message.find("heigth") != std::string::npos);
+        EDI_CHECK(!typoField.ok);
+        EDI_CHECK(typoField.message.find("heigth") != std::string::npos);
 
         const OpStreamParseResult badZMode = recipeOpsFromToml(
             "op.0.type = \"AddBox\"\n"
@@ -281,8 +281,8 @@ int main()
             "op.0.height = \"1\"\n"
             "op.0.z = \"0\"\n"
             "op.0.z_mode = \"top\"\n", "bad");
-        assert(!badZMode.ok);
-        assert(badZMode.message.find("center or base") != std::string::npos);
+        EDI_CHECK(!badZMode.ok);
+        EDI_CHECK(badZMode.message.find("center or base") != std::string::npos);
 
         const OpStreamParseResult bothRadius = recipeOpsFromToml(
             "op.0.type = \"AddProfileMoulding\"\n"
@@ -293,8 +293,8 @@ int main()
             "op.0.seq.0.start_radius = \"2\"\n"
             "op.0.seq.0.end_radius = \"3\"\n"
             "op.0.seq.0.radius_delta = \"1\"\n", "bad");
-        assert(!bothRadius.ok);
-        assert(bothRadius.message.find("both end_radius and radius_delta") != std::string::npos);
+        EDI_CHECK(!bothRadius.ok);
+        EDI_CHECK(bothRadius.message.find("both end_radius and radius_delta") != std::string::npos);
 
         const OpStreamParseResult gapped = recipeOpsFromToml(
             "op.0.type = \"AddLabel\"\n"
@@ -304,12 +304,12 @@ int main()
             "op.0.y = \"0\"\n"
             "op.0.z = \"0\"\n"
             "op.2.type = \"AddLabel\"\n", "bad");
-        assert(!gapped.ok);
-        assert(gapped.message.find("op.2.type") != std::string::npos);
+        EDI_CHECK(!gapped.ok);
+        EDI_CHECK(gapped.message.find("op.2.type") != std::string::npos);
 
         const OpStreamParseResult empty = recipeOpsFromToml("", "empty");
-        assert(empty.ok);
-        assert(empty.stream.ops.empty());
+        EDI_CHECK(empty.ok);
+        EDI_CHECK(empty.stream.ops.empty());
     }
 
     // ---- Every remaining validator code fires at least once: a deleted
@@ -396,7 +396,7 @@ int main()
         ops.push_back(hollowLathe);     // empty profile: missing_profile_reference
 
         const OpValidationReport report = validateRecipeOps(ops);
-        assert(!report.ok);
+        EDI_CHECK(!report.ok);
         const auto count = [&report](const char *code) {
             int hits = 0;
             for (const OpFinding &finding : report.findings) {
@@ -406,43 +406,43 @@ int main()
             }
             return hits;
         };
-        assert(count("bad_sphere_radius") == 1);
-        assert(count("low_sphere_vertices") == 1);
-        assert(count("negative_moulding_base_z") == 1);
-        assert(count("low_moulding_vertices") == 1);
-        assert(count("bad_moulding_radius") == 1);
-        assert(count("moulding_profile_not_monotonic") == 2); // one PER kink (v0 behavior)
-        assert(count("short_moulding_profile") == 1);
-        assert(count("bad_moulding_z") == 1);
-        assert(count("negative_profile_moulding_base_z") == 1);
-        assert(count("low_profile_moulding_vertices") == 1);
-        assert(count("empty_profile_moulding_sequence") == 1);
-        assert(count("unknown_profile_term") == 1);
-        assert(count("bad_profile_segment_height") == 1);
-        assert(count("missing_profile_start_radius") == 1);
-        assert(count("bad_profile_segment_radius") == 2); // start AND end halves
-        assert(count("bad_profile_segment_steps") == 1);
-        assert(count("low_flute_count") == 1);
-        assert(count("bad_flute_depth") == 1);
+        EDI_CHECK(count("bad_sphere_radius") == 1);
+        EDI_CHECK(count("low_sphere_vertices") == 1);
+        EDI_CHECK(count("negative_moulding_base_z") == 1);
+        EDI_CHECK(count("low_moulding_vertices") == 1);
+        EDI_CHECK(count("bad_moulding_radius") == 1);
+        EDI_CHECK(count("moulding_profile_not_monotonic") == 2); // one PER kink (v0 behavior)
+        EDI_CHECK(count("short_moulding_profile") == 1);
+        EDI_CHECK(count("bad_moulding_z") == 1);
+        EDI_CHECK(count("negative_profile_moulding_base_z") == 1);
+        EDI_CHECK(count("low_profile_moulding_vertices") == 1);
+        EDI_CHECK(count("empty_profile_moulding_sequence") == 1);
+        EDI_CHECK(count("unknown_profile_term") == 1);
+        EDI_CHECK(count("bad_profile_segment_height") == 1);
+        EDI_CHECK(count("missing_profile_start_radius") == 1);
+        EDI_CHECK(count("bad_profile_segment_radius") == 2); // start AND end halves
+        EDI_CHECK(count("bad_profile_segment_steps") == 1);
+        EDI_CHECK(count("low_flute_count") == 1);
+        EDI_CHECK(count("bad_flute_depth") == 1);
         // == 1, not 2: explicitOk's 0.95 ratio must NOT fire — the explicit
         // cutter pair makes the ratio lint irrelevant (R1-B04b decision 5).
-        assert(count("odd_flute_width_ratio") == 1);
-        assert(count("bad_cutter_radius") == 1);
-        assert(count("bad_at_radius") == 1);
-        assert(count("missing_profile_reference") == 1);
-        assert(count("negative_revolved_profile_base_z") == 1);
-        assert(count("low_revolved_profile_vertices") == 1);
+        EDI_CHECK(count("odd_flute_width_ratio") == 1);
+        EDI_CHECK(count("bad_cutter_radius") == 1);
+        EDI_CHECK(count("bad_at_radius") == 1);
+        EDI_CHECK(count("missing_profile_reference") == 1);
+        EDI_CHECK(count("negative_revolved_profile_base_z") == 1);
+        EDI_CHECK(count("low_revolved_profile_vertices") == 1);
         // numberKeyText formatting, not std::to_string's "0.950000".
         bool sawRatioMessage = false;
         for (const OpFinding &finding : report.findings) {
             if (finding.code == "odd_flute_width_ratio") {
-                assert(finding.message.find("0.95") != std::string::npos);
-                assert(finding.message.find("0.950000") == std::string::npos);
+                EDI_CHECK(finding.message.find("0.95") != std::string::npos);
+                EDI_CHECK(finding.message.find("0.950000") == std::string::npos);
                 sawRatioMessage = true;
             }
         }
-        assert(sawRatioMessage);
-        assert(count("flute_target_not_vertical") == 1);
+        EDI_CHECK(sawRatioMessage);
+        EDI_CHECK(count("flute_target_not_vertical") == 1);
     }
 
     // ---- The column lint's warnings, both directions, and max-vs-min. ----
@@ -458,26 +458,26 @@ int main()
         narrowPlinth.depth = 4.0;
         narrowPlinth.height = 1.0;
         const std::vector<OpFinding> narrow = lintColumnConventions({RecipeOp(narrowPlinth), RecipeOp(shaft)});
-        assert(narrow.size() == 2);
-        assert(narrow[0].code == "base_not_wider_than_shaft");
-        assert(narrow[1].code == "missing_capital");
+        EDI_CHECK(narrow.size() == 2);
+        EDI_CHECK(narrow[0].code == "base_not_wider_than_shaft");
+        EDI_CHECK(narrow[1].code == "missing_capital");
 
         AddBoxOp wideRect = narrowPlinth;
         wideRect.width = 12.0; // max(12,4) = 12 > 10 — but min would be 4: kills max->min
         const std::vector<OpFinding> wide = lintColumnConventions({RecipeOp(wideRect), RecipeOp(shaft)});
-        assert(wide.size() == 1);
-        assert(wide[0].code == "missing_capital");
+        EDI_CHECK(wide.size() == 1);
+        EDI_CHECK(wide[0].code == "missing_capital");
 
         AddBoxOp boundary = narrowPlinth;
         boundary.width = 10.0;
         boundary.depth = 10.0; // exactly shaft diameter: <= fires
         const std::vector<OpFinding> atBoundary = lintColumnConventions({RecipeOp(boundary), RecipeOp(shaft)});
-        assert(atBoundary.size() == 2);
-        assert(atBoundary[0].code == "base_not_wider_than_shaft");
+        EDI_CHECK(atBoundary.size() == 2);
+        EDI_CHECK(atBoundary[0].code == "base_not_wider_than_shaft");
 
         const std::vector<OpFinding> bare = lintColumnConventions({RecipeOp(shaft)});
-        assert(bare.size() == 1); // no plinth box: only the capital warning
-        assert(bare[0].code == "missing_capital");
+        EDI_CHECK(bare.size() == 1); // no plinth box: only the capital warning
+        EDI_CHECK(bare[0].code == "missing_capital");
     }
 
     // ---- Round trip for every writer the doric never exercises, with
@@ -527,25 +527,25 @@ int main()
         zoo.ops.push_back(beam);
 
         const OpStreamTextResult written = recipeOpsToToml(zoo);
-        assert(written.ok);
+        EDI_CHECK(written.ok);
         const OpStreamParseResult reloaded = recipeOpsFromToml(written.text, "zoo");
-        assert(reloaded.ok);
-        assert(reloaded.stream.ops.size() == 5);
+        EDI_CHECK(reloaded.ok);
+        EDI_CHECK(reloaded.stream.ops.size() == 5);
         const auto *sphere = std::get_if<AddSphereOp>(&reloaded.stream.ops[0]);
-        assert(sphere != nullptr && sphere->name == "probe.finial" && near(sphere->radius, 1.5)
+        EDI_CHECK(sphere != nullptr && sphere->name == "probe.finial" && near(sphere->radius, 1.5)
                && near(sphere->x, 0.5) && near(sphere->y, -0.25)
                && sphere->vertices == 16 && sphere->material == "marble");
         const auto *ring = std::get_if<AddRingOp>(&reloaded.stream.ops[1]);
-        assert(ring != nullptr && near(ring->tubeHeight, 0.5) && near(ring->overhang, 0.25));
+        EDI_CHECK(ring != nullptr && near(ring->tubeHeight, 0.5) && near(ring->overhang, 0.25));
         const auto *label = std::get_if<AddLabelOp>(&reloaded.stream.ops[2]);
-        assert(label != nullptr && label->text == "north face"
+        EDI_CHECK(label != nullptr && label->text == "north face"
                && near(label->x, 1.0) && near(label->y, 2.0) && near(label->z, 3.0));
         const auto *mouldingZoo = std::get_if<AddMouldingOp>(&reloaded.stream.ops[3]);
-        assert(mouldingZoo != nullptr && mouldingZoo->profile.size() == 2
+        EDI_CHECK(mouldingZoo != nullptr && mouldingZoo->profile.size() == 2
                && mouldingZoo->profile[1].term == "fillet_01"
                && near(mouldingZoo->profile[1].z, 0.5) && near(mouldingZoo->profile[1].radius, 2.5));
         const auto *beamBack = std::get_if<AddCylinderOp>(&reloaded.stream.ops[4]);
-        assert(beamBack != nullptr && beamBack->axis == Axis::X && beamBack->zMode == ZMode::Base
+        EDI_CHECK(beamBack != nullptr && beamBack->axis == Axis::X && beamBack->zMode == ZMode::Base
                && !beamBack->entasis && near(beamBack->x, 0.75) && near(beamBack->y, -0.5));
 
         // TOML basic-string escaping survives the round trip: a quote, a
@@ -560,15 +560,15 @@ int main()
         gnarly.z = 0.0;
         tricky.ops.push_back(gnarly);
         const OpStreamTextResult trickyWritten = recipeOpsToToml(tricky);
-        assert(trickyWritten.ok);
+        EDI_CHECK(trickyWritten.ok);
         // DEL must appear ESCAPED in the written text: our own reader would
         // happily round-trip a raw 0x7F, but tomllib (the python half of
         // the pipeline) refuses it — the escape is for the OTHER reader.
-        assert(trickyWritten.text.find("\\u007F") != std::string::npos);
+        EDI_CHECK(trickyWritten.text.find("\\u007F") != std::string::npos);
         const OpStreamParseResult trickyBack = recipeOpsFromToml(trickyWritten.text, "tricky");
-        assert(trickyBack.ok);
+        EDI_CHECK(trickyBack.ok);
         const auto *gnarlyBack = std::get_if<AddLabelOp>(&trickyBack.stream.ops[0]);
-        assert(gnarlyBack != nullptr && gnarlyBack->text == gnarly.text);
+        EDI_CHECK(gnarlyBack != nullptr && gnarlyBack->text == gnarly.text);
     }
 
     // ---- A minimal handwritten op exercises every reader DEFAULT (the
@@ -583,10 +583,10 @@ int main()
             "op.0.name = \"bare.lathe\"\n"
             "op.0.profile = \"shaft\"\n"
             "op.0.base_z = \"0\"\n", "minimal");
-        assert(bareLathe.ok);
+        EDI_CHECK(bareLathe.ok);
         const auto *bareTurned = std::get_if<AddRevolvedProfileOp>(&bareLathe.stream.ops[0]);
-        assert(bareTurned != nullptr);
-        assert(bareTurned->vertices == 96 && bareTurned->material == "stone"
+        EDI_CHECK(bareTurned != nullptr);
+        EDI_CHECK(bareTurned->vertices == 96 && bareTurned->material == "stone"
                && bareTurned->x == 0.0 && bareTurned->y == 0.0);
 
         const OpStreamParseResult minimal = recipeOpsFromToml(
@@ -595,10 +595,10 @@ int main()
             "op.0.radius = \"1\"\n"
             "op.0.height = \"2\"\n"
             "op.0.z = \"0\"\n", "minimal");
-        assert(minimal.ok);
+        EDI_CHECK(minimal.ok);
         const auto *drum = std::get_if<AddCylinderOp>(&minimal.stream.ops[0]);
-        assert(drum != nullptr);
-        assert(drum->x == 0.0 && drum->y == 0.0 && drum->vertices == 96
+        EDI_CHECK(drum != nullptr);
+        EDI_CHECK(drum->x == 0.0 && drum->y == 0.0 && drum->vertices == 96
                && drum->material == "stone" && drum->axis == Axis::Z
                && drum->zMode == ZMode::Center && !drum->entasis
                && !drum->taperTopRadius.has_value());
@@ -610,8 +610,8 @@ int main()
             "op.0.height = \"2\"\n"
             "op.0.z = \"0\"\n"
             "op.0.vertices = \"99999999999\"\n", "oversized");
-        assert(!oversized.ok);
-        assert(oversized.message.find("op.0.vertices: not an integer") != std::string::npos);
+        EDI_CHECK(!oversized.ok);
+        EDI_CHECK(oversized.message.find("op.0.vertices: not an integer") != std::string::npos);
     }
 
     // ---- Measurement bindings (R1-B02): pipeline A's .object/.field shape
@@ -691,20 +691,20 @@ int main()
         };
 
         const OpStreamTextResult boundWritten = recipeOpsToToml(bound);
-        assert(boundWritten.ok);
+        EDI_CHECK(boundWritten.ok);
         // The binding keys stand in for the literal; the bare key must NOT
         // appear beside them (the reader refuses that file as ambiguous).
-        assert(boundWritten.text.find("op.0.width.object = \"plinth_face\"") != std::string::npos);
-        assert(boundWritten.text.find("op.0.width.field = \"width\"") != std::string::npos);
-        assert(boundWritten.text.find("op.0.width = ") == std::string::npos);
-        assert(boundWritten.text.find("op.1.radius.object = \"shaft_top\"") != std::string::npos);
-        assert(boundWritten.text.find("op.1.radius = ") == std::string::npos);
-        assert(boundWritten.text.find("op.2.width_ratio.object = \"flute_gauge\"") != std::string::npos);
-        assert(boundWritten.text.find("op.2.width_ratio = ") == std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.0.width.object = \"plinth_face\"") != std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.0.width.field = \"width\"") != std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.0.width = ") == std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.1.radius.object = \"shaft_top\"") != std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.1.radius = ") == std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.2.width_ratio.object = \"flute_gauge\"") != std::string::npos);
+        EDI_CHECK(boundWritten.text.find("op.2.width_ratio = ") == std::string::npos);
 
         const OpStreamParseResult boundBack = recipeOpsFromToml(boundWritten.text, "bind.zoo");
-        assert(boundBack.ok);
-        assert(boundBack.stream.bindings.size() == bound.bindings.size());
+        EDI_CHECK(boundBack.ok);
+        EDI_CHECK(boundBack.stream.bindings.size() == bound.bindings.size());
         for (const RecipeFieldBinding &binding : bound.bindings) {
             bool found = false;
             for (const RecipeFieldBinding &loaded : boundBack.stream.bindings) {
@@ -714,19 +714,19 @@ int main()
                     break;
                 }
             }
-            assert(found);
+            EDI_CHECK(found);
         }
         // A bound field carries the STRUCT DEFAULT until resolve (B03): the
         // unresolved number must be the inert default, never file garbage.
         const auto *plinthBack = std::get_if<AddBoxOp>(&boundBack.stream.ops[0]);
-        assert(plinthBack != nullptr && plinthBack->width == 0.0);
-        assert(plinthBack->depth == 3.0); // unbound literals load normally
+        EDI_CHECK(plinthBack != nullptr && plinthBack->width == 0.0);
+        EDI_CHECK(plinthBack->depth == 3.0); // unbound literals load normally
         const auto *flutesBack = std::get_if<CutFlutesOp>(&boundBack.stream.ops[2]);
-        assert(flutesBack != nullptr && flutesBack->widthRatio == 0.28); // spec default
+        EDI_CHECK(flutesBack != nullptr && flutesBack->widthRatio == 0.28); // spec default
         // The lathe reference round-trips: the profile id is a plain string
         // field (the OTHER crown jewel — never a binding).
         const auto *turnedBack = std::get_if<AddRevolvedProfileOp>(&boundBack.stream.ops[8]);
-        assert(turnedBack != nullptr && turnedBack->profile == "shaft_profile"
+        EDI_CHECK(turnedBack != nullptr && turnedBack->profile == "shaft_profile"
                && turnedBack->vertices == 64 && turnedBack->baseZ == 0.0);
 
         // Refusals, A's loader order: half a binding, then literal clash,
@@ -735,8 +735,8 @@ int main()
             "op.0.type = \"AddBox\"\n"
             "op.0.name = \"b\"\n"
             "op.0.width.object = \"plank\"\n", "bad");
-        assert(!half.ok);
-        assert(half.message == "op.0.width: a measurement binding needs both .object and .field");
+        EDI_CHECK(!half.ok);
+        EDI_CHECK(half.message == "op.0.width: a measurement binding needs both .object and .field");
 
         const OpStreamParseResult clash = recipeOpsFromToml(
             "op.0.type = \"AddBox\"\n"
@@ -744,8 +744,8 @@ int main()
             "op.0.width = \"1\"\n"
             "op.0.width.object = \"plank\"\n"
             "op.0.width.field = \"width\"\n", "bad");
-        assert(!clash.ok);
-        assert(clash.message
+        EDI_CHECK(!clash.ok);
+        EDI_CHECK(clash.message
                == "op.0.width: has both a literal and a measurement binding (.object/.field)");
 
         const OpStreamParseResult unnamed = recipeOpsFromToml(
@@ -753,8 +753,8 @@ int main()
             "op.0.name = \"b\"\n"
             "op.0.width.object = \"\"\n"
             "op.0.width.field = \"width\"\n", "bad");
-        assert(!unnamed.ok);
-        assert(unnamed.message == "op.0.width: a binding names an object and a field");
+        EDI_CHECK(!unnamed.ok);
+        EDI_CHECK(unnamed.message == "op.0.width: a binding names an object and a field");
 
         // A binding on a non-bindable key falls to the consumption audit —
         // ints stay literal-only (divergence from A, see RecipeOpsBind.h).
@@ -766,8 +766,8 @@ int main()
             "op.0.z = \"0\"\n"
             "op.0.vertices.object = \"gauge\"\n"
             "op.0.vertices.field = \"width\"\n", "bad");
-        assert(!intBinding.ok);
-        assert(intBinding.message == "unknown recipe key: op.0.vertices.field");
+        EDI_CHECK(!intBinding.ok);
+        EDI_CHECK(intBinding.message == "unknown recipe key: op.0.vertices.field");
 
         // The WRITER refuses bogus bindings too — a stream must not
         // serialize a file the reader would bounce. (A refusal message can
@@ -775,13 +775,13 @@ int main()
         // asserting the refusal.)
         RecipeOpStream bogus = bound;
         bogus.bindings = {{9, "width", "plank", "width"}};
-        assert(recipeOpsToToml(bogus).message == "binding for op.9.width: no such op");
+        EDI_CHECK(recipeOpsToToml(bogus).message == "binding for op.9.width: no such op");
         bogus.bindings = {{1, "vertices", "gauge", "width"}};
-        assert(recipeOpsToToml(bogus).message == "op.1.vertices: not a bindable field");
+        EDI_CHECK(recipeOpsToToml(bogus).message == "op.1.vertices: not a bindable field");
         bogus.bindings = {{0, "width", "", "width"}};
-        assert(recipeOpsToToml(bogus).message == "op.0.width: a binding names an object and a field");
+        EDI_CHECK(recipeOpsToToml(bogus).message == "op.0.width: a binding names an object and a field");
         bogus.bindings = {{0, "width", "a", "width"}, {0, "width", "b", "width"}};
-        assert(recipeOpsToToml(bogus).message == "op.0.width: bound more than once");
+        EDI_CHECK(recipeOpsToToml(bogus).message == "op.0.width: bound more than once");
 
         // The registry pinned EXHAUSTIVELY, row by row: deleting any row
         // (or typo'ing a key) fails here by name. The negative keys prove
@@ -809,21 +809,21 @@ int main()
         };
         for (const RegistryPin &pin : registryPins) {
             for (const char *key : pin.bindable) {
-                assert(opFieldBindable(pin.op, key));
+                EDI_CHECK(opFieldBindable(pin.op, key));
                 RecipeOp writable = pin.op;
-                assert(setOpFieldValue(writable, key, 2.5));
+                EDI_CHECK(setOpFieldValue(writable, key, 2.5));
             }
             for (const char *key : pin.notBindable) {
-                assert(!opFieldBindable(pin.op, key));
+                EDI_CHECK(!opFieldBindable(pin.op, key));
                 RecipeOp writable = pin.op;
-                assert(!setOpFieldValue(writable, key, 2.5));
+                EDI_CHECK(!setOpFieldValue(writable, key, 2.5));
             }
         }
         // And the pointers land in the right members, not just somewhere.
         RecipeOp probe = AddRingOp{};
-        assert(setOpFieldValue(probe, "tube_height", 2.5));
-        assert(std::get_if<AddRingOp>(&probe)->tubeHeight == 2.5);
-        assert(std::get_if<AddRingOp>(&probe)->radius == 0.0);
+        EDI_CHECK(setOpFieldValue(probe, "tube_height", 2.5));
+        EDI_CHECK(std::get_if<AddRingOp>(&probe)->tubeHeight == 2.5);
+        EDI_CHECK(std::get_if<AddRingOp>(&probe)->radius == 0.0);
 
         // opFields lists the same fields the registry binds, with their live
         // values — what the human inspector reads to build its spinboxes. The
@@ -833,31 +833,31 @@ int main()
         std::get_if<AddBoxOp>(&box)->width = 3.0;
         std::get_if<AddBoxOp>(&box)->height = 5.0;
         const std::vector<RecipeOpField> boxFields = opFields(box);
-        assert(boxFields.size() == 6); // width, depth, height, z, x, y
-        assert(boxFields[0].key == "width" && boxFields[0].value == 3.0);
-        assert(boxFields[2].key == "height" && boxFields[2].value == 5.0);
+        EDI_CHECK(boxFields.size() == 6); // width, depth, height, z, x, y
+        EDI_CHECK(boxFields[0].key == "width" && boxFields[0].value == 3.0);
+        EDI_CHECK(boxFields[2].key == "height" && boxFields[2].value == 5.0);
         for (const RecipeOpField &field : boxFields) {
-            assert(opFieldBindable(box, field.key));
-            assert(setOpFieldValue(box, field.key, 1.5));
+            EDI_CHECK(opFieldBindable(box, field.key));
+            EDI_CHECK(setOpFieldValue(box, field.key, 1.5));
         }
-        assert(opFields(RecipeOp{AddSphereOp{}}).size() == 4); // radius, z, x, y
-        assert(opFields(RecipeOp{AddCylinderOp{}})[5].key == "entasis_ratio");
+        EDI_CHECK(opFields(RecipeOp{AddSphereOp{}}).size() == 4); // radius, z, x, y
+        EDI_CHECK(opFields(RecipeOp{AddCylinderOp{}})[5].key == "entasis_ratio");
 
         // The step palette: every offered type makes a valid, named, unit-sized
         // op the inspector can immediately tune; an off-palette type makes
         // nothing (mouldings/lathe/flutes need more than a click to be valid).
         const std::vector<std::string> &palette = recipePaletteOpTypes();
-        assert(palette.size() == 4); // box, cylinder, sphere, ring
+        EDI_CHECK(palette.size() == 4); // box, cylinder, sphere, ring
         for (const std::string &type : palette) {
             const std::optional<RecipeOp> made = makeRecipeOp(type, "step_test");
-            assert(made.has_value());
-            assert(recipeOpTypeName(*made) == type);
+            EDI_CHECK(made.has_value());
+            EDI_CHECK(recipeOpTypeName(*made) == type);
         }
         const std::optional<RecipeOp> newBox = makeRecipeOp("AddBox", "b0");
-        assert(newBox.has_value());
-        assert(std::get_if<AddBoxOp>(&*newBox)->width == 1.0);
-        assert(std::get_if<AddBoxOp>(&*newBox)->name == "b0");
-        assert(!makeRecipeOp("AddProfileMoulding", "x").has_value());
+        EDI_CHECK(newBox.has_value());
+        EDI_CHECK(std::get_if<AddBoxOp>(&*newBox)->width == 1.0);
+        EDI_CHECK(std::get_if<AddBoxOp>(&*newBox)->name == "b0");
+        EDI_CHECK(!makeRecipeOp("AddProfileMoulding", "x").has_value());
 
         // Remove/reorder keep the binding table (bindings are by op INDEX) sane.
         RecipeOpStream s;
@@ -866,14 +866,14 @@ int main()
                  makeRecipeOp("AddSphere", "c").value()};
         s.bindings = {{0, "width", "obj0", "width"}, {2, "radius", "obj2", "radius"}};
         removeRecipeOp(s, 0); // op a gone; the sphere's binding slides 2 -> 1
-        assert(s.ops.size() == 2);
-        assert(recipeOpTypeName(s.ops[0]) == std::string("AddCylinder"));
-        assert(s.bindings.size() == 1 && s.bindings[0].opIndex == 1);
+        EDI_CHECK(s.ops.size() == 2);
+        EDI_CHECK(recipeOpTypeName(s.ops[0]) == std::string("AddCylinder"));
+        EDI_CHECK(s.bindings.size() == 1 && s.bindings[0].opIndex == 1);
         moveRecipeOp(s, 1, 0); // sphere to the front; its binding follows to 0
-        assert(recipeOpTypeName(s.ops[0]) == std::string("AddSphere"));
-        assert(s.bindings[0].opIndex == 0);
+        EDI_CHECK(recipeOpTypeName(s.ops[0]) == std::string("AddSphere"));
+        EDI_CHECK(s.bindings[0].opIndex == 0);
         removeRecipeOp(s, 99); // out of range: no-op
-        assert(s.ops.size() == 2);
+        EDI_CHECK(s.ops.size() == 2);
 
         // opEditableScalars covers what opFields cannot — enums, material, ints,
         // bools, strings — and setOpScalar writes each back by typed value.
@@ -890,31 +890,31 @@ int main()
                 sawVertices = scalar.kind == RecipeFieldKind::Integer && scalar.integer == 96;
             }
         }
-        assert(sawMaterial && sawZMode && sawName && sawVertices);
-        assert(setOpScalar(cyl, "material", std::string("marble")));
-        assert(std::get_if<AddCylinderOp>(&cyl)->material == "marble");
-        assert(setOpScalar(cyl, "z_mode", std::string("base")));
-        assert(std::get_if<AddCylinderOp>(&cyl)->zMode == ZMode::Base);
-        assert(setOpScalar(cyl, "vertices", 48));
-        assert(std::get_if<AddCylinderOp>(&cyl)->vertices == 48);
-        assert(setOpScalar(cyl, "entasis", true));
-        assert(std::get_if<AddCylinderOp>(&cyl)->entasis);
-        assert(setOpScalar(cyl, "radius", 2.0)); // a double still routes through the registry
-        assert(std::get_if<AddCylinderOp>(&cyl)->radius == 2.0);
-        assert(!setOpScalar(cyl, "nonsense", 1.0)); // unknown key
+        EDI_CHECK(sawMaterial && sawZMode && sawName && sawVertices);
+        EDI_CHECK(setOpScalar(cyl, "material", std::string("marble")));
+        EDI_CHECK(std::get_if<AddCylinderOp>(&cyl)->material == "marble");
+        EDI_CHECK(setOpScalar(cyl, "z_mode", std::string("base")));
+        EDI_CHECK(std::get_if<AddCylinderOp>(&cyl)->zMode == ZMode::Base);
+        EDI_CHECK(setOpScalar(cyl, "vertices", 48));
+        EDI_CHECK(std::get_if<AddCylinderOp>(&cyl)->vertices == 48);
+        EDI_CHECK(setOpScalar(cyl, "entasis", true));
+        EDI_CHECK(std::get_if<AddCylinderOp>(&cyl)->entasis);
+        EDI_CHECK(setOpScalar(cyl, "radius", 2.0)); // a double still routes through the registry
+        EDI_CHECK(std::get_if<AddCylinderOp>(&cyl)->radius == 2.0);
+        EDI_CHECK(!setOpScalar(cyl, "nonsense", 1.0)); // unknown key
 
         // Binding picker core: add / find / replace / clear a measurement binding.
         RecipeOpStream bstream;
         bstream.ops = {makeRecipeOp("AddBox", "b").value()};
-        assert(addRecipeBinding(bstream, 0, "width", "plank_1", "length"));
+        EDI_CHECK(addRecipeBinding(bstream, 0, "width", "plank_1", "length"));
         const RecipeFieldBinding *found = findRecipeBinding(bstream, 0, "width");
-        assert(found != nullptr && found->objectId == "plank_1" && found->field == "length");
-        assert(addRecipeBinding(bstream, 0, "width", "plank_2", "width")); // re-bind REPLACES
-        assert(bstream.bindings.size() == 1);
-        assert(findRecipeBinding(bstream, 0, "width")->objectId == "plank_2");
-        assert(!addRecipeBinding(bstream, 0, "name", "x", "width")); // not a bindable double
+        EDI_CHECK(found != nullptr && found->objectId == "plank_1" && found->field == "length");
+        EDI_CHECK(addRecipeBinding(bstream, 0, "width", "plank_2", "width")); // re-bind REPLACES
+        EDI_CHECK(bstream.bindings.size() == 1);
+        EDI_CHECK(findRecipeBinding(bstream, 0, "width")->objectId == "plank_2");
+        EDI_CHECK(!addRecipeBinding(bstream, 0, "name", "x", "width")); // not a bindable double
         clearRecipeBinding(bstream, 0, "width");
-        assert(bstream.bindings.empty() && findRecipeBinding(bstream, 0, "width") == nullptr);
+        EDI_CHECK(bstream.bindings.empty() && findRecipeBinding(bstream, 0, "width") == nullptr);
     }
 
     // ---- Explicit cutter geometry (R1-B04b): the optional cutter_radius +
@@ -939,20 +939,20 @@ int main()
         stream.ops.push_back(flutes);
 
         const OpStreamTextResult written = recipeOpsToToml(stream);
-        assert(written.ok);
+        EDI_CHECK(written.ok);
         // The pair is emitted; width_ratio is NOT (a file showing both is the
         // lie the reader refuses).
-        assert(written.text.find("op.1.cutter_radius = \"0.16\"") != std::string::npos);
-        assert(written.text.find("op.1.at_radius = \"1.056\"") != std::string::npos);
-        assert(written.text.find("op.1.width_ratio") == std::string::npos);
+        EDI_CHECK(written.text.find("op.1.cutter_radius = \"0.16\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.1.at_radius = \"1.056\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.1.width_ratio") == std::string::npos);
 
         const OpStreamParseResult back = recipeOpsFromToml(written.text, "cutter.zoo");
-        assert(back.ok);
+        EDI_CHECK(back.ok);
         const auto *flutesBack = std::get_if<CutFlutesOp>(&back.stream.ops[1]);
-        assert(flutesBack != nullptr);
-        assert(flutesBack->cutterRadius.has_value() && near(*flutesBack->cutterRadius, 0.16));
-        assert(flutesBack->atRadius.has_value() && near(*flutesBack->atRadius, 1.056));
-        assert(flutesBack->widthRatio == 0.28); // the inert default; the file carried none
+        EDI_CHECK(flutesBack != nullptr);
+        EDI_CHECK(flutesBack->cutterRadius.has_value() && near(*flutesBack->cutterRadius, 0.16));
+        EDI_CHECK(flutesBack->atRadius.has_value() && near(*flutesBack->atRadius, 1.056));
+        EDI_CHECK(flutesBack->widthRatio == 0.28); // the inert default; the file carried none
 
         // Half a pair refuses, by name.
         const OpStreamParseResult halfPair = recipeOpsFromToml(
@@ -961,8 +961,8 @@ int main()
             "op.0.count = \"20\"\n"
             "op.0.depth = \"0.12\"\n"
             "op.0.cutter_radius = \"0.16\"\n", "bad");
-        assert(!halfPair.ok);
-        assert(halfPair.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
+        EDI_CHECK(!halfPair.ok);
+        EDI_CHECK(halfPair.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
 
         // The pair beside a width_ratio refuses, by name (both sources).
         const OpStreamParseResult pairAndRatio = recipeOpsFromToml(
@@ -973,8 +973,8 @@ int main()
             "op.0.cutter_radius = \"0.16\"\n"
             "op.0.at_radius = \"1.056\"\n"
             "op.0.width_ratio = \"0.34\"\n", "bad");
-        assert(!pairAndRatio.ok);
-        assert(pairAndRatio.message
+        EDI_CHECK(!pairAndRatio.ok);
+        EDI_CHECK(pairAndRatio.message
                == "op.0: has both an explicit cutter (.cutter_radius/.at_radius) and a .width_ratio");
 
         // The WRITER refuses the half pair too (planner ruling on the B04b
@@ -989,8 +989,8 @@ int main()
         halfCutter.cutterRadius = 0.16; // atRadius deliberately unset
         halfPairStream.ops.push_back(halfCutter);
         const OpStreamTextResult halfWritten = recipeOpsToToml(halfPairStream);
-        assert(!halfWritten.ok);
-        assert(halfWritten.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
+        EDI_CHECK(!halfWritten.ok);
+        EDI_CHECK(halfWritten.message == "op.0: a cutter needs both .cutter_radius and .at_radius");
     }
 
     // ---- Custom craftsmen: the Script op. The C++ side cannot see the
@@ -1014,46 +1014,46 @@ int main()
         zoo.ops.push_back(tw);
 
         const OpStreamTextResult w = recipeOpsToToml(zoo);
-        assert(w.ok);
-        assert(w.text.find("op.0.type = \"Script\"") != std::string::npos);
-        assert(w.text.find("op.0.script = \"twisted_column\"") != std::string::npos);
-        assert(w.text.find("op.0.name = \"twist.core\"") != std::string::npos);
-        assert(w.text.find("op.0.radius = \"1.25\"") != std::string::npos);
-        assert(w.text.find("op.0.sides = \"6\"") != std::string::npos);
-        assert(w.text.find("op.0.material = \"marble\"") != std::string::npos);
+        EDI_CHECK(w.ok);
+        EDI_CHECK(w.text.find("op.0.type = \"Script\"") != std::string::npos);
+        EDI_CHECK(w.text.find("op.0.script = \"twisted_column\"") != std::string::npos);
+        EDI_CHECK(w.text.find("op.0.name = \"twist.core\"") != std::string::npos);
+        EDI_CHECK(w.text.find("op.0.radius = \"1.25\"") != std::string::npos);
+        EDI_CHECK(w.text.find("op.0.sides = \"6\"") != std::string::npos);
+        EDI_CHECK(w.text.find("op.0.material = \"marble\"") != std::string::npos);
 
         const OpStreamParseResult rp = recipeOpsFromToml(w.text, "craft.zoo");
-        assert(rp.ok && rp.stream.ops.size() == 1);
+        EDI_CHECK(rp.ok && rp.stream.ops.size() == 1);
         const auto *back = std::get_if<ScriptOp>(&rp.stream.ops[0]);
-        assert(back != nullptr && back->scriptId == "twisted_column" && back->name == "twist.core");
-        assert(near(back->x, 0.5) && near(back->y, -0.25) && near(back->z, 4.0));
-        assert(back->params.size() == 3);
+        EDI_CHECK(back != nullptr && back->scriptId == "twisted_column" && back->name == "twist.core");
+        EDI_CHECK(near(back->x, 0.5) && near(back->y, -0.25) && near(back->z, 4.0));
+        EDI_CHECK(back->params.size() == 3);
         const auto pval = [&](const char *key) -> std::string {
             for (const ScriptParam &p : back->params) {
                 if (p.key == key) return p.value;
             }
             return "<none>";
         };
-        assert(pval("radius") == "1.25" && pval("sides") == "6" && pval("material") == "marble");
+        EDI_CHECK(pval("radius") == "1.25" && pval("sides") == "6" && pval("material") == "marble");
         // The canonical writer is idempotent (the lab re-serializes on every edit).
-        assert(recipeOpsToToml(rp.stream).text == w.text);
+        EDI_CHECK(recipeOpsToToml(rp.stream).text == w.text);
 
         // Minimal hand file: only type + script. Name falls back to the id (the
         // python default), x/y/z default to 0, the bag is empty.
         const OpStreamParseResult mini = recipeOpsFromToml(
             "op.0.type = \"Script\"\n"
             "op.0.script = \"twisted_column\"\n", "mini");
-        assert(mini.ok);
+        EDI_CHECK(mini.ok);
         const auto *m = std::get_if<ScriptOp>(&mini.stream.ops[0]);
-        assert(m != nullptr && m->scriptId == "twisted_column" && m->name == "twisted_column");
-        assert(m->x == 0.0 && m->y == 0.0 && m->z == 0.0 && m->params.empty());
+        EDI_CHECK(m != nullptr && m->scriptId == "twisted_column" && m->name == "twisted_column");
+        EDI_CHECK(m->x == 0.0 && m->y == 0.0 && m->z == 0.0 && m->params.empty());
 
         // A missing craftsman id is refused at READ, by name (requireText).
         const OpStreamParseResult noScript = recipeOpsFromToml(
             "op.0.type = \"Script\"\n"
             "op.0.name = \"x\"\n", "bad");
-        assert(!noScript.ok);
-        assert(noScript.message == "missing required key: op.0.script");
+        EDI_CHECK(!noScript.ok);
+        EDI_CHECK(noScript.message == "missing required key: op.0.script");
 
         // The bag accepts ANY key — there is no schema to audit it against here
         // (the craftsman's MANIFEST owns that), so the global unknown-key audit
@@ -1064,9 +1064,9 @@ int main()
             "op.0.name = \"w\"\n"
             "op.0.whatever = \"42\"\n"
             "op.0.another_param = \"hi\"\n", "wild");
-        assert(wild.ok);
+        EDI_CHECK(wild.ok);
         const auto *wl = std::get_if<ScriptOp>(&wild.stream.ops[0]);
-        assert(wl != nullptr && wl->params.size() == 2);
+        EDI_CHECK(wl != nullptr && wl->params.size() == 2);
 
         // The param-key contract is ENFORCED at write, read, and validate (not
         // just asserted in a comment): a key that collides with a built-in
@@ -1075,12 +1075,12 @@ int main()
         // gates refuse the same keys, by name.
         {
             // recipeScriptParamKeyProblem: the shared predicate.
-            assert(recipeScriptParamKeyProblem("sides").empty());
-            assert(recipeScriptParamKeyProblem("my-param_2").empty());
-            assert(!recipeScriptParamKeyProblem("name").empty());  // built-in
-            assert(!recipeScriptParamKeyProblem("a.b").empty());   // nests under tomllib
-            assert(!recipeScriptParamKeyProblem("has space").empty());
-            assert(!recipeScriptParamKeyProblem("").empty());
+            EDI_CHECK(recipeScriptParamKeyProblem("sides").empty());
+            EDI_CHECK(recipeScriptParamKeyProblem("my-param_2").empty());
+            EDI_CHECK(!recipeScriptParamKeyProblem("name").empty());  // built-in
+            EDI_CHECK(!recipeScriptParamKeyProblem("a.b").empty());   // nests under tomllib
+            EDI_CHECK(!recipeScriptParamKeyProblem("has space").empty());
+            EDI_CHECK(!recipeScriptParamKeyProblem("").empty());
 
             // WRITE (B02): a colliding key refuses by name.
             RecipeOpStream collide;
@@ -1090,8 +1090,8 @@ int main()
             bad.params = {{"name", "oops"}};
             collide.ops.push_back(bad);
             const OpStreamTextResult cw = recipeOpsToToml(collide);
-            assert(!cw.ok);
-            assert(cw.message == "op.0: param key 'name' collides with the built-in field 'name'");
+            EDI_CHECK(!cw.ok);
+            EDI_CHECK(cw.message == "op.0: param key 'name' collides with the built-in field 'name'");
 
             // WRITE: a dotted key refuses by name.
             RecipeOpStream dotted;
@@ -1101,8 +1101,8 @@ int main()
             dot.params = {{"a.b", "v"}};
             dotted.ops.push_back(dot);
             const OpStreamTextResult dw = recipeOpsToToml(dotted);
-            assert(!dw.ok);
-            assert(dw.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
+            EDI_CHECK(!dw.ok);
+            EDI_CHECK(dw.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
 
             // READ: the strict reader refuses a dotted param key (it would round
             // -trip apart under tomllib). Reserved keys can't reach here — the
@@ -1112,8 +1112,8 @@ int main()
                 "op.0.type = \"Script\"\n"
                 "op.0.script = \"c\"\n"
                 "op.0.a.b = \"v\"\n", "dotted");
-            assert(!dottedRead.ok);
-            assert(dottedRead.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
+            EDI_CHECK(!dottedRead.ok);
+            EDI_CHECK(dottedRead.message == "op.0: param key 'a.b' must be letters, digits, '_' or '-'");
 
             // VALIDATE: a bad key surfaces as a named finding.
             ScriptOp badVal;
@@ -1121,12 +1121,12 @@ int main()
             badVal.name = "v";
             badVal.params = {{"bad key", "1"}};
             const OpValidationReport vr = validateRecipeOps({RecipeOp{badVal}});
-            assert(!vr.ok);
+            EDI_CHECK(!vr.ok);
             bool sawBadKey = false;
             for (const OpFinding &f : vr.findings) {
                 sawBadKey = sawBadKey || f.code == "bad_param_key";
             }
-            assert(sawBadKey);
+            EDI_CHECK(sawBadKey);
 
             // A hyphenated key is legal and round-trips.
             RecipeOpStream okStream;
@@ -1136,11 +1136,11 @@ int main()
             okScript.params = {{"my-param", "7"}};
             okStream.ops.push_back(okScript);
             const OpStreamTextResult okw = recipeOpsToToml(okStream);
-            assert(okw.ok);
+            EDI_CHECK(okw.ok);
             const OpStreamParseResult okr = recipeOpsFromToml(okw.text, "ok");
-            assert(okr.ok);
+            EDI_CHECK(okr.ok);
             const auto *okBack = std::get_if<ScriptOp>(&okr.stream.ops[0]);
-            assert(okBack != nullptr && okBack->params.size() == 1
+            EDI_CHECK(okBack != nullptr && okBack->params.size() == 1
                    && okBack->params[0].key == "my-param" && okBack->params[0].value == "7");
         }
 
@@ -1154,36 +1154,36 @@ int main()
         bound.ops.push_back(anchored);
         bound.bindings = {{0, "x", "anchor", "width"}};
         const OpStreamTextResult bw = recipeOpsToToml(bound);
-        assert(bw.ok);
-        assert(bw.text.find("op.0.x.object = \"anchor\"") != std::string::npos);
-        assert(bw.text.find("op.0.x.field = \"width\"") != std::string::npos);
-        assert(bw.text.find("op.0.x = ") == std::string::npos); // no literal beside the binding
+        EDI_CHECK(bw.ok);
+        EDI_CHECK(bw.text.find("op.0.x.object = \"anchor\"") != std::string::npos);
+        EDI_CHECK(bw.text.find("op.0.x.field = \"width\"") != std::string::npos);
+        EDI_CHECK(bw.text.find("op.0.x = ") == std::string::npos); // no literal beside the binding
         const OpStreamParseResult br = recipeOpsFromToml(bw.text, "bound.script");
-        assert(br.ok && br.stream.bindings.size() == 1);
-        assert(br.stream.bindings[0].opIndex == 0 && br.stream.bindings[0].fieldKey == "x"
+        EDI_CHECK(br.ok && br.stream.bindings.size() == 1);
+        EDI_CHECK(br.stream.bindings[0].opIndex == 0 && br.stream.bindings[0].fieldKey == "x"
                && br.stream.bindings[0].objectId == "anchor" && br.stream.bindings[0].field == "width");
         const auto *brBack = std::get_if<ScriptOp>(&br.stream.ops[0]);
-        assert(brBack != nullptr && brBack->params.size() == 1
+        EDI_CHECK(brBack != nullptr && brBack->params.size() == 1
                && brBack->params[0].key == "sides" && brBack->params[0].value == "6");
 
         // compile leaves a Script op untouched (no lowering needed) — it reaches
         // the craftsmen library as-is.
         const RecipeCompileResult comp = compileRecipeOps(zoo.ops);
-        assert(comp.ok && comp.ops.size() == 1
+        EDI_CHECK(comp.ok && comp.ops.size() == 1
                && recipeOpTypeName(comp.ops[0]) == std::string("Script"));
 
         // Validate: the one C++-side invariant is a craftsman to dispatch to.
         ScriptOp ghost;
         ghost.name = "ghost"; // scriptId left empty
         const OpValidationReport noId = validateRecipeOps({RecipeOp{ghost}});
-        assert(!noId.ok);
+        EDI_CHECK(!noId.ok);
         bool sawMissing = false;
         for (const OpFinding &f : noId.findings) {
             sawMissing = sawMissing || f.code == "missing_script_reference";
         }
-        assert(sawMissing);
+        EDI_CHECK(sawMissing);
         const OpValidationReport good = validateRecipeOps({RecipeOp{tw}});
-        assert(good.ok);
+        EDI_CHECK(good.ok);
         // A Script name participates in duplicate detection (opName sees it).
         AddBoxOp clash;
         clash.name = "twist.core";
@@ -1193,7 +1193,7 @@ int main()
         for (const OpFinding &f : dup.findings) {
             sawDup = sawDup || f.code == "duplicate_name";
         }
-        assert(sawDup);
+        EDI_CHECK(sawDup);
 
         // The inspector schema: x/y/z are Numbers (the registry), name is
         // editable text, the craftsman id is READ-ONLY, each param is editable
@@ -1206,16 +1206,16 @@ int main()
             else if (s.key == "script") sawScriptRO = !s.editable && s.text == "twisted_column";
             else if (s.key == "sides") sawSides = s.kind == RecipeFieldKind::Text && s.text == "6";
         }
-        assert(sawX && sawName && sawScriptRO && sawSides);
-        assert(setOpScalar(scOp, "name", std::string("renamed")));
-        assert(std::get_if<ScriptOp>(&scOp)->name == "renamed");
-        assert(setOpScalar(scOp, "sides", std::string("8"))); // a param
-        assert(std::get_if<ScriptOp>(&scOp)->params[1].value == "8"); // {radius, sides, material}
-        assert(setOpScalar(scOp, "x", 5.0)); // a double still routes through the registry
-        assert(near(std::get_if<ScriptOp>(&scOp)->x, 5.0));
-        assert(!setOpScalar(scOp, "script", std::string("other"))); // read-only id
-        assert(std::get_if<ScriptOp>(&scOp)->scriptId == "twisted_column");
-        assert(!setOpScalar(scOp, "nope", std::string("x"))); // unknown key
+        EDI_CHECK(sawX && sawName && sawScriptRO && sawSides);
+        EDI_CHECK(setOpScalar(scOp, "name", std::string("renamed")));
+        EDI_CHECK(std::get_if<ScriptOp>(&scOp)->name == "renamed");
+        EDI_CHECK(setOpScalar(scOp, "sides", std::string("8"))); // a param
+        EDI_CHECK(std::get_if<ScriptOp>(&scOp)->params[1].value == "8"); // {radius, sides, material}
+        EDI_CHECK(setOpScalar(scOp, "x", 5.0)); // a double still routes through the registry
+        EDI_CHECK(near(std::get_if<ScriptOp>(&scOp)->x, 5.0));
+        EDI_CHECK(!setOpScalar(scOp, "script", std::string("other"))); // read-only id
+        EDI_CHECK(std::get_if<ScriptOp>(&scOp)->scriptId == "twisted_column");
+        EDI_CHECK(!setOpScalar(scOp, "nope", std::string("x"))); // unknown key
     }
 
     // ---- AddExtrudedProfile (BL-01): a profile-reference op like the lathe —
@@ -1239,22 +1239,22 @@ int main()
         zoo.ops.push_back(prism);
 
         const OpStreamTextResult written = recipeOpsToToml(zoo);
-        assert(written.ok);
+        EDI_CHECK(written.ok);
         // Writer key shape — a drift that broke BL-04's parse_ops would fail here.
-        assert(written.text.find("op.0.type = \"AddExtrudedProfile\"") != std::string::npos);
-        assert(written.text.find("op.0.profile = \"panel_outline\"") != std::string::npos);
-        assert(written.text.find("op.0.height = \"2.5\"") != std::string::npos);
-        assert(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
-        assert(written.text.find("op.0.material = \"marble\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.type = \"AddExtrudedProfile\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.profile = \"panel_outline\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.height = \"2.5\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.material = \"marble\"") != std::string::npos);
 
         const OpStreamParseResult back = recipeOpsFromToml(written.text, "extrude.zoo");
-        assert(back.ok && back.stream.ops.size() == 1);
+        EDI_CHECK(back.ok && back.stream.ops.size() == 1);
         const auto *prismBack = std::get_if<AddExtrudedProfileOp>(&back.stream.ops[0]);
-        assert(prismBack != nullptr && prismBack->name == "wall.panel"
+        EDI_CHECK(prismBack != nullptr && prismBack->name == "wall.panel"
                && prismBack->profile == "panel_outline" && near(prismBack->height, 2.5)
                && near(prismBack->baseZ, 1.0) && near(prismBack->x, 0.5)
                && near(prismBack->y, -0.25) && prismBack->material == "marble");
-        assert(recipeOpsToToml(back.stream).text == written.text); // idempotent
+        EDI_CHECK(recipeOpsToToml(back.stream).text == written.text); // idempotent
 
         // Reader defaults from a minimal hand file: x/y -> 0, material -> stone.
         const OpStreamParseResult bare = recipeOpsFromToml(
@@ -1263,9 +1263,9 @@ int main()
             "op.0.profile = \"outline\"\n"
             "op.0.height = \"3\"\n"
             "op.0.base_z = \"0\"\n", "minimal");
-        assert(bare.ok);
+        EDI_CHECK(bare.ok);
         const auto *bareBack = std::get_if<AddExtrudedProfileOp>(&bare.stream.ops[0]);
-        assert(bareBack != nullptr && bareBack->x == 0.0 && bareBack->y == 0.0
+        EDI_CHECK(bareBack != nullptr && bareBack->x == 0.0 && bareBack->y == 0.0
                && bareBack->material == "stone");
 
         // Refusal #1: an unlowered extrude cannot compile, refused BY NAME like
@@ -1275,31 +1275,31 @@ int main()
         unlowered.profile = "outline";
         unlowered.height = 4.0;
         const RecipeCompileResult refused = compileRecipeOps({RecipeOp{unlowered}});
-        assert(!refused.ok);
-        assert(refused.message
+        EDI_CHECK(!refused.ok);
+        EDI_CHECK(refused.message
                == "AddExtrudedProfile must be resolved before compiling: shaft.extruded");
-        assert(refused.ops.empty());
+        EDI_CHECK(refused.ops.empty());
         RecipeOpStream survives;
         survives.ops = {RecipeOp{unlowered}};
-        assert(!recipeOpsResolved(survives));
+        EDI_CHECK(!recipeOpsResolved(survives));
 
         // Refusal #2: a zero height fails validate by its finding name; a valid
         // op passes; a NEGATIVE height is deliberately allowed (BL-05 push/pull).
         AddExtrudedProfileOp flat = unlowered;
         flat.height = 0.0;
         const OpValidationReport flatReport = validateRecipeOps({RecipeOp{flat}});
-        assert(!flatReport.ok);
+        EDI_CHECK(!flatReport.ok);
         bool sawZeroHeight = false;
         for (const OpFinding &f : flatReport.findings) {
             sawZeroHeight = sawZeroHeight || f.code == "extruded_profile_zero_height";
         }
-        assert(sawZeroHeight);
-        assert(validateRecipeOps({RecipeOp{unlowered}}).ok); // height 4.0, valid
+        EDI_CHECK(sawZeroHeight);
+        EDI_CHECK(validateRecipeOps({RecipeOp{unlowered}}).ok); // height 4.0, valid
         AddExtrudedProfileOp pushPull = unlowered;
         pushPull.height = -1.5; // allowed: not refused here
         const OpValidationReport negReport = validateRecipeOps({RecipeOp{pushPull}});
         for (const OpFinding &f : negReport.findings) {
-            assert(f.code != "extruded_profile_zero_height");
+            EDI_CHECK(f.code != "extruded_profile_zero_height");
         }
 
         // Bind registry + schema, pinned: height/base_z/x/y bind; profile and
@@ -1307,10 +1307,10 @@ int main()
         // profile + material.
         RecipeOp bindProbe = RecipeOp{prism};
         for (const char *key : {"height", "base_z", "x", "y"}) {
-            assert(opFieldBindable(bindProbe, key));
+            EDI_CHECK(opFieldBindable(bindProbe, key));
         }
         for (const char *key : {"profile", "material", "name"}) {
-            assert(!opFieldBindable(bindProbe, key));
+            EDI_CHECK(!opFieldBindable(bindProbe, key));
         }
         bool sawProfileRO = false, sawMaterial = false, sawHeight = false;
         for (const RecipeOpScalar &s : opEditableScalars(bindProbe)) {
@@ -1318,7 +1318,7 @@ int main()
             else if (s.key == "material") sawMaterial = s.kind == RecipeFieldKind::Choice;
             else if (s.key == "height") sawHeight = s.kind == RecipeFieldKind::Number && near(s.number, 2.5);
         }
-        assert(sawProfileRO && sawMaterial && sawHeight);
+        EDI_CHECK(sawProfileRO && sawMaterial && sawHeight);
     }
 
     // ---- BL-05: pin the push/pull AUTHORING SURFACE on AddExtrudedProfile —
@@ -1329,11 +1329,11 @@ int main()
     {
         RecipeOp op = RecipeOp{AddExtrudedProfileOp{}};
         // (a) the bind affordance target: height is bindable.
-        assert(opFieldBindable(op, "height"));
+        EDI_CHECK(opFieldBindable(op, "height"));
         // (b) a write reaches the height MEMBER (the gap-check: the binding/
         //     measure path must land on height, not silently miss it).
-        assert(setOpFieldValue(op, "height", 7.5));
-        assert(near(std::get_if<AddExtrudedProfileOp>(&op)->height, 7.5));
+        EDI_CHECK(setOpFieldValue(op, "height", 7.5));
+        EDI_CHECK(near(std::get_if<AddExtrudedProfileOp>(&op)->height, 7.5));
         // (c) the field editor sees an editable Number for height.
         bool heightIsEditableNumber = false;
         for (const RecipeOpScalar &s : opEditableScalars(op)) {
@@ -1341,7 +1341,7 @@ int main()
                 heightIsEditableNumber = s.kind == RecipeFieldKind::Number && near(s.number, 7.5);
             }
         }
-        assert(heightIsEditableNumber);
+        EDI_CHECK(heightIsEditableNumber);
     }
 
     // ---- AddPrism (BL-03): the BUILDABLE lowered carrier. Round trip the
@@ -1362,64 +1362,64 @@ int main()
         zoo.ops.push_back(prism);
 
         const OpStreamTextResult written = recipeOpsToToml(zoo);
-        assert(written.ok);
-        assert(written.text.find("op.0.type = \"AddPrism\"") != std::string::npos);
-        assert(written.text.find("op.0.height = \"2\"") != std::string::npos);
-        assert(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
-        assert(written.text.find("op.0.footprint.0.x = \"1.2\"") != std::string::npos);
-        assert(written.text.find("op.0.footprint.2.y = \"2.4\"") != std::string::npos);
+        EDI_CHECK(written.ok);
+        EDI_CHECK(written.text.find("op.0.type = \"AddPrism\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.height = \"2\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.base_z = \"1\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.footprint.0.x = \"1.2\"") != std::string::npos);
+        EDI_CHECK(written.text.find("op.0.footprint.2.y = \"2.4\"") != std::string::npos);
 
         const OpStreamParseResult back = recipeOpsFromToml(written.text, "prism.zoo");
-        assert(back.ok && back.stream.ops.size() == 1);
+        EDI_CHECK(back.ok && back.stream.ops.size() == 1);
         const auto *prismBack = std::get_if<AddPrismOp>(&back.stream.ops[0]);
-        assert(prismBack != nullptr && prismBack->name == "wall.block"
+        EDI_CHECK(prismBack != nullptr && prismBack->name == "wall.block"
                && near(prismBack->height, 2.0) && near(prismBack->baseZ, 1.0)
                && near(prismBack->x, 0.5) && near(prismBack->y, -0.25)
                && prismBack->material == "marble");
-        assert(prismBack->footprint.size() == 4);
-        assert(near(prismBack->footprint[0].x, 1.2) && near(prismBack->footprint[0].y, 0.8));
-        assert(near(prismBack->footprint[3].x, 1.2) && near(prismBack->footprint[3].y, 2.4));
-        assert(recipeOpsToToml(back.stream).text == written.text); // idempotent
+        EDI_CHECK(prismBack->footprint.size() == 4);
+        EDI_CHECK(near(prismBack->footprint[0].x, 1.2) && near(prismBack->footprint[0].y, 0.8));
+        EDI_CHECK(near(prismBack->footprint[3].x, 1.2) && near(prismBack->footprint[3].y, 2.4));
+        EDI_CHECK(recipeOpsToToml(back.stream).text == written.text); // idempotent
 
         // BUILDABLE carrier: compile passes it through untouched (like
         // AddMoulding), and it does NOT make the stream unresolved.
         const RecipeCompileResult compiled = compileRecipeOps({RecipeOp{prism}});
-        assert(compiled.ok && compiled.ops.size() == 1
+        EDI_CHECK(compiled.ok && compiled.ops.size() == 1
                && recipeOpTypeName(compiled.ops[0]) == std::string("AddPrism"));
         RecipeOpStream resolvedStream;
         resolvedStream.ops = {RecipeOp{prism}};
-        assert(recipeOpsResolved(resolvedStream));
-        assert(validateRecipeOps({RecipeOp{prism}}).ok);
+        EDI_CHECK(recipeOpsResolved(resolvedStream));
+        EDI_CHECK(validateRecipeOps({RecipeOp{prism}}).ok);
 
         // Validate refusals by name: a degenerate footprint (< 3 points) and a
         // zero/non-finite height. A NEGATIVE height is ALLOWED (BL-05).
         AddPrismOp sliver = prism;
         sliver.footprint = {{0.0, 0.0}, {1.0, 0.0}}; // a line, not an area
         const OpValidationReport sliverReport = validateRecipeOps({RecipeOp{sliver}});
-        assert(!sliverReport.ok);
+        EDI_CHECK(!sliverReport.ok);
         bool sawDegenerate = false;
         for (const OpFinding &f : sliverReport.findings) {
             sawDegenerate = sawDegenerate || f.code == "prism_degenerate_footprint";
         }
-        assert(sawDegenerate);
+        EDI_CHECK(sawDegenerate);
 
         AddPrismOp flat = prism;
         flat.height = 0.0;
         const OpValidationReport flatReport = validateRecipeOps({RecipeOp{flat}});
-        assert(!flatReport.ok);
+        EDI_CHECK(!flatReport.ok);
         bool sawZeroHeight = false;
         for (const OpFinding &f : flatReport.findings) {
             sawZeroHeight = sawZeroHeight || f.code == "prism_zero_height";
         }
-        assert(sawZeroHeight);
+        EDI_CHECK(sawZeroHeight);
 
         AddPrismOp pushPull = prism;
         pushPull.height = -1.5; // allowed
         const OpValidationReport negReport = validateRecipeOps({RecipeOp{pushPull}});
         for (const OpFinding &f : negReport.findings) {
-            assert(f.code != "prism_zero_height");
+            EDI_CHECK(f.code != "prism_zero_height");
         }
-        assert(negReport.ok);
+        EDI_CHECK(negReport.ok);
     }
 
     // ---- P4: taperCurve — non-linear taper exponent on BOTH AddPrismOp and
@@ -1432,11 +1432,11 @@ int main()
         AddPrismOp defPrism;
         defPrism.name = "p"; defPrism.height = 1.0; defPrism.baseZ = 0.0;
         defPrism.footprint = {{0,0},{1,0},{1,1}};
-        assert(near(defPrism.taperCurve, 1.0));
+        EDI_CHECK(near(defPrism.taperCurve, 1.0));
 
         AddSweepProfileOp defSweep;
         defSweep.name = "s"; defSweep.profile = "prof"; defSweep.path = "pth";
-        assert(near(defSweep.taperCurve, 1.0));
+        EDI_CHECK(near(defSweep.taperCurve, 1.0));
 
         // A non-default taperCurve round-trips on AddPrismOp.
         RecipeOpStream ps;
@@ -1446,12 +1446,12 @@ int main()
         curved.taperEnd = 0.4;
         ps.ops.push_back(curved);
         const OpStreamTextResult pw = recipeOpsToToml(ps);
-        assert(pw.ok);
-        assert(pw.text.find("op.0.taper_curve = \"2.5\"") != std::string::npos);
+        EDI_CHECK(pw.ok);
+        EDI_CHECK(pw.text.find("op.0.taper_curve = \"2.5\"") != std::string::npos);
         const OpStreamParseResult pback = recipeOpsFromToml(pw.text, "p4.zoo");
-        assert(pback.ok && pback.stream.ops.size() == 1);
+        EDI_CHECK(pback.ok && pback.stream.ops.size() == 1);
         const auto *prismBack = std::get_if<AddPrismOp>(&pback.stream.ops[0]);
-        assert(prismBack != nullptr && near(prismBack->taperCurve, 2.5));
+        EDI_CHECK(prismBack != nullptr && near(prismBack->taperCurve, 2.5));
 
         // Default 1.0 round-trips: the TOML has taper_curve = "1" and reads
         // back as 1.0 — a pre-P4 stream that omits the key also parses to 1.0.
@@ -1459,10 +1459,10 @@ int main()
         defaults.id = "p4.def"; defaults.name = "P4 Defaults";
         defaults.ops.push_back(defPrism);
         const OpStreamTextResult dw = recipeOpsToToml(defaults);
-        assert(dw.ok);
-        assert(dw.text.find("op.0.taper_curve = \"1\"") != std::string::npos);
+        EDI_CHECK(dw.ok);
+        EDI_CHECK(dw.text.find("op.0.taper_curve = \"1\"") != std::string::npos);
         const auto *dback = std::get_if<AddPrismOp>(&recipeOpsFromToml(dw.text, "p4.def").stream.ops[0]);
-        assert(dback != nullptr && near(dback->taperCurve, 1.0));
+        EDI_CHECK(dback != nullptr && near(dback->taperCurve, 1.0));
 
         // Validate refuses taperCurve <= 0 or non-finite.
         auto checkBadCurve = [](AddPrismOp op, double curve) {
@@ -1472,7 +1472,7 @@ int main()
             for (const OpFinding &f : r.findings) {
                 saw = saw || f.code == "bad_taper_curve";
             }
-            assert(!r.ok && saw);
+            EDI_CHECK(!r.ok && saw);
         };
         checkBadCurve(defPrism, 0.0);
         checkBadCurve(defPrism, -1.0);
@@ -1482,7 +1482,7 @@ int main()
         // Validate ACCEPTS taperCurve > 0 (e.g. 0.5 front-loads the narrowing).
         AddPrismOp halfCurve = defPrism;
         halfCurve.taperCurve = 0.5;
-        assert(validateRecipeOps({RecipeOp{halfCurve}}).ok);
+        EDI_CHECK(validateRecipeOps({RecipeOp{halfCurve}}).ok);
     }
 
     // ---- P4b: taperEndY — per-axis Y taper with a 0-sentinel (default 0 =
@@ -1492,7 +1492,7 @@ int main()
         AddPrismOp defPrism;
         defPrism.name = "q"; defPrism.height = 1.0; defPrism.baseZ = 0.0;
         defPrism.footprint = {{0,0},{1,0},{1,1}};
-        assert(near(defPrism.taperEndY, 0.0)); // default is the sentinel
+        EDI_CHECK(near(defPrism.taperEndY, 0.0)); // default is the sentinel
 
         // Non-default taperEndY round-trips.
         RecipeOpStream ps;
@@ -1501,27 +1501,27 @@ int main()
         asym.taperEndY = 0.3; // Y narrows more aggressively than X
         ps.ops.push_back(asym);
         const OpStreamTextResult pw = recipeOpsToToml(ps);
-        assert(pw.ok);
-        assert(pw.text.find("op.0.taper_end_y = \"0.3\"") != std::string::npos);
+        EDI_CHECK(pw.ok);
+        EDI_CHECK(pw.text.find("op.0.taper_end_y = \"0.3\"") != std::string::npos);
         const OpStreamParseResult pback = recipeOpsFromToml(pw.text, "p4b.zoo");
-        assert(pback.ok && pback.stream.ops.size() == 1);
+        EDI_CHECK(pback.ok && pback.stream.ops.size() == 1);
         const auto *back = std::get_if<AddPrismOp>(&pback.stream.ops[0]);
-        assert(back != nullptr && near(back->taperEndY, 0.3));
+        EDI_CHECK(back != nullptr && near(back->taperEndY, 0.3));
 
         // Default 0 round-trips as "0" in TOML, reads back as 0.0.
         RecipeOpStream ds;
         ds.id = "p4b.def"; ds.name = "P4b Defaults";
         ds.ops.push_back(defPrism);
         const OpStreamTextResult dw = recipeOpsToToml(ds);
-        assert(dw.ok);
-        assert(dw.text.find("op.0.taper_end_y = \"0\"") != std::string::npos);
+        EDI_CHECK(dw.ok);
+        EDI_CHECK(dw.text.find("op.0.taper_end_y = \"0\"") != std::string::npos);
         const auto *dback = std::get_if<AddPrismOp>(&recipeOpsFromToml(dw.text, "p4b.def").stream.ops[0]);
-        assert(dback != nullptr && near(dback->taperEndY, 0.0));
+        EDI_CHECK(dback != nullptr && near(dback->taperEndY, 0.0));
 
         // Validate: 0 (sentinel) and positive values are ACCEPTED.
-        assert(validateRecipeOps({RecipeOp{defPrism}}).ok);     // 0 accepted
+        EDI_CHECK(validateRecipeOps({RecipeOp{defPrism}}).ok);     // 0 accepted
         AddPrismOp posY = defPrism; posY.taperEndY = 0.5;
-        assert(validateRecipeOps({RecipeOp{posY}}).ok);          // 0.5 accepted
+        EDI_CHECK(validateRecipeOps({RecipeOp{posY}}).ok);          // 0.5 accepted
 
         // Validate: negative and non-finite are REFUSED with bad_taper_end_y.
         auto checkBadY = [](AddPrismOp op, double y) {
@@ -1531,7 +1531,7 @@ int main()
             for (const OpFinding &f : r.findings) {
                 saw = saw || f.code == "bad_taper_end_y";
             }
-            assert(!r.ok && saw);
+            EDI_CHECK(!r.ok && saw);
         };
         checkBadY(defPrism, -0.1);
         checkBadY(defPrism, -1.0);
@@ -1549,14 +1549,14 @@ int main()
         AddMouldingOp m;
         m.name = "full.band";
         m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
-        assert(near(m.sweepDegrees, 360.0)); // struct default
+        EDI_CHECK(near(m.sweepDegrees, 360.0)); // struct default
         RecipeOpStream ms;
         ms.ops.push_back(m);
         const OpStreamTextResult mw = recipeOpsToToml(ms);
-        assert(mw.ok);
-        assert(mw.text.find("op.0.sweep_degrees = \"360\"") != std::string::npos);
+        EDI_CHECK(mw.ok);
+        EDI_CHECK(mw.text.find("op.0.sweep_degrees = \"360\"") != std::string::npos);
         const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
-        assert(mBack != nullptr && near(mBack->sweepDegrees, 360.0));
+        EDI_CHECK(mBack != nullptr && near(mBack->sweepDegrees, 360.0));
 
         // A non-default sweep round-trips on the lathe.
         AddRevolvedProfileOp lathe;
@@ -1566,9 +1566,9 @@ int main()
         RecipeOpStream ls;
         ls.ops.push_back(lathe);
         const OpStreamTextResult lw = recipeOpsToToml(ls);
-        assert(lw.ok && lw.text.find("op.0.sweep_degrees = \"180\"") != std::string::npos);
+        EDI_CHECK(lw.ok && lw.text.find("op.0.sweep_degrees = \"180\"") != std::string::npos);
         const auto *lBack = std::get_if<AddRevolvedProfileOp>(&recipeOpsFromToml(lw.text, "l").stream.ops[0]);
-        assert(lBack != nullptr && near(lBack->sweepDegrees, 180.0));
+        EDI_CHECK(lBack != nullptr && near(lBack->sweepDegrees, 180.0));
 
         // An absent key parses to the 360 default (the byte-preserving guarantee
         // for any pre-BL-06 hand file).
@@ -1577,8 +1577,8 @@ int main()
             "op.0.name = \"bare\"\n"
             "op.0.profile = \"p\"\n"
             "op.0.base_z = \"0\"\n", "bare");
-        assert(bare.ok);
-        assert(near(std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0])->sweepDegrees, 360.0));
+        EDI_CHECK(bare.ok);
+        EDI_CHECK(near(std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0])->sweepDegrees, 360.0));
 
         // Validate refuses 0 / negative / > 360 by name, on BOTH ops.
         const auto sawBadSweep = [](const OpValidationReport &r) {
@@ -1588,23 +1588,23 @@ int main()
             return false;
         };
         AddMouldingOp zero = m; zero.sweepDegrees = 0.0;
-        assert(sawBadSweep(validateRecipeOps({RecipeOp{zero}})));
+        EDI_CHECK(sawBadSweep(validateRecipeOps({RecipeOp{zero}})));
         AddMouldingOp over = m; over.sweepDegrees = 361.0;
-        assert(sawBadSweep(validateRecipeOps({RecipeOp{over}})));
+        EDI_CHECK(sawBadSweep(validateRecipeOps({RecipeOp{over}})));
         AddRevolvedProfileOp neg; neg.name = "n"; neg.profile = "p"; neg.sweepDegrees = -90.0;
-        assert(sawBadSweep(validateRecipeOps({RecipeOp{neg}})));
+        EDI_CHECK(sawBadSweep(validateRecipeOps({RecipeOp{neg}})));
         // The boundary 360 is allowed (full revolve); 180 is allowed.
         AddMouldingOp ok360 = m; ok360.sweepDegrees = 360.0;
-        assert(!sawBadSweep(validateRecipeOps({RecipeOp{ok360}})));
+        EDI_CHECK(!sawBadSweep(validateRecipeOps({RecipeOp{ok360}})));
 
         // The bind affordance: sweep_degrees is a bindable Number on both ops
         // (a drafted angle could drive it) — consistent with how the reader
         // reads it (bindableNumber) and the inspector surfaces it.
-        assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, "sweep_degrees"));
-        assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, "sweep_degrees"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddMouldingOp{}}, "sweep_degrees"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, "sweep_degrees"));
         RecipeOp probe = RecipeOp{AddMouldingOp{}};
-        assert(setOpFieldValue(probe, "sweep_degrees", 90.0));
-        assert(near(std::get_if<AddMouldingOp>(&probe)->sweepDegrees, 90.0));
+        EDI_CHECK(setOpFieldValue(probe, "sweep_degrees", 90.0));
+        EDI_CHECK(near(std::get_if<AddMouldingOp>(&probe)->sweepDegrees, 90.0));
     }
 
     // ---- BL-07: screw/helix params (screw_rise, screw_turns) — numeric fields
@@ -1616,17 +1616,17 @@ int main()
         AddMouldingOp m;
         m.name = "thread.band";
         m.profile = {{"a", 0.0, 1.0}, {"b", 0.5, 1.0}};
-        assert(near(m.screwRise, 0.0) && near(m.screwTurns, 1.0)); // struct defaults
+        EDI_CHECK(near(m.screwRise, 0.0) && near(m.screwTurns, 1.0)); // struct defaults
         m.screwRise = 2.0;
         m.screwTurns = 4.0;
         RecipeOpStream ms;
         ms.ops.push_back(m);
         const OpStreamTextResult mw = recipeOpsToToml(ms);
-        assert(mw.ok);
-        assert(mw.text.find("op.0.screw_rise = \"2\"") != std::string::npos);
-        assert(mw.text.find("op.0.screw_turns = \"4\"") != std::string::npos);
+        EDI_CHECK(mw.ok);
+        EDI_CHECK(mw.text.find("op.0.screw_rise = \"2\"") != std::string::npos);
+        EDI_CHECK(mw.text.find("op.0.screw_turns = \"4\"") != std::string::npos);
         const auto *mBack = std::get_if<AddMouldingOp>(&recipeOpsFromToml(mw.text, "m").stream.ops[0]);
-        assert(mBack != nullptr && near(mBack->screwRise, 2.0) && near(mBack->screwTurns, 4.0));
+        EDI_CHECK(mBack != nullptr && near(mBack->screwRise, 2.0) && near(mBack->screwTurns, 4.0));
 
         // Absent keys default to 0 / 1 on the lathe (the pre-BL-07 guarantee).
         const OpStreamParseResult bare = recipeOpsFromToml(
@@ -1634,9 +1634,9 @@ int main()
             "op.0.name = \"bare\"\n"
             "op.0.profile = \"p\"\n"
             "op.0.base_z = \"0\"\n", "bare");
-        assert(bare.ok);
+        EDI_CHECK(bare.ok);
         const auto *bareL = std::get_if<AddRevolvedProfileOp>(&bare.stream.ops[0]);
-        assert(near(bareL->screwRise, 0.0) && near(bareL->screwTurns, 1.0));
+        EDI_CHECK(near(bareL->screwRise, 0.0) && near(bareL->screwTurns, 1.0));
 
         // Validate: screw_turns <= 0 refused by name on BOTH ops; a NEGATIVE
         // screw_rise (left-hand spiral) is allowed.
@@ -1647,13 +1647,13 @@ int main()
             return false;
         };
         AddMouldingOp zeroTurns = m; zeroTurns.screwTurns = 0.0;
-        assert(sawBadTurns(validateRecipeOps({RecipeOp{zeroTurns}})));
+        EDI_CHECK(sawBadTurns(validateRecipeOps({RecipeOp{zeroTurns}})));
         AddRevolvedProfileOp negTurns; negTurns.name = "n"; negTurns.profile = "p";
         negTurns.screwTurns = -1.0;
-        assert(sawBadTurns(validateRecipeOps({RecipeOp{negTurns}})));
+        EDI_CHECK(sawBadTurns(validateRecipeOps({RecipeOp{negTurns}})));
         AddMouldingOp leftHand = m; leftHand.screwRise = -3.0; // left-hand spiral, allowed
         const OpValidationReport leftReport = validateRecipeOps({RecipeOp{leftHand}});
-        assert(leftReport.ok);
+        EDI_CHECK(leftReport.ok);
 
         // BATCH-2 P1: a partial sweep_degrees beside a helix is a non-fatal
         // WARNING (the v1 helix ignores it — full turns). Fires only when BOTH a
@@ -1666,26 +1666,26 @@ int main()
         };
         AddMouldingOp clash = m; clash.sweepDegrees = 90.0; clash.screwRise = 1.0;
         const OpValidationReport clashReport = validateRecipeOps({RecipeOp{clash}});
-        assert(clashReport.ok);                 // a warning is non-fatal
-        assert(sawHelixWarn(clashReport));
+        EDI_CHECK(clashReport.ok);                 // a warning is non-fatal
+        EDI_CHECK(sawHelixWarn(clashReport));
         AddMouldingOp partialOnly = m; partialOnly.sweepDegrees = 90.0; partialOnly.screwRise = 0.0;
-        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{partialOnly}})));
+        EDI_CHECK(!sawHelixWarn(validateRecipeOps({RecipeOp{partialOnly}})));
         AddMouldingOp fullHelix = m; fullHelix.sweepDegrees = 360.0; fullHelix.screwRise = 1.0;
-        assert(!sawHelixWarn(validateRecipeOps({RecipeOp{fullHelix}})));
+        EDI_CHECK(!sawHelixWarn(validateRecipeOps({RecipeOp{fullHelix}})));
         // Also fires on the lathe (the other op carrying the fields).
         AddRevolvedProfileOp latheClash;
         latheClash.name = "l"; latheClash.profile = "p";
         latheClash.sweepDegrees = 90.0; latheClash.screwRise = 1.0;
-        assert(sawHelixWarn(validateRecipeOps({RecipeOp{latheClash}})));
+        EDI_CHECK(sawHelixWarn(validateRecipeOps({RecipeOp{latheClash}})));
 
         // The bind affordance: both screw params are bindable Numbers on both ops.
         for (const char *key : {"screw_rise", "screw_turns"}) {
-            assert(opFieldBindable(RecipeOp{AddMouldingOp{}}, key));
-            assert(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, key));
+            EDI_CHECK(opFieldBindable(RecipeOp{AddMouldingOp{}}, key));
+            EDI_CHECK(opFieldBindable(RecipeOp{AddRevolvedProfileOp{}}, key));
         }
         RecipeOp probe = RecipeOp{AddRevolvedProfileOp{}};
-        assert(setOpFieldValue(probe, "screw_rise", 5.0));
-        assert(near(std::get_if<AddRevolvedProfileOp>(&probe)->screwRise, 5.0));
+        EDI_CHECK(setOpFieldValue(probe, "screw_rise", 5.0));
+        EDI_CHECK(near(std::get_if<AddRevolvedProfileOp>(&probe)->screwRise, 5.0));
     }
 
     // ---- BL-14: the named-recipe LIBRARY — save/list/load round-trip through a
@@ -1712,22 +1712,22 @@ int main()
         lib.bindings = {{1, "radius", "gauge", "radius"}};
 
         const OpStreamTextResult saved = saveLibraryRecipe(dir.string(), lib);
-        assert(saved.ok);
+        EDI_CHECK(saved.ok);
         const std::vector<std::string> names = listLibraryRecipes(dir.string());
-        assert(names.size() == 1 && names[0] == "pedestal"); // filename = sanitized name
+        EDI_CHECK(names.size() == 1 && names[0] == "pedestal"); // filename = sanitized name
         const OpStreamParseResult loaded = loadLibraryRecipe(dir.string(), "pedestal");
-        assert(loaded.ok);
-        assert(loaded.stream.ops.size() == 2);
-        assert(loaded.stream.id == "lib_pedestal" && loaded.stream.name == "pedestal");
-        assert(std::get_if<AddBoxOp>(&loaded.stream.ops[0])->name == "slab");
-        assert(loaded.stream.bindings.size() == 1
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.stream.ops.size() == 2);
+        EDI_CHECK(loaded.stream.id == "lib_pedestal" && loaded.stream.name == "pedestal");
+        EDI_CHECK(std::get_if<AddBoxOp>(&loaded.stream.ops[0])->name == "slab");
+        EDI_CHECK(loaded.stream.bindings.size() == 1
                && loaded.stream.bindings[0].opIndex == 1
                && loaded.stream.bindings[0].objectId == "gauge");
         // A missing recipe fails by name, not a crash.
         const OpStreamParseResult missing = loadLibraryRecipe(dir.string(), "nope");
-        assert(!missing.ok && missing.message.find("recipe not found") != std::string::npos);
+        EDI_CHECK(!missing.ok && missing.message.find("recipe not found") != std::string::npos);
         // A missing directory lists empty (not an error).
-        assert(listLibraryRecipes((dir / "no_such").string()).empty());
+        EDI_CHECK(listLibraryRecipes((dir / "no_such").string()).empty());
         fs::remove_all(dir);
     }
 
@@ -1747,12 +1747,12 @@ int main()
         source.bindings = {{0, "radius", "s_obj", "radius"}}; // j = 0
 
         appendRecipe(target, source);
-        assert(target.ops.size() == 3);
-        assert(target.bindings.size() == 2);
+        EDI_CHECK(target.ops.size() == 3);
+        EDI_CHECK(target.bindings.size() == 2);
         // The target binding is untouched.
-        assert(target.bindings[0].opIndex == 0 && target.bindings[0].objectId == "t_obj");
+        EDI_CHECK(target.bindings[0].opIndex == 0 && target.bindings[0].objectId == "t_obj");
         // The source binding re-offset by M=2: j(0) -> 2.
-        assert(target.bindings[1].opIndex == 2 && target.bindings[1].objectId == "s_obj");
+        EDI_CHECK(target.bindings[1].opIndex == 2 && target.bindings[1].objectId == "s_obj");
     }
 
     // ---- BL-14 KEY TEST: name namespacing prevents cross-reference. Target has
@@ -1780,17 +1780,17 @@ int main()
         source.ops = {RecipeOp{srcShaft}, RecipeOp{flutes}};
 
         appendRecipe(target, source);
-        assert(target.ops.size() == 3);
+        EDI_CHECK(target.ops.size() == 3);
         // The target shaft keeps its bare name (never namespaced).
-        assert(std::get_if<AddCylinderOp>(&target.ops[0])->name == "shaft");
+        EDI_CHECK(std::get_if<AddCylinderOp>(&target.ops[0])->name == "shaft");
         // The source ops are namespaced under "capital::".
-        assert(std::get_if<AddCylinderOp>(&target.ops[1])->name == "capital::shaft");
+        EDI_CHECK(std::get_if<AddCylinderOp>(&target.ops[1])->name == "capital::shaft");
         // The source flute's target was rewritten to the NAMESPACED source shaft,
         // not left pointing at the target's bare "shaft".
-        assert(std::get_if<CutFlutesOp>(&target.ops[2])->target == "capital::shaft");
+        EDI_CHECK(std::get_if<CutFlutesOp>(&target.ops[2])->target == "capital::shaft");
         // The merged stream validates: the flute finds its target within the
         // spliced block (validation matches names in order).
-        assert(validateRecipeOps(target.ops).ok);
+        EDI_CHECK(validateRecipeOps(target.ops).ok);
     }
 
     // ---- BL-08: AddSweepProfile (the Follow-Me ref-op) round-trip + refusals,
@@ -1806,21 +1806,21 @@ int main()
         sweep.material = "marble";
         ss.ops.push_back(sweep);
         const OpStreamTextResult sw = recipeOpsToToml(ss);
-        assert(sw.ok);
-        assert(sw.text.find("op.0.type = \"AddSweepProfile\"") != std::string::npos);
-        assert(sw.text.find("op.0.profile = \"section\"") != std::string::npos);
-        assert(sw.text.find("op.0.path = \"run_path\"") != std::string::npos);
+        EDI_CHECK(sw.ok);
+        EDI_CHECK(sw.text.find("op.0.type = \"AddSweepProfile\"") != std::string::npos);
+        EDI_CHECK(sw.text.find("op.0.profile = \"section\"") != std::string::npos);
+        EDI_CHECK(sw.text.find("op.0.path = \"run_path\"") != std::string::npos);
         const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
-        assert(swBack != nullptr && swBack->profile == "section" && swBack->path == "run_path"
+        EDI_CHECK(swBack != nullptr && swBack->profile == "section" && swBack->path == "run_path"
                && near(swBack->baseZ, 1.0) && swBack->material == "marble");
 
         // Refused-before-build by name; recipeOpsResolved false while it survives.
         const RecipeCompileResult refused = compileRecipeOps({RecipeOp{sweep}});
-        assert(!refused.ok);
-        assert(refused.message == "AddSweepProfile must be resolved before compiling: cornice.run");
+        EDI_CHECK(!refused.ok);
+        EDI_CHECK(refused.message == "AddSweepProfile must be resolved before compiling: cornice.run");
         RecipeOpStream survives;
         survives.ops = {RecipeOp{sweep}};
-        assert(!recipeOpsResolved(survives));
+        EDI_CHECK(!recipeOpsResolved(survives));
         // Validate refuses an empty profile/path by name.
         AddSweepProfileOp noPath;
         noPath.name = "n";
@@ -1830,7 +1830,7 @@ int main()
         for (const OpFinding &f : npr.findings) {
             sawMissingPath = sawMissingPath || f.code == "missing_path_reference";
         }
-        assert(sawMissingPath);
+        EDI_CHECK(sawMissingPath);
 
         // AddPrism with a non-empty path round-trips the path.i.{x,y} run.
         RecipeOpStream ps;
@@ -1840,18 +1840,18 @@ int main()
         prism.path = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 3.0}};
         ps.ops.push_back(prism);
         const OpStreamTextResult pw = recipeOpsToToml(ps);
-        assert(pw.ok);
-        assert(pw.text.find("op.0.path.0.x = \"0\"") != std::string::npos);
-        assert(pw.text.find("op.0.path.2.y = \"3\"") != std::string::npos);
+        EDI_CHECK(pw.ok);
+        EDI_CHECK(pw.text.find("op.0.path.0.x = \"0\"") != std::string::npos);
+        EDI_CHECK(pw.text.find("op.0.path.2.y = \"3\"") != std::string::npos);
         const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
-        assert(pBack != nullptr && pBack->path.size() == 3
+        EDI_CHECK(pBack != nullptr && pBack->path.size() == 3
                && near(pBack->path[2].x, 4.0) && near(pBack->path[2].y, 3.0));
         // A swept prism (path present) validates with NO zero-height finding
         // (height is irrelevant when a path drives the solid).
         const OpValidationReport pvr = validateRecipeOps({RecipeOp{prism}});
-        assert(pvr.ok);
+        EDI_CHECK(pvr.ok);
         for (const OpFinding &f : pvr.findings) {
-            assert(f.code != "prism_zero_height");
+            EDI_CHECK(f.code != "prism_zero_height");
         }
 
         // The empty-path prism emits NO path.* keys and round-trips exactly as a
@@ -1863,10 +1863,10 @@ int main()
         straight.height = 2.0; // empty path -> a straight extrude needs a height
         es.ops.push_back(straight);
         const OpStreamTextResult ew = recipeOpsToToml(es);
-        assert(ew.ok);
-        assert(ew.text.find(".path.") == std::string::npos); // no path keys at all
+        EDI_CHECK(ew.ok);
+        EDI_CHECK(ew.text.find(".path.") == std::string::npos); // no path keys at all
         const auto *eBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(ew.text, "e").stream.ops[0]);
-        assert(eBack != nullptr && eBack->path.empty() && near(eBack->height, 2.0));
+        EDI_CHECK(eBack != nullptr && eBack->path.empty() && near(eBack->height, 2.0));
     }
 
     // ---- BL-09: taper_end on the sweep + the prism it lowers to. Default 1.0,
@@ -1877,14 +1877,14 @@ int main()
         sweep.name = "spire";
         sweep.profile = "section";
         sweep.path = "rib";
-        assert(near(sweep.taperEnd, 1.0)); // struct default
+        EDI_CHECK(near(sweep.taperEnd, 1.0)); // struct default
         sweep.taperEnd = 0.4;
         RecipeOpStream ss;
         ss.ops.push_back(sweep);
         const OpStreamTextResult sw = recipeOpsToToml(ss);
-        assert(sw.ok && sw.text.find("op.0.taper_end = \"0.4\"") != std::string::npos);
+        EDI_CHECK(sw.ok && sw.text.find("op.0.taper_end = \"0.4\"") != std::string::npos);
         const auto *swBack = std::get_if<AddSweepProfileOp>(&recipeOpsFromToml(sw.text, "s").stream.ops[0]);
-        assert(swBack != nullptr && near(swBack->taperEnd, 0.4));
+        EDI_CHECK(swBack != nullptr && near(swBack->taperEnd, 0.4));
 
         AddPrismOp prism;
         prism.name = "p";
@@ -1894,9 +1894,9 @@ int main()
         RecipeOpStream ps;
         ps.ops.push_back(prism);
         const OpStreamTextResult pw = recipeOpsToToml(ps);
-        assert(pw.ok && pw.text.find("op.0.taper_end = \"0.5\"") != std::string::npos);
+        EDI_CHECK(pw.ok && pw.text.find("op.0.taper_end = \"0.5\"") != std::string::npos);
         const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
-        assert(pBack != nullptr && near(pBack->taperEnd, 0.5));
+        EDI_CHECK(pBack != nullptr && near(pBack->taperEnd, 0.5));
 
         // An absent taper_end defaults to 1.0 (a pre-BL-09 file is untapered).
         const OpStreamParseResult bare = recipeOpsFromToml(
@@ -1905,8 +1905,8 @@ int main()
             "op.0.profile = \"s\"\n"
             "op.0.path = \"p\"\n"
             "op.0.base_z = \"0\"\n", "bare");
-        assert(bare.ok);
-        assert(near(std::get_if<AddSweepProfileOp>(&bare.stream.ops[0])->taperEnd, 1.0));
+        EDI_CHECK(bare.ok);
+        EDI_CHECK(near(std::get_if<AddSweepProfileOp>(&bare.stream.ops[0])->taperEnd, 1.0));
 
         // Validate refuses taper_end <= 0 / non-finite by name on BOTH ops.
         const auto sawBadTaper = [](const OpValidationReport &r) {
@@ -1916,13 +1916,13 @@ int main()
             return false;
         };
         AddSweepProfileOp zeroTaper = sweep; zeroTaper.taperEnd = 0.0;
-        assert(sawBadTaper(validateRecipeOps({RecipeOp{zeroTaper}})));
+        EDI_CHECK(sawBadTaper(validateRecipeOps({RecipeOp{zeroTaper}})));
         AddPrismOp negTaper = prism; negTaper.taperEnd = -1.0;
-        assert(sawBadTaper(validateRecipeOps({RecipeOp{negTaper}})));
+        EDI_CHECK(sawBadTaper(validateRecipeOps({RecipeOp{negTaper}})));
 
         // The bind affordance: taper_end is a bindable Number on both ops.
-        assert(opFieldBindable(RecipeOp{AddSweepProfileOp{}}, "taper_end"));
-        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddSweepProfileOp{}}, "taper_end"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddPrismOp{}}, "taper_end"));
     }
 
     // ---- BL-10: inset + normal_offset depth params on AddPrism. Round-trip,
@@ -1932,17 +1932,17 @@ int main()
         prism.name = "lipped";
         prism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
         prism.height = 2.0;
-        assert(near(prism.inset, 0.0) && near(prism.normalOffset, 0.0)); // struct defaults
+        EDI_CHECK(near(prism.inset, 0.0) && near(prism.normalOffset, 0.0)); // struct defaults
         prism.inset = 0.3;
         prism.normalOffset = -0.1;
         RecipeOpStream ps;
         ps.ops.push_back(prism);
         const OpStreamTextResult pw = recipeOpsToToml(ps);
-        assert(pw.ok);
-        assert(pw.text.find("op.0.inset = \"0.3\"") != std::string::npos);
-        assert(pw.text.find("op.0.normal_offset = \"-0.1\"") != std::string::npos);
+        EDI_CHECK(pw.ok);
+        EDI_CHECK(pw.text.find("op.0.inset = \"0.3\"") != std::string::npos);
+        EDI_CHECK(pw.text.find("op.0.normal_offset = \"-0.1\"") != std::string::npos);
         const auto *pBack = std::get_if<AddPrismOp>(&recipeOpsFromToml(pw.text, "p").stream.ops[0]);
-        assert(pBack != nullptr && near(pBack->inset, 0.3) && near(pBack->normalOffset, -0.1));
+        EDI_CHECK(pBack != nullptr && near(pBack->inset, 0.3) && near(pBack->normalOffset, -0.1));
 
         // Absent keys default to 0 (a pre-BL-10 prism is unchanged).
         const OpStreamParseResult bare = recipeOpsFromToml(
@@ -1953,9 +1953,9 @@ int main()
             "op.0.footprint.0.x = \"0\"\nop.0.footprint.0.y = \"0\"\n"
             "op.0.footprint.1.x = \"1\"\nop.0.footprint.1.y = \"0\"\n"
             "op.0.footprint.2.x = \"1\"\nop.0.footprint.2.y = \"1\"\n", "bare");
-        assert(bare.ok);
+        EDI_CHECK(bare.ok);
         const auto *bareP = std::get_if<AddPrismOp>(&bare.stream.ops[0]);
-        assert(near(bareP->inset, 0.0) && near(bareP->normalOffset, 0.0));
+        EDI_CHECK(near(bareP->inset, 0.0) && near(bareP->normalOffset, 0.0));
 
         const auto sawCode = [](const OpValidationReport &r, const char *code) {
             for (const OpFinding &f : r.findings) {
@@ -1965,17 +1965,17 @@ int main()
         };
         // A 4x4 footprint: smaller extent 4, so inset >= 2.0 would collapse it.
         AddPrismOp big = prism; big.inset = 2.5;
-        assert(sawCode(validateRecipeOps({RecipeOp{big}}), "prism_inset_too_large"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{big}}), "prism_inset_too_large"));
         AddPrismOp okInset = prism; okInset.inset = 0.5; // well under half the extent
-        assert(!sawCode(validateRecipeOps({RecipeOp{okInset}}), "prism_inset_too_large"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{okInset}}), "prism_inset_too_large"));
         // Non-finite is refused by name on each.
         AddPrismOp nanOffset = prism;
         nanOffset.normalOffset = std::numeric_limits<double>::infinity();
-        assert(sawCode(validateRecipeOps({RecipeOp{nanOffset}}), "bad_normal_offset"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{nanOffset}}), "bad_normal_offset"));
 
         // Both bindable Numbers.
-        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "inset"));
-        assert(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddPrismOp{}}, "inset"));
+        EDI_CHECK(opFieldBindable(RecipeOp{AddPrismOp{}}, "normal_offset"));
     }
 
     // ---- P6: prism_inset_reflex_pinch guard — a second, tighter validate check
@@ -2005,16 +2005,16 @@ int main()
         // inset = 0.5 → well under the 1.0 pinch limit AND the 2.0 bbox limit.
         // Neither guard fires — this is a safe inset for the L-shape.
         reflexPrism.inset = 0.5;
-        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
-        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
 
         // inset = 1.1 → exceeds the 1.0 pinch limit for the reflex vertex, but
         // is BELOW the 2.0 bbox limit. prism_inset_too_large does NOT fire; the
         // new per-reflex guard DOES. This is the specific case the bbox guard
         // misses but the per-vertex geometry check catches.
         reflexPrism.inset = 1.1;
-        assert(sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
-        assert(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_reflex_pinch"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{reflexPrism}}), "prism_inset_too_large"));
 
         // Convex footprint (the 4×4 square from BL-10): has no reflex vertices,
         // so prism_inset_reflex_pinch must NOT fire, even for large insets.
@@ -2024,8 +2024,8 @@ int main()
         convexPrism.footprint = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 4.0}, {0.0, 4.0}};
         convexPrism.height = 2.0;
         convexPrism.inset = 2.5; // fires bbox guard, NOT reflex guard
-        assert(!sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_reflex_pinch"));
-        assert(sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_too_large"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_reflex_pinch"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{convexPrism}}), "prism_inset_too_large"));
     }
 
     // ---- BL-11: AddBoolean round-trip (each kind), validate operand ordering,
@@ -2047,19 +2047,19 @@ int main()
             op.kind = c.kind;
             s.ops.push_back(op);
             const OpStreamTextResult w = recipeOpsToToml(s);
-            assert(w.ok);
-            assert(w.text.find(std::string("op.0.kind = \"") + c.text + "\"") != std::string::npos);
-            assert(w.text.find("op.0.a = \"lhs\"") != std::string::npos);
-            assert(w.text.find("op.0.b = \"rhs\"") != std::string::npos);
+            EDI_CHECK(w.ok);
+            EDI_CHECK(w.text.find(std::string("op.0.kind = \"") + c.text + "\"") != std::string::npos);
+            EDI_CHECK(w.text.find("op.0.a = \"lhs\"") != std::string::npos);
+            EDI_CHECK(w.text.find("op.0.b = \"rhs\"") != std::string::npos);
             const auto *back = std::get_if<AddBooleanOp>(&recipeOpsFromToml(w.text, "b").stream.ops[0]);
-            assert(back != nullptr && back->a == "lhs" && back->b == "rhs" && back->kind == c.kind);
+            EDI_CHECK(back != nullptr && back->a == "lhs" && back->b == "rhs" && back->kind == c.kind);
         }
         // A bad kind value is refused by name.
         const OpStreamParseResult badKind = recipeOpsFromToml(
             "op.0.type = \"AddBoolean\"\n"
             "op.0.name = \"c\"\nop.0.a = \"x\"\nop.0.b = \"y\"\n"
             "op.0.kind = \"merge\"\n", "bad");
-        assert(!badKind.ok && badKind.message.find("union, subtract, or intersect") != std::string::npos);
+        EDI_CHECK(!badKind.ok && badKind.message.find("union, subtract, or intersect") != std::string::npos);
 
         // Validate: a/b must name an EARLIER op; a later or absent operand is
         // refused by name. A valid earlier-operand boolean validates clean.
@@ -2067,7 +2067,7 @@ int main()
         AddBoxOp b; b.name = "solid.b"; b.width = b.depth = b.height = 1.0;
         AddBooleanOp good;
         good.name = "good.union"; good.a = "solid.a"; good.b = "solid.b";
-        assert(validateRecipeOps({RecipeOp{a}, RecipeOp{b}, RecipeOp{good}}).ok);
+        EDI_CHECK(validateRecipeOps({RecipeOp{a}, RecipeOp{b}, RecipeOp{good}}).ok);
         const auto sawCode = [](const OpValidationReport &r, const char *code) {
             for (const OpFinding &f : r.findings) {
                 if (f.code == code) return true;
@@ -2077,14 +2077,14 @@ int main()
         // Operand b is absent.
         AddBooleanOp missing;
         missing.name = "bad"; missing.a = "solid.a"; missing.b = "ghost";
-        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{missing}}), "boolean_missing_operand"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{missing}}), "boolean_missing_operand"));
         // Operand named LATER (the boolean comes before its operand).
         AddBooleanOp early;
         early.name = "early"; early.a = "solid.a"; early.b = "solid.a";
         const OpValidationReport beforeOrder = validateRecipeOps({RecipeOp{early}, RecipeOp{a}});
-        assert(sawCode(beforeOrder, "boolean_missing_operand"));
+        EDI_CHECK(sawCode(beforeOrder, "boolean_missing_operand"));
         // a == b is degenerate, refused by name.
-        assert(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{early}}), "boolean_self_operand"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{a}, RecipeOp{early}}), "boolean_self_operand"));
 
         // Part 2: the remap-hardening chaining — a spliced AddBoolean's a/b are
         // namespaced to the SOURCE operands, never the target's same-named ops.
@@ -2100,13 +2100,13 @@ int main()
         source.ops = {RecipeOp{sShaft}, RecipeOp{sBore}, RecipeOp{sBool}};
 
         appendRecipe(target, source);
-        assert(target.ops.size() == 4);
+        EDI_CHECK(target.ops.size() == 4);
         const auto *mergedBool = std::get_if<AddBooleanOp>(&target.ops[3]);
-        assert(mergedBool != nullptr);
+        EDI_CHECK(mergedBool != nullptr);
         // Both operands rewritten to the namespaced SOURCE names.
-        assert(mergedBool->a == "cap::shaft"); // not the target's bare "shaft"
-        assert(mergedBool->b == "cap::bore");
-        assert(validateRecipeOps(target.ops).ok); // the boolean finds its namespaced operands
+        EDI_CHECK(mergedBool->a == "cap::shaft"); // not the target's bare "shaft"
+        EDI_CHECK(mergedBool->b == "cap::bore");
+        EDI_CHECK(validateRecipeOps(target.ops).ok); // the boolean finds its namespaced operands
     }
 
     // ---- BL-15: TOON handoff of a RESOLVED stream. Stable output, key parity
@@ -2148,40 +2148,40 @@ int main()
         s.ops.push_back(prism);
 
         const auto toon = exportRecipeStreamToToon(s);
-        assert(toon.ok && toon.value.has_value());
+        EDI_CHECK(toon.ok && toon.value.has_value());
         const std::string &text = *toon.value;
         // TOON shape: kind/title meta, then flat key: value lines.
-        assert(text.find("kind: recipe\n") != std::string::npos);
-        assert(text.find("title: Toon Demo\n") != std::string::npos);
-        assert(text.find("op.0.type: AddBox\n") != std::string::npos);
-        assert(text.find("op.1.type: AddPrism\n") != std::string::npos);
-        assert(text.find("op.1.height: 0.5\n") != std::string::npos);
+        EDI_CHECK(text.find("kind: recipe\n") != std::string::npos);
+        EDI_CHECK(text.find("title: Toon Demo\n") != std::string::npos);
+        EDI_CHECK(text.find("op.0.type: AddBox\n") != std::string::npos);
+        EDI_CHECK(text.find("op.1.type: AddPrism\n") != std::string::npos);
+        EDI_CHECK(text.find("op.1.height: 0.5\n") != std::string::npos);
         // No JSON object syntax — TOON is line-oriented, never JSON.
-        assert(text.find('{') == std::string::npos && text.find('}') == std::string::npos);
+        EDI_CHECK(text.find('{') == std::string::npos && text.find('}') == std::string::npos);
 
         // No-drift guard: the TOON op/recipe keys are EXACTLY the TOML keys.
         const OpStreamTextResult toml = recipeOpsToToml(s);
-        assert(toml.ok);
-        assert(keysOf(text, ": ") == keysOf(toml.text, " = "));
+        EDI_CHECK(toml.ok);
+        EDI_CHECK(keysOf(text, ": ") == keysOf(toml.text, " = "));
 
         // Refusal: an unresolved stream (a surviving binding) is refused by name.
         RecipeOpStream bound = s;
         bound.bindings = {{0, "width", "gauge", "width"}};
         const auto refusedBind = exportRecipeStreamToToon(bound);
-        assert(!refusedBind.ok);
-        assert(refusedBind.message.find("must be resolved before TOON handoff") != std::string::npos);
+        EDI_CHECK(!refusedBind.ok);
+        EDI_CHECK(refusedBind.message.find("must be resolved before TOON handoff") != std::string::npos);
 
         // Refusal: a surviving refused-before-build ref-op (lathe/extrude/sweep).
         RecipeOpStream withLathe = s;
         AddRevolvedProfileOp lathe;
         lathe.name = "turned"; lathe.profile = "shaft";
         withLathe.ops.push_back(lathe);
-        assert(!exportRecipeStreamToToon(withLathe).ok);
+        EDI_CHECK(!exportRecipeStreamToToon(withLathe).ok);
         AddSweepProfileOp sweep;
         sweep.name = "run"; sweep.profile = "p"; sweep.path = "rib";
         RecipeOpStream withSweep = s;
         withSweep.ops.push_back(sweep);
-        assert(!exportRecipeStreamToToon(withSweep).ok);
+        EDI_CHECK(!exportRecipeStreamToToon(withSweep).ok);
     }
 
     // ---- RD2: exportRecipeStreamDiffToToon — semantic diff of two resolved
@@ -2202,23 +2202,23 @@ int main()
         std::get<AddBoxOp>(after.ops[0]).height = 3.0; // one field changed
 
         const auto diffResult = exportRecipeStreamDiffToToon(before, after);
-        assert(diffResult.ok && diffResult.value.has_value());
+        EDI_CHECK(diffResult.ok && diffResult.value.has_value());
         const std::string &diffText = *diffResult.value;
 
         // TOON shape: kind/title header then flat key: value lines.
-        assert(diffText.find("kind: recipe-diff\n") != std::string::npos);
-        assert(diffText.find("title: Diff Demo\n") != std::string::npos); // same name → after.name
+        EDI_CHECK(diffText.find("kind: recipe-diff\n") != std::string::npos);
+        EDI_CHECK(diffText.find("title: Diff Demo\n") != std::string::npos); // same name → after.name
 
         // The changed key appears with "old -> new" (raw config values, no quotes).
-        assert(diffText.find("op.0.height: 2 -> 3\n") != std::string::npos);
+        EDI_CHECK(diffText.find("op.0.height: 2 -> 3\n") != std::string::npos);
 
         // Unchanged keys are OMITTED — the diff carries only deltas.
-        assert(diffText.find("op.0.type:") == std::string::npos);
-        assert(diffText.find("op.0.name:") == std::string::npos);
-        assert(diffText.find("recipe.id:") == std::string::npos);  // recipe keys also omitted when unchanged
+        EDI_CHECK(diffText.find("op.0.type:") == std::string::npos);
+        EDI_CHECK(diffText.find("op.0.name:") == std::string::npos);
+        EDI_CHECK(diffText.find("recipe.id:") == std::string::npos);  // recipe keys also omitted when unchanged
 
         // No JSON object syntax.
-        assert(diffText.find('{') == std::string::npos && diffText.find('}') == std::string::npos);
+        EDI_CHECK(diffText.find('{') == std::string::npos && diffText.find('}') == std::string::npos);
 
         // ---- Case 2: added op → the new op's keys appear as "(added) -> value". ----
         RecipeOpStream afterAdd = before;
@@ -2227,33 +2227,33 @@ int main()
         afterAdd.ops.push_back(extra);
 
         const auto diffAdd = exportRecipeStreamDiffToToon(before, afterAdd);
-        assert(diffAdd.ok && diffAdd.value.has_value());
+        EDI_CHECK(diffAdd.ok && diffAdd.value.has_value());
         const std::string &addText = *diffAdd.value;
         // The added op's type key appears as "(added) -> AddPrism".
-        assert(addText.find("op.1.type: (added) -> AddPrism\n") != std::string::npos);
+        EDI_CHECK(addText.find("op.1.type: (added) -> AddPrism\n") != std::string::npos);
         // The first op (unchanged) does NOT appear.
-        assert(addText.find("op.0.") == std::string::npos);
+        EDI_CHECK(addText.find("op.0.") == std::string::npos);
 
         // ---- Case 3: removed op → the old op's keys appear as "value -> (removed)". ----
         const auto diffRem = exportRecipeStreamDiffToToon(afterAdd, before); // swap: 2 ops → 1 op
-        assert(diffRem.ok && diffRem.value.has_value());
+        EDI_CHECK(diffRem.ok && diffRem.value.has_value());
         const std::string &remText = *diffRem.value;
-        assert(remText.find("op.1.type: AddPrism -> (removed)\n") != std::string::npos);
-        assert(remText.find("op.0.") == std::string::npos); // first op unchanged, omitted
+        EDI_CHECK(remText.find("op.1.type: AddPrism -> (removed)\n") != std::string::npos);
+        EDI_CHECK(remText.find("op.0.") == std::string::npos); // first op unchanged, omitted
 
         // ---- Case 4: title when stream names differ ("A -> B"). ----
         RecipeOpStream renamedAfter = after;
         renamedAfter.name = "Diff Demo v2";
         const auto diffRename = exportRecipeStreamDiffToToon(before, renamedAfter);
-        assert(diffRename.ok && diffRename.value.has_value());
-        assert(diffRename.value->find("title: Diff Demo -> Diff Demo v2\n") != std::string::npos);
+        EDI_CHECK(diffRename.ok && diffRename.value.has_value());
+        EDI_CHECK(diffRename.value->find("title: Diff Demo -> Diff Demo v2\n") != std::string::npos);
 
         // ---- Case 5: refusal — unresolved BEFORE (binding survives). ----
         RecipeOpStream boundBefore = before;
         boundBefore.bindings = {{0, "width", "gauge", "width"}};
         const auto refBefore = exportRecipeStreamDiffToToon(boundBefore, after);
-        assert(!refBefore.ok);
-        assert(refBefore.message.find("before stream must be resolved") != std::string::npos);
+        EDI_CHECK(!refBefore.ok);
+        EDI_CHECK(refBefore.message.find("before stream must be resolved") != std::string::npos);
 
         // ---- Case 6: refusal — unresolved AFTER (surviving ref-op). ----
         RecipeOpStream refAfter = after;
@@ -2261,17 +2261,17 @@ int main()
         latHe.name = "col"; latHe.profile = "shaft";
         refAfter.ops.push_back(latHe);
         const auto refAfterResult = exportRecipeStreamDiffToToon(before, refAfter);
-        assert(!refAfterResult.ok);
-        assert(refAfterResult.message.find("after stream must be resolved") != std::string::npos);
+        EDI_CHECK(!refAfterResult.ok);
+        EDI_CHECK(refAfterResult.message.find("after stream must be resolved") != std::string::npos);
 
         // ---- Case 7: identical streams → empty delta (no field lines). ----
         const auto diffSame = exportRecipeStreamDiffToToon(before, before);
-        assert(diffSame.ok && diffSame.value.has_value());
+        EDI_CHECK(diffSame.ok && diffSame.value.has_value());
         // Only the kind/title header lines; no op.* or recipe.* field lines.
         const std::string &sameText = *diffSame.value;
-        assert(sameText.find("kind: recipe-diff\n") != std::string::npos);
-        assert(sameText.find("op.") == std::string::npos);
-        assert(sameText.find("recipe.") == std::string::npos);
+        EDI_CHECK(sameText.find("kind: recipe-diff\n") != std::string::npos);
+        EDI_CHECK(sameText.find("op.") == std::string::npos);
+        EDI_CHECK(sameText.find("recipe.") == std::string::npos);
     }
 
     // ---- P5: prism_sweep_corner_too_sharp — validate guard on the sweep path
@@ -2307,11 +2307,11 @@ int main()
         hairpin.name = "hairpin";
         hairpin.footprint = tri;
         hairpin.path = {{0.0, 0.0}, {1.0, 0.0}, {0.0, 0.01}}; // ≈180° turn
-        assert(sawCode(validateRecipeOps({RecipeOp{hairpin}}), "prism_sweep_corner_too_sharp"));
+        EDI_CHECK(sawCode(validateRecipeOps({RecipeOp{hairpin}}), "prism_sweep_corner_too_sharp"));
         // The finding should be an Error, not just a warning.
         for (const OpFinding &f : validateRecipeOps({RecipeOp{hairpin}}).findings) {
             if (f.code == "prism_sweep_corner_too_sharp") {
-                assert(f.severity == OpFinding::Severity::Error);
+                EDI_CHECK(f.severity == OpFinding::Severity::Error);
             }
         }
 
@@ -2321,8 +2321,8 @@ int main()
         right90.name = "right90";
         right90.footprint = tri;
         right90.path = {{0.0, 0.0}, {4.0, 0.0}, {4.0, 3.0}}; // the swept_profile path
-        assert(!sawCode(validateRecipeOps({RecipeOp{right90}}), "prism_sweep_corner_too_sharp"));
-        assert(validateRecipeOps({RecipeOp{right90}}).ok);
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{right90}}), "prism_sweep_corner_too_sharp"));
+        EDI_CHECK(validateRecipeOps({RecipeOp{right90}}).ok);
 
         // ---- Two-point path (no interior point): can't fire, never enters the
         // loop. A straight two-segment extrude should validate clean. ----
@@ -2330,7 +2330,7 @@ int main()
         straight.name = "straight";
         straight.footprint = tri;
         straight.path = {{0.0, 0.0}, {5.0, 0.0}}; // single segment, no interior point
-        assert(!sawCode(validateRecipeOps({RecipeOp{straight}}), "prism_sweep_corner_too_sharp"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{straight}}), "prism_sweep_corner_too_sharp"));
 
         // ---- Empty path (a straight extrude without a swept path): the guard
         // is only checked when path.size() >= 3, so an empty path does not fire. ----
@@ -2338,7 +2338,7 @@ int main()
         noPath.name = "no_path";
         noPath.footprint = tri;
         noPath.height = 2.0; // empty path → needs a height
-        assert(!sawCode(validateRecipeOps({RecipeOp{noPath}}), "prism_sweep_corner_too_sharp"));
+        EDI_CHECK(!sawCode(validateRecipeOps({RecipeOp{noPath}}), "prism_sweep_corner_too_sharp"));
     }
 
     return 0;

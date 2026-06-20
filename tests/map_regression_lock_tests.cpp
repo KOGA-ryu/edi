@@ -33,7 +33,7 @@
 
 #include <QCoreApplication>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <fstream>
 #include <string>
 
@@ -49,7 +49,7 @@ static std::string readFile(const std::string &path)
     // std::ifstream for text TOML — no Qt required here.  std::string::assign
     // with an istreambuf_iterator is the idiomatic single-call file-to-string.
     std::ifstream f(path);
-    assert(f.is_open() && "test fixture file not found — check EDI_TESTS_DATA_DIR");
+    EDI_CHECK(f.is_open() && "test fixture file not found — check EDI_TESTS_DATA_DIR");
     return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
 }
 
@@ -66,9 +66,9 @@ int main(int argc, char **argv)
     // canvasPerUnit=1.0 keeps canvas coords == authored feet, same as the CLI.
     // -------------------------------------------------------------------------
     const edi::io::MapSpecParseResult parsed = edi::io::parseMapSpecToml(toml, 1.0);
-    assert(parsed.ok && "dungeon.map.toml must parse without errors");
-    assert(parsed.spec.rooms.size() == 12);
-    assert(parsed.spec.connections.size() == 12);
+    EDI_CHECK(parsed.ok && "dungeon.map.toml must parse without errors");
+    EDI_CHECK(parsed.spec.rooms.size() == 12);
+    EDI_CHECK(parsed.spec.connections.size() == 12);
 
     // -------------------------------------------------------------------------
     // Step 2 — TOON byte-lock (Seam B export, MapSpec overload).
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
         "  room7.to_8,room8.to_7,corridor\n";
     // clang-format on
 
-    assert(toon == expectedToon);
+    EDI_CHECK(toon == expectedToon);
 
     // -------------------------------------------------------------------------
     // Step 3 — Object-count lock (Seam A → in-memory document).
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
     // an object — not behavior-preserving → HALT and report.
     // -------------------------------------------------------------------------
     DrawingDocumentController controller;
-    assert(controller.createMapFromSpec(parsed.spec, 1.0));
+    EDI_CHECK(controller.createMapFromSpec(parsed.spec, 1.0));
 
     const std::size_t objCount = controller.draftingDocument().objects.size();
 
@@ -177,7 +177,7 @@ int main(int argc, char **argv)
     // that was a pre-A*-routing estimate; 170 is the authoritative live value.
     // DRIFT here means a Phase-1 new-field default caused a branch to skip or
     // create a geometry object → not behavior-preserving → halt and report.
-    assert(objCount == 170);
+    EDI_CHECK(objCount == 170);
 
     return 0;
 }

@@ -21,7 +21,7 @@
 #include "drafting/DraftingGrid.h"
 #include "drafting/DraftingSerialize.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <fstream>
 #include <iterator>
@@ -41,7 +41,7 @@ bool near(double a, double b)
 std::string slurp(const std::string &path)
 {
     std::ifstream in(path, std::ios::binary);
-    assert(in.is_open());
+    EDI_CHECK(in.is_open());
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
 }
 
@@ -54,76 +54,76 @@ int main()
     // ---- The committed SOURCE document IS this fixture, byte for byte. ----
     {
         const OpStreamTextResult written = recipeOpsToToml(source);
-        assert(written.ok);
-        assert(written.text
+        EDI_CHECK(written.ok);
+        EDI_CHECK(written.text
                == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_drafted_ops.toml"));
     }
 
     // ---- The source is honest about being unresolved: profile references
     // present, so the gate refuses it for downstream tiers. ----
-    assert(!recipeOpsResolved(source));
-    assert(!compileRecipeOps(source.ops).ok);
+    EDI_CHECK(!recipeOpsResolved(source));
+    EDI_CHECK(!compileRecipeOps(source.ops).ok);
 
     // ---- Resolve against the REAL drafted document + the default grid —
     // the drafting surface is the measurement authority, live. ----
     std::ifstream in(EDI_SAMPLES_DIR "/doric_column/doric_column_profiles.edidraw",
                      std::ios::binary);
-    assert(in.is_open());
+    EDI_CHECK(in.is_open());
     const std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)),
                                           std::istreambuf_iterator<char>());
     const auto decoded = decodeDraftingDocument(bytes);
-    assert(decoded.ok);
+    EDI_CHECK(decoded.ok);
     const DraftingGridProjection grid = projectDraftingGrid(defaultDraftingGridSettings());
 
     const OpResolveResult resolved = resolveRecipeOps(source, *decoded.value, grid);
-    assert(resolved.ok);
-    assert(resolved.findings.empty());
-    assert(recipeOpsResolved(resolved.stream));
+    EDI_CHECK(resolved.ok);
+    EDI_CHECK(resolved.findings.empty());
+    EDI_CHECK(recipeOpsResolved(resolved.stream));
 
     // ---- Pipeline A's numbers, by probe (full precision, near()): the
     // lathes lowered to mouldings carrying the DRAFTED radii and heights. ----
     {
         const auto *baseCove = std::get_if<AddMouldingOp>(&resolved.stream.ops[2]);
-        assert(baseCove != nullptr);
-        assert(baseCove->name == "base.cove");
-        assert(baseCove->vertices == 64);
-        assert(baseCove->profile.size() == 3);
-        assert(baseCove->profile[0].term == "profile_00");
-        assert(near(baseCove->profile[0].radius, 1.32));
-        assert(near(baseCove->profile[0].z, 0.83999999999999941));
-        assert(near(baseCove->profile[2].radius, 1.056));
-        assert(near(baseCove->profile[2].z, 1.0079999999999996));
+        EDI_CHECK(baseCove != nullptr);
+        EDI_CHECK(baseCove->name == "base.cove");
+        EDI_CHECK(baseCove->vertices == 64);
+        EDI_CHECK(baseCove->profile.size() == 3);
+        EDI_CHECK(baseCove->profile[0].term == "profile_00");
+        EDI_CHECK(near(baseCove->profile[0].radius, 1.32));
+        EDI_CHECK(near(baseCove->profile[0].z, 0.83999999999999941));
+        EDI_CHECK(near(baseCove->profile[2].radius, 1.056));
+        EDI_CHECK(near(baseCove->profile[2].z, 1.0079999999999996));
 
         const auto *shaft = std::get_if<AddMouldingOp>(&resolved.stream.ops[3]);
-        assert(shaft != nullptr);
-        assert(shaft->profile.size() == 5);
-        assert(near(shaft->profile[0].radius, 1.056));
-        assert(near(shaft->profile[0].z, 1.0079999999999996));
-        assert(near(shaft->profile[2].radius, 0.96)); // the drafted entasis midpoint
-        assert(near(shaft->profile[4].radius, 0.79200000000000004));
-        assert(near(shaft->profile[4].z, 8.0399999999999991));
+        EDI_CHECK(shaft != nullptr);
+        EDI_CHECK(shaft->profile.size() == 5);
+        EDI_CHECK(near(shaft->profile[0].radius, 1.056));
+        EDI_CHECK(near(shaft->profile[0].z, 1.0079999999999996));
+        EDI_CHECK(near(shaft->profile[2].radius, 0.96)); // the drafted entasis midpoint
+        EDI_CHECK(near(shaft->profile[4].radius, 0.79200000000000004));
+        EDI_CHECK(near(shaft->profile[4].z, 8.0399999999999991));
 
         const auto *flutes = std::get_if<CutFlutesOp>(&resolved.stream.ops[4]);
-        assert(flutes != nullptr);
-        assert(flutes->count == 20);
-        assert(flutes->cutterRadius.has_value() && near(*flutes->cutterRadius, 0.16));
-        assert(flutes->atRadius.has_value() && near(*flutes->atRadius, 1.056));
-        assert(near(flutes->depth, 0.12));
+        EDI_CHECK(flutes != nullptr);
+        EDI_CHECK(flutes->count == 20);
+        EDI_CHECK(flutes->cutterRadius.has_value() && near(*flutes->cutterRadius, 0.16));
+        EDI_CHECK(flutes->atRadius.has_value() && near(*flutes->atRadius, 1.056));
+        EDI_CHECK(near(flutes->depth, 0.12));
 
         const auto *echinus = std::get_if<AddMouldingOp>(&resolved.stream.ops[5]);
-        assert(echinus != nullptr);
-        assert(echinus->profile.size() == 4);
-        assert(near(echinus->profile[0].radius, 0.79200000000000004));
-        assert(near(echinus->profile[3].radius, 1.32));
-        assert(near(echinus->profile[3].z, 8.3999999999999986));
+        EDI_CHECK(echinus != nullptr);
+        EDI_CHECK(echinus->profile.size() == 4);
+        EDI_CHECK(near(echinus->profile[0].radius, 0.79200000000000004));
+        EDI_CHECK(near(echinus->profile[3].radius, 1.32));
+        EDI_CHECK(near(echinus->profile[3].z, 8.3999999999999986));
     }
 
     // ---- The committed RESOLVED document IS this resolution, byte for
     // byte — regenerate by re-running exactly this chain. ----
     {
         const OpStreamTextResult written = recipeOpsToToml(resolved.stream);
-        assert(written.ok);
-        assert(written.text
+        EDI_CHECK(written.ok);
+        EDI_CHECK(written.text
                == slurp(EDI_SAMPLES_DIR "/doric_column/doric_column_drafted_resolved.toml"));
     }
 
@@ -131,9 +131,9 @@ int main()
     // allowed, errors not) — the full downstream is open to it. ----
     {
         const RecipeCompileResult compiled = compileRecipeOps(resolved.stream.ops);
-        assert(compiled.ok);
+        EDI_CHECK(compiled.ok);
         const OpValidationReport report = validateRecipeOps(compiled.ops);
-        assert(report.ok);
+        EDI_CHECK(report.ok);
     }
 
     return 0;

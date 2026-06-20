@@ -1,6 +1,6 @@
 #include "formats/MessagePackValue.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -15,23 +15,23 @@ MsgPackValue roundTrip(const MsgPackValue &value)
 {
     ByteBuffer bytes = encodeMessagePack(value);
     auto decoded = decodeMessagePack(bytes, "fixture");
-    assert(decoded.ok);
-    assert(decoded.value);
+    EDI_CHECK(decoded.ok);
+    EDI_CHECK(decoded.value);
     return *decoded.value;
 }
 
 void expectInt(std::int64_t v)
 {
     MsgPackValue r = roundTrip(MsgPackValue::integer(v));
-    assert(r.type == MsgPackValue::Type::Int);
-    assert(r.intValue == v);
+    EDI_CHECK(r.type == MsgPackValue::Type::Int);
+    EDI_CHECK(r.intValue == v);
 }
 
 void expectString(const std::string &s)
 {
     MsgPackValue r = roundTrip(MsgPackValue::text(s));
-    assert(r.type == MsgPackValue::Type::String);
-    assert(r.stringValue == s);
+    EDI_CHECK(r.type == MsgPackValue::Type::String);
+    EDI_CHECK(r.stringValue == s);
 }
 
 } // namespace
@@ -41,13 +41,13 @@ int main()
     // Scalars.
     {
         MsgPackValue r = roundTrip(MsgPackValue::nil());
-        assert(r.type == MsgPackValue::Type::Nil);
+        EDI_CHECK(r.type == MsgPackValue::Type::Nil);
     }
     {
         MsgPackValue t = roundTrip(MsgPackValue::boolean(true));
         MsgPackValue f = roundTrip(MsgPackValue::boolean(false));
-        assert(t.type == MsgPackValue::Type::Bool && t.boolValue);
-        assert(f.type == MsgPackValue::Type::Bool && !f.boolValue);
+        EDI_CHECK(t.type == MsgPackValue::Type::Bool && t.boolValue);
+        EDI_CHECK(f.type == MsgPackValue::Type::Bool && !f.boolValue);
     }
 
     // Integer boundaries across every encoding band.
@@ -76,8 +76,8 @@ int main()
     // Doubles (including special-ish values).
     for (double d : {0.0, 1.5, -3.25, 3.14159265358979, 1e300, -1e-300}) {
         MsgPackValue r = roundTrip(MsgPackValue::number(d));
-        assert(r.type == MsgPackValue::Type::Double);
-        assert(r.doubleValue == d);
+        EDI_CHECK(r.type == MsgPackValue::Type::Double);
+        EDI_CHECK(r.doubleValue == d);
     }
 
     // Strings: empty, fixstr, str8, str16 boundaries.
@@ -104,18 +104,18 @@ int main()
             {"nothing", MsgPackValue::nil()},
         });
         MsgPackValue r = roundTrip(doc);
-        assert(r.type == MsgPackValue::Type::Map);
-        assert(r.mapValue.size() == 5);
+        EDI_CHECK(r.type == MsgPackValue::Type::Map);
+        EDI_CHECK(r.mapValue.size() == 5);
         const MsgPackValue *schema = r.find("schema");
-        assert(schema && schema->stringValue == "edi.drawing");
+        EDI_CHECK(schema && schema->stringValue == "edi.drawing");
         const MsgPackValue *items = r.find("items");
-        assert(items && items->type == MsgPackValue::Type::Array);
-        assert(items->arrayValue.size() == 3);
-        assert(items->arrayValue[0].intValue == 10);
-        assert(items->arrayValue[1].stringValue == "a");
-        assert(r.find("absent") == nullptr);
+        EDI_CHECK(items && items->type == MsgPackValue::Type::Array);
+        EDI_CHECK(items->arrayValue.size() == 3);
+        EDI_CHECK(items->arrayValue[0].intValue == 10);
+        EDI_CHECK(items->arrayValue[1].stringValue == "a");
+        EDI_CHECK(r.find("absent") == nullptr);
         const MsgPackValue *nothing = r.find("nothing");
-        assert(nothing && nothing->isNil());
+        EDI_CHECK(nothing && nothing->isNil());
     }
 
     // Larger array forcing array16 framing.
@@ -125,15 +125,15 @@ int main()
             big.push_back(MsgPackValue::integer(i));
         }
         MsgPackValue r = roundTrip(MsgPackValue::array(big));
-        assert(r.arrayValue.size() == 100);
-        assert(r.arrayValue[99].intValue == 99);
+        EDI_CHECK(r.arrayValue.size() == 100);
+        EDI_CHECK(r.arrayValue[99].intValue == 99);
     }
 
     // Empty buffer rejected.
     {
         auto empty = decodeMessagePack({}, "fixture");
-        assert(!empty.ok);
-        assert(empty.code == FormatResultCode::EmptyBuffer);
+        EDI_CHECK(!empty.ok);
+        EDI_CHECK(empty.code == FormatResultCode::EmptyBuffer);
     }
 
     // Truncated buffer rejected: encode a string, lop off trailing bytes.
@@ -141,8 +141,8 @@ int main()
         ByteBuffer bytes = encodeMessagePack(MsgPackValue::text("hello world"));
         bytes.resize(bytes.size() - 3);
         auto truncated = decodeMessagePack(bytes, "fixture");
-        assert(!truncated.ok);
-        assert(truncated.code == FormatResultCode::SyntaxError);
+        EDI_CHECK(!truncated.ok);
+        EDI_CHECK(truncated.code == FormatResultCode::SyntaxError);
     }
 
     // Trailing garbage rejected.
@@ -150,7 +150,7 @@ int main()
         ByteBuffer bytes = encodeMessagePack(MsgPackValue::integer(7));
         bytes.push_back(0xc0);
         auto trailing = decodeMessagePack(bytes, "fixture");
-        assert(!trailing.ok);
+        EDI_CHECK(!trailing.ok);
     }
 
     // Truncated array length rejected.
@@ -158,7 +158,7 @@ int main()
         ByteBuffer bytes = encodeMessagePack(MsgPackValue::array({MsgPackValue::integer(1), MsgPackValue::integer(2)}));
         bytes.pop_back();
         auto truncated = decodeMessagePack(bytes, "fixture");
-        assert(!truncated.ok);
+        EDI_CHECK(!truncated.ok);
     }
 
     // float32 (0xca) decodes even though the encoder only emits float64: a
@@ -166,17 +166,17 @@ int main()
     {
         ByteBuffer bytes = {0xca, 0x3f, 0x00, 0x00, 0x00};
         auto decoded = decodeMessagePack(bytes, "fixture");
-        assert(decoded.ok);
-        assert(decoded.value->type == MsgPackValue::Type::Double);
-        assert(decoded.value->doubleValue == 0.5);
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value->type == MsgPackValue::Type::Double);
+        EDI_CHECK(decoded.value->doubleValue == 0.5);
     }
     // uint64 with the high bit set (0xcf) decodes through the int64 family.
     {
         ByteBuffer bytes = {0xcf, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xd2};
         auto decoded = decodeMessagePack(bytes, "fixture");
-        assert(decoded.ok);
-        assert(decoded.value->type == MsgPackValue::Type::Int);
-        assert(decoded.value->intValue == 1234);
+        EDI_CHECK(decoded.ok);
+        EDI_CHECK(decoded.value->type == MsgPackValue::Type::Int);
+        EDI_CHECK(decoded.value->intValue == 1234);
     }
 
     // A hostile array32 length (near 2^32) must be rejected as truncated rather
@@ -184,12 +184,12 @@ int main()
     {
         ByteBuffer bytes = {0xdd, 0xff, 0xff, 0xff, 0xff}; // array32 with ~4e9 elements
         auto hostile = decodeMessagePack(bytes, "fixture");
-        assert(!hostile.ok);
+        EDI_CHECK(!hostile.ok);
     }
     {
         ByteBuffer bytes = {0xdf, 0xff, 0xff, 0xff, 0xff}; // map32 with ~4e9 entries
         auto hostile = decodeMessagePack(bytes, "fixture");
-        assert(!hostile.ok);
+        EDI_CHECK(!hostile.ok);
     }
 
     return 0;

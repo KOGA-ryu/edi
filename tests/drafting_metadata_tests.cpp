@@ -1,6 +1,6 @@
 #include "drafting/DraftingMetadata.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <limits>
 #include <string>
 
@@ -27,186 +27,186 @@ ObjectMetadata validMetadata()
 int main()
 {
     auto defaultValidation = validateObjectMetadata(ObjectMetadata{});
-    assert(defaultValidation.ok);
-    assert(defaultValidation.code == DraftingResultCode::None);
+    EDI_CHECK(defaultValidation.ok);
+    EDI_CHECK(defaultValidation.code == DraftingResultCode::None);
 
     auto validTimestampValidation = validateObjectMetadata(validMetadata());
-    assert(validTimestampValidation.ok);
-    assert(isValidMetadataTimestamp("2026-06-08T12:30:00Z"));
-    assert(isValidMetadataTimestamp("2024-02-29T23:59:59Z"));
-    assert(isValidMetadataTimestamp(""));
-    assert(isValidMetadataText("metadata", kMetadataShortTextLimit));
-    assert(isValidMeasurementMetadata(validMetadata().measurement));
-    assert(isValidMeasurementMetadata(MeasurementMetadata{}));
-    assert(isValidGuideVisualColor("#83aeca"));
-    assert(!isValidGuideVisualColor("83aeca"));
-    assert(!isValidGuideVisualColor("#83aecx"));
-    assert(isValidGuideVisualDashStyle("solid"));
-    assert(isValidGuideVisualDashStyle("dash"));
-    assert(isValidGuideVisualDashStyle("dot"));
-    assert(!isValidGuideVisualDashStyle("stripe"));
-    assert(!isValidMetadataTimestamp("2026-00-08T12:30:00Z"));
-    assert(!isValidMetadataTimestamp("2026-13-08T12:30:00Z"));
-    assert(!isValidMetadataTimestamp("2026-04-31T12:30:00Z"));
-    assert(!isValidMetadataTimestamp("2026-02-29T12:30:00Z"));
-    assert(!isValidMetadataTimestamp("2026-06-08T24:30:00Z"));
-    assert(!isValidMetadataTimestamp("2026-06-08T12:60:00Z"));
-    assert(!isValidMetadataTimestamp("2026-06-08T12:30:60Z"));
+    EDI_CHECK(validTimestampValidation.ok);
+    EDI_CHECK(isValidMetadataTimestamp("2026-06-08T12:30:00Z"));
+    EDI_CHECK(isValidMetadataTimestamp("2024-02-29T23:59:59Z"));
+    EDI_CHECK(isValidMetadataTimestamp(""));
+    EDI_CHECK(isValidMetadataText("metadata", kMetadataShortTextLimit));
+    EDI_CHECK(isValidMeasurementMetadata(validMetadata().measurement));
+    EDI_CHECK(isValidMeasurementMetadata(MeasurementMetadata{}));
+    EDI_CHECK(isValidGuideVisualColor("#83aeca"));
+    EDI_CHECK(!isValidGuideVisualColor("83aeca"));
+    EDI_CHECK(!isValidGuideVisualColor("#83aecx"));
+    EDI_CHECK(isValidGuideVisualDashStyle("solid"));
+    EDI_CHECK(isValidGuideVisualDashStyle("dash"));
+    EDI_CHECK(isValidGuideVisualDashStyle("dot"));
+    EDI_CHECK(!isValidGuideVisualDashStyle("stripe"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-00-08T12:30:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-13-08T12:30:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-04-31T12:30:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-02-29T12:30:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-06-08T24:30:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-06-08T12:60:00Z"));
+    EDI_CHECK(!isValidMetadataTimestamp("2026-06-08T12:30:60Z"));
 
     ObjectMetadata badVersion = validMetadata();
     badVersion.schemaVersion = 0;
     auto badVersionValidation = validateObjectMetadata(badVersion);
-    assert(!badVersionValidation.ok);
-    assert(badVersionValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badVersionValidation.ok);
+    EDI_CHECK(badVersionValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badTimestamp = validMetadata();
     badTimestamp.createdAt = "June 8";
-    assert(!isValidMetadataTimestamp(badTimestamp.createdAt));
+    EDI_CHECK(!isValidMetadataTimestamp(badTimestamp.createdAt));
     auto badTimestampValidation = validateObjectMetadata(badTimestamp);
-    assert(!badTimestampValidation.ok);
-    assert(badTimestampValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badTimestampValidation.ok);
+    EDI_CHECK(badTimestampValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badAuthor = validMetadata();
     badAuthor.author = "bad\nauthor";
-    assert(!isValidMetadataText(badAuthor.author, kMetadataShortTextLimit));
+    EDI_CHECK(!isValidMetadataText(badAuthor.author, kMetadataShortTextLimit));
     auto badAuthorValidation = validateObjectMetadata(badAuthor);
-    assert(!badAuthorValidation.ok);
-    assert(badAuthorValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badAuthorValidation.ok);
+    EDI_CHECK(badAuthorValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longAuthor = validMetadata();
     longAuthor.author = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longAuthorValidation = validateObjectMetadata(longAuthor);
-    assert(!longAuthorValidation.ok);
-    assert(longAuthorValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!longAuthorValidation.ok);
+    EDI_CHECK(longAuthorValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longSource = validMetadata();
     longSource.source = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longSourceValidation = validateObjectMetadata(longSource);
-    assert(!longSourceValidation.ok);
-    assert(longSourceValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!longSourceValidation.ok);
+    EDI_CHECK(longSourceValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longToolProvenance = validMetadata();
     longToolProvenance.toolProvenance = std::string(kMetadataShortTextLimit + 1, 'x');
     auto longToolProvenanceValidation = validateObjectMetadata(longToolProvenance);
-    assert(!longToolProvenanceValidation.ok);
-    assert(longToolProvenanceValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!longToolProvenanceValidation.ok);
+    EDI_CHECK(longToolProvenanceValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longMeasurementNote = validMetadata();
     longMeasurementNote.measurementNote = std::string(kMetadataMeasurementNoteLimit + 1, 'x');
     auto longMeasurementNoteValidation = validateObjectMetadata(longMeasurementNote);
-    assert(!longMeasurementNoteValidation.ok);
-    assert(longMeasurementNoteValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!longMeasurementNoteValidation.ok);
+    EDI_CHECK(longMeasurementNoteValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata noUnitZeroScale = validMetadata();
     noUnitZeroScale.measurement.unit = MeasurementUnit::None;
     noUnitZeroScale.measurement.canvasUnitsPerRealUnit = 0.0;
-    assert(isValidMeasurementMetadata(noUnitZeroScale.measurement));
+    EDI_CHECK(isValidMeasurementMetadata(noUnitZeroScale.measurement));
     auto noUnitZeroScaleValidation = validateObjectMetadata(noUnitZeroScale);
-    assert(noUnitZeroScaleValidation.ok);
+    EDI_CHECK(noUnitZeroScaleValidation.ok);
 
     ObjectMetadata zeroRealScale = validMetadata();
     zeroRealScale.measurement.unit = MeasurementUnit::Centimeter;
     zeroRealScale.measurement.canvasUnitsPerRealUnit = 0.0;
-    assert(!isValidMeasurementMetadata(zeroRealScale.measurement));
+    EDI_CHECK(!isValidMeasurementMetadata(zeroRealScale.measurement));
     auto zeroRealScaleValidation = validateObjectMetadata(zeroRealScale);
-    assert(!zeroRealScaleValidation.ok);
-    assert(zeroRealScaleValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!zeroRealScaleValidation.ok);
+    EDI_CHECK(zeroRealScaleValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata nonFiniteScale = validMetadata();
     nonFiniteScale.measurement.canvasUnitsPerRealUnit = std::numeric_limits<double>::quiet_NaN();
-    assert(!isValidMeasurementMetadata(nonFiniteScale.measurement));
+    EDI_CHECK(!isValidMeasurementMetadata(nonFiniteScale.measurement));
     auto nonFiniteScaleValidation = validateObjectMetadata(nonFiniteScale);
-    assert(!nonFiniteScaleValidation.ok);
-    assert(nonFiniteScaleValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!nonFiniteScaleValidation.ok);
+    EDI_CHECK(nonFiniteScaleValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badMeasurementLabel = validMetadata();
     badMeasurementLabel.measurement.label = "bad\nlabel";
-    assert(!isValidMeasurementMetadata(badMeasurementLabel.measurement));
+    EDI_CHECK(!isValidMeasurementMetadata(badMeasurementLabel.measurement));
     auto badMeasurementLabelValidation = validateObjectMetadata(badMeasurementLabel);
-    assert(!badMeasurementLabelValidation.ok);
-    assert(badMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badMeasurementLabelValidation.ok);
+    EDI_CHECK(badMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata longMeasurementLabel = validMetadata();
     longMeasurementLabel.measurement.label = std::string(kMetadataShortTextLimit + 1, 'x');
-    assert(!isValidMeasurementMetadata(longMeasurementLabel.measurement));
+    EDI_CHECK(!isValidMeasurementMetadata(longMeasurementLabel.measurement));
     auto longMeasurementLabelValidation = validateObjectMetadata(longMeasurementLabel);
-    assert(!longMeasurementLabelValidation.ok);
-    assert(longMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!longMeasurementLabelValidation.ok);
+    EDI_CHECK(longMeasurementLabelValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata guideVisualMetadata = validMetadata();
     guideVisualMetadata.guideVisual.label = "material edge";
     guideVisualMetadata.guideVisual.color = "#54d2c6";
     guideVisualMetadata.guideVisual.dashStyle = "solid";
     guideVisualMetadata.guideVisual.showLabel = false;
-    assert(validateObjectMetadata(guideVisualMetadata).ok);
+    EDI_CHECK(validateObjectMetadata(guideVisualMetadata).ok);
 
     ObjectMetadata badGuideLabel = validMetadata();
     badGuideLabel.guideVisual.label = "bad\nlabel";
     auto badGuideLabelValidation = validateObjectMetadata(badGuideLabel);
-    assert(!badGuideLabelValidation.ok);
-    assert(badGuideLabelValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badGuideLabelValidation.ok);
+    EDI_CHECK(badGuideLabelValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badGuideColor = validMetadata();
     badGuideColor.guideVisual.color = "#xyzxyz";
     auto badGuideColorValidation = validateObjectMetadata(badGuideColor);
-    assert(!badGuideColorValidation.ok);
-    assert(badGuideColorValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badGuideColorValidation.ok);
+    EDI_CHECK(badGuideColorValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata badGuideDash = validMetadata();
     badGuideDash.guideVisual.dashStyle = "stripe";
     auto badGuideDashValidation = validateObjectMetadata(badGuideDash);
-    assert(!badGuideDashValidation.ok);
-    assert(badGuideDashValidation.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badGuideDashValidation.ok);
+    EDI_CHECK(badGuideDashValidation.code == DraftingResultCode::InvalidMetadata);
 
     ObjectMetadata guidePlanBase = validMetadata();
     auto labelPlan = planGuideVisualLabelUpdate(guidePlanBase, "cut line");
-    assert(labelPlan.ok);
-    assert(labelPlan.metadata.guideVisual.label == "cut line");
-    assert(labelPlan.metadata.author == guidePlanBase.author);
+    EDI_CHECK(labelPlan.ok);
+    EDI_CHECK(labelPlan.metadata.guideVisual.label == "cut line");
+    EDI_CHECK(labelPlan.metadata.author == guidePlanBase.author);
 
     auto colorPlan = planGuideVisualColorUpdate(guidePlanBase, "#f6c65b");
-    assert(colorPlan.ok);
-    assert(colorPlan.metadata.guideVisual.color == "#f6c65b");
+    EDI_CHECK(colorPlan.ok);
+    EDI_CHECK(colorPlan.metadata.guideVisual.color == "#f6c65b");
 
     auto dashPlan = planGuideVisualDashStyleUpdate(guidePlanBase, "dot");
-    assert(dashPlan.ok);
-    assert(dashPlan.metadata.guideVisual.dashStyle == "dot");
+    EDI_CHECK(dashPlan.ok);
+    EDI_CHECK(dashPlan.metadata.guideVisual.dashStyle == "dot");
 
     auto visibilityPlan = planGuideVisualLabelVisibleUpdate(guidePlanBase, false);
-    assert(visibilityPlan.ok);
-    assert(!visibilityPlan.metadata.guideVisual.showLabel);
+    EDI_CHECK(visibilityPlan.ok);
+    EDI_CHECK(!visibilityPlan.metadata.guideVisual.showLabel);
 
     auto badLabelPlan = planGuideVisualLabelUpdate(guidePlanBase, "bad\nlabel");
-    assert(!badLabelPlan.ok);
-    assert(badLabelPlan.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badLabelPlan.ok);
+    EDI_CHECK(badLabelPlan.code == DraftingResultCode::InvalidMetadata);
 
     auto badColorPlan = planGuideVisualColorUpdate(guidePlanBase, "blue");
-    assert(!badColorPlan.ok);
-    assert(badColorPlan.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badColorPlan.ok);
+    EDI_CHECK(badColorPlan.code == DraftingResultCode::InvalidMetadata);
 
     auto badDashPlan = planGuideVisualDashStyleUpdate(guidePlanBase, "stripe");
-    assert(!badDashPlan.ok);
-    assert(badDashPlan.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badDashPlan.ok);
+    EDI_CHECK(badDashPlan.code == DraftingResultCode::InvalidMetadata);
 
     auto dimensionVisibilityPlan = planDimensionVisualLabelVisibleUpdate(guidePlanBase, false);
-    assert(dimensionVisibilityPlan.ok);
-    assert(!dimensionVisibilityPlan.metadata.dimensionVisual.showLabel);
-    assert(dimensionVisibilityPlan.metadata.guideVisual.color == guidePlanBase.guideVisual.color);
+    EDI_CHECK(dimensionVisibilityPlan.ok);
+    EDI_CHECK(!dimensionVisibilityPlan.metadata.dimensionVisual.showLabel);
+    EDI_CHECK(dimensionVisibilityPlan.metadata.guideVisual.color == guidePlanBase.guideVisual.color);
 
     ObjectMetadata badBaseForDimensionPlan = guidePlanBase;
     badBaseForDimensionPlan.guideVisual.color = "bad";
     auto rejectedDimensionVisibilityPlan = planDimensionVisualLabelVisibleUpdate(badBaseForDimensionPlan, false);
-    assert(!rejectedDimensionVisibilityPlan.ok);
-    assert(rejectedDimensionVisibilityPlan.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!rejectedDimensionVisibilityPlan.ok);
+    EDI_CHECK(rejectedDimensionVisibilityPlan.code == DraftingResultCode::InvalidMetadata);
 
     auto measurementNotePlan = planMeasurementNoteUpdate(guidePlanBase, "measured on plotter");
-    assert(measurementNotePlan.ok);
-    assert(measurementNotePlan.metadata.measurementNote == "measured on plotter");
-    assert(measurementNotePlan.metadata.author == guidePlanBase.author);
+    EDI_CHECK(measurementNotePlan.ok);
+    EDI_CHECK(measurementNotePlan.metadata.measurementNote == "measured on plotter");
+    EDI_CHECK(measurementNotePlan.metadata.author == guidePlanBase.author);
 
     auto badMeasurementNotePlan = planMeasurementNoteUpdate(guidePlanBase, std::string(kMetadataMeasurementNoteLimit + 1, 'x'));
-    assert(!badMeasurementNotePlan.ok);
-    assert(badMeasurementNotePlan.code == DraftingResultCode::InvalidMetadata);
+    EDI_CHECK(!badMeasurementNotePlan.ok);
+    EDI_CHECK(badMeasurementNotePlan.code == DraftingResultCode::InvalidMetadata);
 
     return 0;
 }

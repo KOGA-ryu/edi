@@ -3,7 +3,7 @@
 #include <QVariantList>
 #include <QVariantMap>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 
 using namespace drawing_canvas;
@@ -46,16 +46,16 @@ int main()
         objectWithHandles(QVariantList{handle(QStringLiteral("center"), 0.5, 0.5, 12.0)}),
         QPointF(113.0, 74.0),
         board);
-    assert(hit.hit);
-    assert(hit.handleId == QStringLiteral("center"));
-    assert(near(hit.distancePx, 5.0));
+    EDI_CHECK(hit.hit);
+    EDI_CHECK(hit.handleId == QStringLiteral("center"));
+    EDI_CHECK(near(hit.distancePx, 5.0));
 
     const DrawingCanvasHandleHit readOnlyMiss = hitCanvasHandleAt(
         objectWithHandles(QVariantList{handle(QStringLiteral("readonly"), 0.5, 0.5, 20.0, false)}),
         QPointF(110.0, 70.0),
         board);
-    assert(!readOnlyMiss.hit);
-    assert(readOnlyMiss.handleId.isEmpty());
+    EDI_CHECK(!readOnlyMiss.hit);
+    EDI_CHECK(readOnlyMiss.handleId.isEmpty());
 
     const DrawingCanvasHandleHit readOnlyFlagMiss = hitCanvasHandleAt(
         objectWithHandles(QVariantList{
@@ -69,7 +69,7 @@ int main()
         }),
         QPointF(110.0, 70.0),
         board);
-    assert(!readOnlyFlagMiss.hit);
+    EDI_CHECK(!readOnlyFlagMiss.hit);
 
     const DrawingCanvasHandleHit nearest = hitCanvasHandleAt(
         objectWithHandles(QVariantList{
@@ -78,18 +78,18 @@ int main()
         }),
         QPointF(113.0, 70.0),
         board);
-    assert(nearest.hit);
-    assert(nearest.handleId == QStringLiteral("near"));
+    EDI_CHECK(nearest.hit);
+    EDI_CHECK(nearest.handleId == QStringLiteral("near"));
 
     const DrawingCanvasHandleHit miss = hitCanvasHandleAt(
         objectWithHandles(QVariantList{handle(QStringLiteral("small"), 0.5, 0.5, 3.0)}),
         QPointF(116.0, 70.0),
         board);
-    assert(!miss.hit);
-    assert(miss.handleId.isEmpty());
+    EDI_CHECK(!miss.hit);
+    EDI_CHECK(miss.handleId.isEmpty());
 
     const DrawingCanvasHandleHit noHandles = hitCanvasHandleAt({}, QPointF(110.0, 70.0), board);
-    assert(!noHandles.hit);
+    EDI_CHECK(!noHandles.hit);
 
     const DrawingCanvasHandleHit malformed = hitCanvasHandleAt(
         objectWithHandles(QVariantList{
@@ -102,7 +102,7 @@ int main()
         }),
         QPointF(110.0, 70.0),
         board);
-    assert(!malformed.hit);
+    EDI_CHECK(!malformed.hit);
 
     return 0;
 }

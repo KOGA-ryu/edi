@@ -6,7 +6,7 @@
 
 #include <QTemporaryDir>
 
-#include <cassert>
+#include "EdiAssert.h"
 
 using namespace edi::io;
 using namespace edi::shell;
@@ -48,32 +48,32 @@ int main()
     // Pure round trip: structs -> config -> structs.
     const auto config = workspaceLayoutToConfig(layout, panels);
     const ShellLayoutData decoded = shellLayoutFromConfig(config);
-    assert(decoded.ok);
-    assert(decoded.layout.id == layout.id);
-    assert(decoded.layout.label == layout.label);
-    assert(decoded.layout.bindings.size() == 4);
-    assert(decoded.layout.bindings[0].slot == ShellSlot::Left);
-    assert(decoded.layout.bindings[1].slot == ShellSlot::Main);
-    assert(decoded.layout.bindings[3].featureId == QStringLiteral("drafting"));
-    assert(decoded.panels.left.size == 320 && decoded.panels.left.collapsed);
-    assert(decoded.panels.right.size == 410 && !decoded.panels.right.collapsed);
-    assert(decoded.panels.bottom.size == 200);
+    EDI_CHECK(decoded.ok);
+    EDI_CHECK(decoded.layout.id == layout.id);
+    EDI_CHECK(decoded.layout.label == layout.label);
+    EDI_CHECK(decoded.layout.bindings.size() == 4);
+    EDI_CHECK(decoded.layout.bindings[0].slot == ShellSlot::Left);
+    EDI_CHECK(decoded.layout.bindings[1].slot == ShellSlot::Main);
+    EDI_CHECK(decoded.layout.bindings[3].featureId == QStringLiteral("drafting"));
+    EDI_CHECK(decoded.panels.left.size == 320 && decoded.panels.left.collapsed);
+    EDI_CHECK(decoded.panels.right.size == 410 && !decoded.panels.right.collapsed);
+    EDI_CHECK(decoded.panels.bottom.size == 200);
     // The belt round-trips dense: empty slots come back as empty ids, so the
     // widget's row-major contract never sees a ragged list.
-    assert(decoded.layout.belt == layout.belt);
-    assert(decoded.layout.belt.itemIds.size() == 36);
-    assert(decoded.layout.belt.itemIds[7] == QStringLiteral("circle_tool"));
-    assert(decoded.layout.belt.itemIds[8].isEmpty());
+    EDI_CHECK(decoded.layout.belt == layout.belt);
+    EDI_CHECK(decoded.layout.belt.itemIds.size() == 36);
+    EDI_CHECK(decoded.layout.belt.itemIds[7] == QStringLiteral("circle_tool"));
+    EDI_CHECK(decoded.layout.belt.itemIds[8].isEmpty());
     // Pins round-trip in pin order, not row order.
-    assert((decoded.layout.belt.pinnedRows == std::vector<int>{1, 0}));
+    EDI_CHECK((decoded.layout.belt.pinnedRows == std::vector<int>{1, 0}));
     // Panel assignments round-trip; a vandalized slot word drops its row.
-    assert(decoded.layout.panelContent == layout.panelContent);
+    EDI_CHECK(decoded.layout.panelContent == layout.panelContent);
     {
         auto vandalized = config;
         edi::io::setSettingsString(vandalized, "panel_content.2.group", "guides_document");
         edi::io::setSettingsString(vandalized, "panel_content.2.slot", "ceiling");
         const ShellLayoutData survived = shellLayoutFromConfig(vandalized);
-        assert(survived.layout.panelContent == layout.panelContent);
+        EDI_CHECK(survived.layout.panelContent == layout.panelContent);
     }
     // Forgiving decode: a hand-edited pin outside the belt or repeated is
     // dropped, not an error.
@@ -82,47 +82,47 @@ int main()
         edi::io::setSettingsInt(vandalized, "belt.pin.2", 99); // off the grid
         edi::io::setSettingsInt(vandalized, "belt.pin.3", 1);  // duplicate
         const ShellLayoutData survived = shellLayoutFromConfig(vandalized);
-        assert((survived.layout.belt.pinnedRows == std::vector<int>{1, 0}));
+        EDI_CHECK((survived.layout.belt.pinnedRows == std::vector<int>{1, 0}));
     }
     // Palette placements round-trip as a keyed set.
-    assert(decoded.layout.palettes == layout.palettes);
-    assert(palettePlacement(decoded.layout, QStringLiteral("tool_belt")).x == 40);
-    assert(palettePlacement(decoded.layout, QStringLiteral("snap_box")).y == 12);
+    EDI_CHECK(decoded.layout.palettes == layout.palettes);
+    EDI_CHECK(palettePlacement(decoded.layout, QStringLiteral("tool_belt")).x == 40);
+    EDI_CHECK(palettePlacement(decoded.layout, QStringLiteral("snap_box")).y == 12);
     // An unknown id answers with the default placement, not a sentinel.
-    assert(palettePlacement(decoded.layout, QStringLiteral("missing")).x == 12);
+    EDI_CHECK(palettePlacement(decoded.layout, QStringLiteral("missing")).x == 12);
     // setPalettePlacement updates in place rather than appending duplicates.
     {
         WorkspaceLayout updated = decoded.layout;
         setPalettePlacement(updated, {QStringLiteral("tool_belt"), 99, 98});
-        assert(updated.palettes.size() == decoded.layout.palettes.size());
-        assert(palettePlacement(updated, QStringLiteral("tool_belt")).y == 98);
+        EDI_CHECK(updated.palettes.size() == decoded.layout.palettes.size());
+        EDI_CHECK(palettePlacement(updated, QStringLiteral("tool_belt")).y == 98);
     }
 
     // Through the actual TOML format, not just the in-memory map: the keys
     // must survive write+parse, or the "TOML-serializable" claim is fiction.
     {
         const auto written = edi::formats::writeTomlStaticConfig(config);
-        assert(written.ok && written.value);
+        EDI_CHECK(written.ok && written.value);
         const auto parsed = edi::formats::readTomlStaticConfig(*written.value);
-        assert(parsed.ok && parsed.value);
+        EDI_CHECK(parsed.ok && parsed.value);
         const ShellLayoutData viaToml = shellLayoutFromConfig(*parsed.value);
-        assert(viaToml.ok);
-        assert(viaToml.layout.bindings.size() == 4);
-        assert(viaToml.panels.left.size == 320 && viaToml.panels.left.collapsed);
-        assert(viaToml.layout.belt == layout.belt);
+        EDI_CHECK(viaToml.ok);
+        EDI_CHECK(viaToml.layout.bindings.size() == 4);
+        EDI_CHECK(viaToml.panels.left.size == 320 && viaToml.panels.left.collapsed);
+        EDI_CHECK(viaToml.layout.belt == layout.belt);
     }
 
     // Empty config: not ok, panels fall back to spec defaults, and the belt
     // falls back to an empty 6x6 (the F3 default grid).
     {
         const ShellLayoutData empty = shellLayoutFromConfig({});
-        assert(!empty.ok);
-        assert(empty.panels.left.size == 260 && !empty.panels.left.collapsed);
-        assert(empty.panels.right.collapsed);
-        assert(empty.layout.belt.rows == 6 && empty.layout.belt.columns == 6);
-        assert(empty.layout.belt.itemIds.size() == 36);
+        EDI_CHECK(!empty.ok);
+        EDI_CHECK(empty.panels.left.size == 260 && !empty.panels.left.collapsed);
+        EDI_CHECK(empty.panels.right.collapsed);
+        EDI_CHECK(empty.layout.belt.rows == 6 && empty.layout.belt.columns == 6);
+        EDI_CHECK(empty.layout.belt.itemIds.size() == 36);
         for (const QString &id : empty.layout.belt.itemIds) {
-            assert(id.isEmpty());
+            EDI_CHECK(id.isEmpty());
         }
     }
 
@@ -133,10 +133,10 @@ int main()
         broken["panel.left.size"] = "9000";
         broken["binding.0.slot"] = "middle";
         const ShellLayoutData repaired = shellLayoutFromConfig(broken);
-        assert(repaired.ok);
-        assert(repaired.panels.left.size == 520);          // clamped to the band
-        assert(repaired.layout.bindings.size() == 3);      // bad row dropped, rest kept
-        assert(repaired.layout.bindings[0].slot == ShellSlot::Main);
+        EDI_CHECK(repaired.ok);
+        EDI_CHECK(repaired.panels.left.size == 520);          // clamped to the band
+        EDI_CHECK(repaired.layout.bindings.size() == 3);      // bad row dropped, rest kept
+        EDI_CHECK(repaired.layout.bindings[0].slot == ShellSlot::Main);
     }
 
     // Belt damage degrades the same way: dimensions clamp to the legal band,
@@ -146,23 +146,23 @@ int main()
         broken["belt.rows"] = "600";
         broken["belt.columns"] = "0";
         const ShellLayoutData repaired = shellLayoutFromConfig(broken);
-        assert(repaired.layout.belt.rows == 16);    // clamped from 600
-        assert(repaired.layout.belt.columns == 1);  // clamped from 0
-        assert(repaired.layout.belt.itemIds.size() == 16);
-        assert(repaired.layout.belt.itemIds[0] == QStringLiteral("select_move"));
+        EDI_CHECK(repaired.layout.belt.rows == 16);    // clamped from 600
+        EDI_CHECK(repaired.layout.belt.columns == 1);  // clamped from 0
+        EDI_CHECK(repaired.layout.belt.itemIds.size() == 16);
+        EDI_CHECK(repaired.layout.belt.itemIds[0] == QStringLiteral("select_move"));
     }
 
     // File seams: save/load round trip; a missing file is "use your default".
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QString path = tempDir.filePath(QStringLiteral("workspace.toml"));
-        assert(saveShellLayoutToPath(path, layout, panels));
+        EDI_CHECK(saveShellLayoutToPath(path, layout, panels));
         const ShellLayoutData loaded = loadShellLayoutFromPath(path);
-        assert(loaded.ok);
-        assert(loaded.layout.id == QStringLiteral("drafting"));
-        assert(loaded.panels.bottom.size == 200);
-        assert(!loadShellLayoutFromPath(tempDir.filePath(QStringLiteral("missing.toml"))).ok);
+        EDI_CHECK(loaded.ok);
+        EDI_CHECK(loaded.layout.id == QStringLiteral("drafting"));
+        EDI_CHECK(loaded.panels.bottom.size == 200);
+        EDI_CHECK(!loadShellLayoutFromPath(tempDir.filePath(QStringLiteral("missing.toml"))).ok);
     }
 
     return 0;

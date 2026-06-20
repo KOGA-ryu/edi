@@ -16,7 +16,7 @@
 #include <QVariantMap>
 
 #include <algorithm>
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <limits>
 #include <variant>
@@ -95,24 +95,24 @@ int main(int argc, char **argv)
 
     DrawingDocumentController controller;
     QVariantMap initial = controller.modelDocument();
-    assert(initial.value("engine").toString() == "cpp_drafting_document");
-    assert(initial.value("drawing_objects").toList().empty());
+    EDI_CHECK(initial.value("engine").toString() == "cpp_drafting_document");
+    EDI_CHECK(initial.value("drawing_objects").toList().empty());
     QVariantMap initialGrid = initial.value("grid").toMap();
-    assert(initialGrid.value("preset").toString() == "square_art_board");
-    assert(initialGrid.value("unit_label").toString() == "in");
-    assert(!initialGrid.value("lines").toList().empty());
-    assert(!controller.gridSnapEnabled());
-    assert(!controller.objectSnapEnabled());
+    EDI_CHECK(initialGrid.value("preset").toString() == "square_art_board");
+    EDI_CHECK(initialGrid.value("unit_label").toString() == "in");
+    EDI_CHECK(!initialGrid.value("lines").toList().empty());
+    EDI_CHECK(!controller.gridSnapEnabled());
+    EDI_CHECK(!controller.objectSnapEnabled());
     QVariantMap initialSnap = initial.value("snap").toMap();
-    assert(initialSnap.value("endpoint_enabled").toBool());
-    assert(initialSnap.value("vertex_enabled").toBool());
-    assert(initialSnap.value("midpoint_enabled").toBool());
-    assert(initialSnap.value("center_enabled").toBool());
-    assert(initialSnap.value("intersection_enabled").toBool());
-    assert(initialSnap.value("guide_enabled").toBool());
-    assert(initialSnap.value("guide_move_enabled").toBool());
-    assert(initialSnap.value("object_priority_before_grid").toBool());
-    assert(controller.objectSnapTolerancePresetId() == "normal");
+    EDI_CHECK(initialSnap.value("endpoint_enabled").toBool());
+    EDI_CHECK(initialSnap.value("vertex_enabled").toBool());
+    EDI_CHECK(initialSnap.value("midpoint_enabled").toBool());
+    EDI_CHECK(initialSnap.value("center_enabled").toBool());
+    EDI_CHECK(initialSnap.value("intersection_enabled").toBool());
+    EDI_CHECK(initialSnap.value("guide_enabled").toBool());
+    EDI_CHECK(initialSnap.value("guide_move_enabled").toBool());
+    EDI_CHECK(initialSnap.value("object_priority_before_grid").toBool());
+    EDI_CHECK(controller.objectSnapTolerancePresetId() == "normal");
 
     controller.setEndpointSnapEnabled(false);
     controller.setVertexSnapEnabled(false);
@@ -124,24 +124,24 @@ int main(int argc, char **argv)
     controller.setObjectSnapPriorityBeforeGrid(false);
     controller.setObjectSnapTolerancePreset("tight");
     QVariantMap changedSnap = controller.modelDocument().value("snap").toMap();
-    assert(!controller.endpointSnapEnabled());
-    assert(!controller.vertexSnapEnabled());
-    assert(!controller.midpointSnapEnabled());
-    assert(!controller.centerSnapEnabled());
-    assert(!controller.intersectionSnapEnabled());
-    assert(!controller.guideSnapEnabled());
-    assert(!controller.guideMoveSnapEnabled());
-    assert(!controller.objectSnapPriorityBeforeGrid());
-    assert(controller.objectSnapTolerancePresetId() == "tight");
-    assert(!changedSnap.value("endpoint_enabled").toBool());
-    assert(!changedSnap.value("vertex_enabled").toBool());
-    assert(!changedSnap.value("midpoint_enabled").toBool());
-    assert(!changedSnap.value("center_enabled").toBool());
-    assert(!changedSnap.value("intersection_enabled").toBool());
-    assert(!changedSnap.value("guide_enabled").toBool());
-    assert(!changedSnap.value("guide_move_enabled").toBool());
-    assert(!changedSnap.value("object_priority_before_grid").toBool());
-    assert(nearlyEqual(changedSnap.value("object_tolerance").toDouble(), 0.015));
+    EDI_CHECK(!controller.endpointSnapEnabled());
+    EDI_CHECK(!controller.vertexSnapEnabled());
+    EDI_CHECK(!controller.midpointSnapEnabled());
+    EDI_CHECK(!controller.centerSnapEnabled());
+    EDI_CHECK(!controller.intersectionSnapEnabled());
+    EDI_CHECK(!controller.guideSnapEnabled());
+    EDI_CHECK(!controller.guideMoveSnapEnabled());
+    EDI_CHECK(!controller.objectSnapPriorityBeforeGrid());
+    EDI_CHECK(controller.objectSnapTolerancePresetId() == "tight");
+    EDI_CHECK(!changedSnap.value("endpoint_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("vertex_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("midpoint_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("center_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("intersection_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("guide_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("guide_move_enabled").toBool());
+    EDI_CHECK(!changedSnap.value("object_priority_before_grid").toBool());
+    EDI_CHECK(nearlyEqual(changedSnap.value("object_tolerance").toDouble(), 0.015));
     controller.setEndpointSnapEnabled(true);
     controller.setVertexSnapEnabled(true);
     controller.setMidpointSnapEnabled(true);
@@ -155,66 +155,66 @@ int main(int argc, char **argv)
     controller.setSelectedToolId("point_tool");
     controller.clickCanvasNormalized(0.25, 0.5);
     QVariantList objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == 1);
+    EDI_CHECK(objects.size() == 1);
     QVariantMap point = objects.front().toMap();
-    assert(point.value("kind").toString() == "point");
-    assert(point.value("x").toDouble() == 0.25);
-    assert(point.value("y").toDouble() == 0.5);
-    assert(numericFieldIds(point) == QStringList({QStringLiteral("x"), QStringLiteral("y")}));
+    EDI_CHECK(point.value("kind").toString() == "point");
+    EDI_CHECK(point.value("x").toDouble() == 0.25);
+    EDI_CHECK(point.value("y").toDouble() == 0.5);
+    EDI_CHECK(numericFieldIds(point) == QStringList({QStringLiteral("x"), QStringLiteral("y")}));
     QVariantMap pointXField = numericField(point, "x");
-    assert(pointXField.value("physical_editable").toBool());
-    assert(pointXField.value("physical_unit_kind").toString() == "length");
-    assert(pointXField.value("physical_unit_label").toString() == "in");
-    assert(nearlyEqual(pointXField.value("physical_minimum").toDouble(), -100000.0));
-    assert(nearlyEqual(pointXField.value("physical_maximum").toDouble(), 100000.0));
+    EDI_CHECK(pointXField.value("physical_editable").toBool());
+    EDI_CHECK(pointXField.value("physical_unit_kind").toString() == "length");
+    EDI_CHECK(pointXField.value("physical_unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(pointXField.value("physical_minimum").toDouble(), -100000.0));
+    EDI_CHECK(nearlyEqual(pointXField.value("physical_maximum").toDouble(), 100000.0));
     QVariantMap pointPhysical = point.value("physical_geometry").toMap();
-    assert(pointPhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(pointPhysical.value("x").toDouble(), 3.0));
-    assert(nearlyEqual(pointPhysical.value("y").toDouble(), 6.0));
-    assert(point.value("layer_id").toString() == "default");
-    assert(!point.value("locked").toBool());
+    EDI_CHECK(pointPhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(pointPhysical.value("x").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(pointPhysical.value("y").toDouble(), 6.0));
+    EDI_CHECK(point.value("layer_id").toString() == "default");
+    EDI_CHECK(!point.value("locked").toBool());
     QVariantMap pointBounds = point.value("bounds").toMap();
-    assert(pointBounds.value("x").toDouble() == 0.25);
-    assert(pointBounds.value("y").toDouble() == 0.5);
-    assert(pointBounds.value("width").toDouble() == 0.0);
-    assert(pointBounds.value("height").toDouble() == 0.0);
+    EDI_CHECK(pointBounds.value("x").toDouble() == 0.25);
+    EDI_CHECK(pointBounds.value("y").toDouble() == 0.5);
+    EDI_CHECK(pointBounds.value("width").toDouble() == 0.0);
+    EDI_CHECK(pointBounds.value("height").toDouble() == 0.0);
     QVariantList pointMeasurement = point.value("measurement_lines").toList();
-    assert(pointMeasurement.size() == 2);
-    assert(pointMeasurement[0].toString() == "width: 0 canvas_unit");
-    assert(pointMeasurement[1].toString() == "height: 0 canvas_unit");
-    assert(controller.selectedObjectId() == point.value("id").toString());
-    assert(controller.updateSelectedObjectGeometryField("x", 0.3));
-    assert(controller.updateSelectedObjectGeometryField("y", 0.35));
+    EDI_CHECK(pointMeasurement.size() == 2);
+    EDI_CHECK(pointMeasurement[0].toString() == "width: 0 canvas_unit");
+    EDI_CHECK(pointMeasurement[1].toString() == "height: 0 canvas_unit");
+    EDI_CHECK(controller.selectedObjectId() == point.value("id").toString());
+    EDI_CHECK(controller.updateSelectedObjectGeometryField("x", 0.3));
+    EDI_CHECK(controller.updateSelectedObjectGeometryField("y", 0.35));
     QVariantMap editedPoint = controller.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(editedPoint.value("x").toDouble(), 0.3));
-    assert(nearlyEqual(editedPoint.value("y").toDouble(), 0.35));
-    assert(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
+    EDI_CHECK(nearlyEqual(editedPoint.value("x").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(editedPoint.value("y").toDouble(), 0.35));
+    EDI_CHECK(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
 
     controller.setGridPresetId("letter");
     QVariantMap letterModel = controller.modelDocument();
     QVariantMap letterGrid = letterModel.value("grid").toMap();
-    assert(controller.gridPresetId() == "letter");
-    assert(letterGrid.value("preset").toString() == "letter");
-    assert(letterGrid.value("unit_label").toString() == "in");
-    assert(nearlyEqual(letterGrid.value("width").toDouble(), 8.5));
-    assert(nearlyEqual(letterGrid.value("height").toDouble(), 11.0));
+    EDI_CHECK(controller.gridPresetId() == "letter");
+    EDI_CHECK(letterGrid.value("preset").toString() == "letter");
+    EDI_CHECK(letterGrid.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(letterGrid.value("width").toDouble(), 8.5));
+    EDI_CHECK(nearlyEqual(letterGrid.value("height").toDouble(), 11.0));
     QVariantMap letterSnap = letterModel.value("snap").toMap();
-    assert(nearlyEqual(letterSnap.value("grid_step_x").toDouble(), 0.25 / 8.5));
-    assert(nearlyEqual(letterSnap.value("grid_step_y").toDouble(), 0.25 / 11.0));
+    EDI_CHECK(nearlyEqual(letterSnap.value("grid_step_x").toDouble(), 0.25 / 8.5));
+    EDI_CHECK(nearlyEqual(letterSnap.value("grid_step_y").toDouble(), 0.25 / 11.0));
     QVariantMap letterPoint = letterModel.value("drawing_objects").toList().front().toMap();
     QVariantMap letterPointPhysical = letterPoint.value("physical_geometry").toMap();
-    assert(letterPointPhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(letterPointPhysical.value("x").toDouble(), 0.3 * 8.5));
-    assert(nearlyEqual(letterPointPhysical.value("y").toDouble(), 0.35 * 11.0));
+    EDI_CHECK(letterPointPhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(letterPointPhysical.value("x").toDouble(), 0.3 * 8.5));
+    EDI_CHECK(nearlyEqual(letterPointPhysical.value("y").toDouble(), 0.35 * 11.0));
     DrawingDocumentController physicalPointController;
     physicalPointController.setSelectedToolId("point_tool");
     physicalPointController.clickCanvasNormalized(0.25, 0.5);
     physicalPointController.setGridPresetId("letter");
-    assert(physicalPointController.updateSelectedObjectPhysicalGeometryField("x", 4.25));
-    assert(physicalPointController.updateSelectedObjectPhysicalGeometryField("y", 5.5));
+    EDI_CHECK(physicalPointController.updateSelectedObjectPhysicalGeometryField("x", 4.25));
+    EDI_CHECK(physicalPointController.updateSelectedObjectPhysicalGeometryField("y", 5.5));
     QVariantMap physicalEditedPoint = physicalPointController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(physicalEditedPoint.value("x").toDouble(), 0.5));
-    assert(nearlyEqual(physicalEditedPoint.value("y").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(physicalEditedPoint.value("x").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(physicalEditedPoint.value("y").toDouble(), 0.5));
 
     DrawingDocumentController customGridController;
     customGridController.setSelectedToolId("point_tool");
@@ -228,83 +228,83 @@ int main(int argc, char **argv)
     customGridController.setGridVisible(false);
     QVariantMap customGridModel = customGridController.modelDocument();
     QVariantMap customGrid = customGridModel.value("grid").toMap();
-    assert(customGrid.value("preset").toString() == "custom");
-    assert(customGrid.value("unit").toString() == "centimeter");
-    assert(customGrid.value("unit_label").toString() == "cm");
-    assert(nearlyEqual(customGrid.value("width").toDouble(), 20.0));
-    assert(nearlyEqual(customGrid.value("height").toDouble(), 10.0));
-    assert(nearlyEqual(customGrid.value("margin_left").toDouble(), 1.0));
-    assert(nearlyEqual(customGrid.value("margin_top").toDouble(), 2.0));
-    assert(nearlyEqual(customGrid.value("margin_right").toDouble(), 3.0));
-    assert(nearlyEqual(customGrid.value("margin_bottom").toDouble(), 4.0));
-    assert(nearlyEqual(customGrid.value("minor_step").toDouble(), 0.5));
-    assert(customGrid.value("major_line_every").toInt() == 5);
-    assert(!customGrid.value("visible").toBool());
-    assert(customGrid.value("lines").toList().empty());
+    EDI_CHECK(customGrid.value("preset").toString() == "custom");
+    EDI_CHECK(customGrid.value("unit").toString() == "centimeter");
+    EDI_CHECK(customGrid.value("unit_label").toString() == "cm");
+    EDI_CHECK(nearlyEqual(customGrid.value("width").toDouble(), 20.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("height").toDouble(), 10.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("margin_left").toDouble(), 1.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("margin_top").toDouble(), 2.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("margin_right").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("margin_bottom").toDouble(), 4.0));
+    EDI_CHECK(nearlyEqual(customGrid.value("minor_step").toDouble(), 0.5));
+    EDI_CHECK(customGrid.value("major_line_every").toInt() == 5);
+    EDI_CHECK(!customGrid.value("visible").toBool());
+    EDI_CHECK(customGrid.value("lines").toList().empty());
     QVariantMap customSnap = customGridModel.value("snap").toMap();
-    assert(nearlyEqual(customSnap.value("grid_step_x").toDouble(), 0.5 / 20.0));
-    assert(nearlyEqual(customSnap.value("grid_step_y").toDouble(), 0.5 / 10.0));
+    EDI_CHECK(nearlyEqual(customSnap.value("grid_step_x").toDouble(), 0.5 / 20.0));
+    EDI_CHECK(nearlyEqual(customSnap.value("grid_step_y").toDouble(), 0.5 / 10.0));
     QVariantMap customPoint = customGridModel.value("drawing_objects").toList().front().toMap();
     QVariantMap customPointPhysical = customPoint.value("physical_geometry").toMap();
-    assert(nearlyEqual(customPointPhysical.value("x").toDouble(), 10.0));
-    assert(nearlyEqual(customPointPhysical.value("y").toDouble(), 2.5));
-    assert(customGridModel.value("revision").toInt() == customGridRevision);
+    EDI_CHECK(nearlyEqual(customPointPhysical.value("x").toDouble(), 10.0));
+    EDI_CHECK(nearlyEqual(customPointPhysical.value("y").toDouble(), 2.5));
+    EDI_CHECK(customGridModel.value("revision").toInt() == customGridRevision);
 
     customGridController.setGridSize(-5.0, std::numeric_limits<double>::infinity());
     customGridController.setGridMargins(-1.0, -2.0, 1000.0, 1000.0);
     customGridController.setGridStep(-1.0);
     customGridController.setGridMajorLineEvery(-4);
     QVariantMap sanitizedGrid = customGridController.modelDocument().value("grid").toMap();
-    assert(sanitizedGrid.value("width").toDouble() > 0.0);
-    assert(sanitizedGrid.value("height").toDouble() > 0.0);
-    assert(sanitizedGrid.value("margin_left").toDouble() >= 0.0);
-    assert(sanitizedGrid.value("margin_top").toDouble() >= 0.0);
-    assert(sanitizedGrid.value("margin_right").toDouble() >= 0.0);
-    assert(sanitizedGrid.value("margin_bottom").toDouble() >= 0.0);
-    assert(sanitizedGrid.value("minor_step").toDouble() > 0.0);
-    assert(sanitizedGrid.value("major_line_every").toInt() == 1);
-    assert(customGridController.modelDocument().value("revision").toInt() == customGridRevision);
+    EDI_CHECK(sanitizedGrid.value("width").toDouble() > 0.0);
+    EDI_CHECK(sanitizedGrid.value("height").toDouble() > 0.0);
+    EDI_CHECK(sanitizedGrid.value("margin_left").toDouble() >= 0.0);
+    EDI_CHECK(sanitizedGrid.value("margin_top").toDouble() >= 0.0);
+    EDI_CHECK(sanitizedGrid.value("margin_right").toDouble() >= 0.0);
+    EDI_CHECK(sanitizedGrid.value("margin_bottom").toDouble() >= 0.0);
+    EDI_CHECK(sanitizedGrid.value("minor_step").toDouble() > 0.0);
+    EDI_CHECK(sanitizedGrid.value("major_line_every").toInt() == 1);
+    EDI_CHECK(customGridController.modelDocument().value("revision").toInt() == customGridRevision);
 
     controller.setSelectedToolId("line_tool");
     controller.clickCanvasNormalized(0.1, 0.2);
-    assert(controller.modelDocument().value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(controller.modelDocument().value("drawing_objects").toList().size() == 1);
     controller.clickCanvasNormalized(0.8, 0.9);
     objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == 2);
+    EDI_CHECK(objects.size() == 2);
     QVariantMap line = objects.back().toMap();
-    assert(line.value("kind").toString() == "line");
-    assert(line.value("x1").toDouble() == 0.1);
-    assert(line.value("y1").toDouble() == 0.2);
-    assert(line.value("x2").toDouble() == 0.8);
-    assert(line.value("y2").toDouble() == 0.9);
+    EDI_CHECK(line.value("kind").toString() == "line");
+    EDI_CHECK(line.value("x1").toDouble() == 0.1);
+    EDI_CHECK(line.value("y1").toDouble() == 0.2);
+    EDI_CHECK(line.value("x2").toDouble() == 0.8);
+    EDI_CHECK(line.value("y2").toDouble() == 0.9);
     QVariantMap lineLengthField = numericField(line, "line_length");
-    assert(lineLengthField.value("physical_editable").toBool());
-    assert(lineLengthField.value("physical_unit_kind").toString() == "length");
-    assert(lineLengthField.value("physical_unit_label").toString() == "in");
-    assert(nearlyEqual(lineLengthField.value("physical_minimum").toDouble(), 0.0));
+    EDI_CHECK(lineLengthField.value("physical_editable").toBool());
+    EDI_CHECK(lineLengthField.value("physical_unit_kind").toString() == "length");
+    EDI_CHECK(lineLengthField.value("physical_unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(lineLengthField.value("physical_minimum").toDouble(), 0.0));
     QVariantMap lineAngleField = numericField(line, "line_angle_deg");
-    assert(lineAngleField.value("physical_editable").toBool());
-    assert(lineAngleField.value("physical_unit_kind").toString() == "angle");
-    assert(lineAngleField.value("physical_unit_label").toString() == "deg");
-    assert(nearlyEqual(lineAngleField.value("physical_step").toDouble(), 1.0));
+    EDI_CHECK(lineAngleField.value("physical_editable").toBool());
+    EDI_CHECK(lineAngleField.value("physical_unit_kind").toString() == "angle");
+    EDI_CHECK(lineAngleField.value("physical_unit_label").toString() == "deg");
+    EDI_CHECK(nearlyEqual(lineAngleField.value("physical_step").toDouble(), 1.0));
     QVariantMap lineBounds = line.value("bounds").toMap();
-    assert(nearlyEqual(lineBounds.value("x").toDouble(), 0.1));
-    assert(nearlyEqual(lineBounds.value("y").toDouble(), 0.2));
-    assert(nearlyEqual(lineBounds.value("width").toDouble(), 0.7));
-    assert(nearlyEqual(lineBounds.value("height").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(lineBounds.value("x").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(lineBounds.value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(lineBounds.value("width").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(lineBounds.value("height").toDouble(), 0.7));
     QVariantList lineMeasurement = line.value("measurement_lines").toList();
-    assert(lineMeasurement.size() == 3);
-    assert(lineMeasurement[0].toString().startsWith("distance: "));
-    assert(lineMeasurement[1].toString().startsWith("width: "));
-    assert(lineMeasurement[2].toString().startsWith("height: "));
+    EDI_CHECK(lineMeasurement.size() == 3);
+    EDI_CHECK(lineMeasurement[0].toString().startsWith("distance: "));
+    EDI_CHECK(lineMeasurement[1].toString().startsWith("width: "));
+    EDI_CHECK(lineMeasurement[2].toString().startsWith("height: "));
 
     controller.setSelectedToolId("select_move");
     controller.clickCanvasNormalized(0.3, 0.35);
-    assert(controller.selectedObjectId() == point.value("id").toString());
+    EDI_CHECK(controller.selectedObjectId() == point.value("id").toString());
 
     controller.clickCanvasNormalized(0.8, 0.9);
-    assert(controller.selectedObjectId() == line.value("id").toString());
-    assert(controller.editSelectedHandleNormalized("line_end", 0.4, 0.6));
+    EDI_CHECK(controller.selectedObjectId() == line.value("id").toString());
+    EDI_CHECK(controller.editSelectedHandleNormalized("line_end", 0.4, 0.6));
     objects = controller.modelDocument().value("drawing_objects").toList();
     QVariantMap editedLine;
     for (const QVariant &objectValue : objects) {
@@ -313,12 +313,12 @@ int main(int argc, char **argv)
             editedLine = object;
         }
     }
-    assert(!editedLine.isEmpty());
-    assert(editedLine.value("x2").toDouble() == 0.4);
-    assert(editedLine.value("y2").toDouble() == 0.6);
-    assert(!controller.editSelectedHandleNormalized("missing_handle", 0.1, 0.1));
-    assert(controller.updateSelectedObjectGeometryField("x2", 0.7));
-    assert(controller.updateSelectedObjectGeometryField("y2", 0.8));
+    EDI_CHECK(!editedLine.isEmpty());
+    EDI_CHECK(editedLine.value("x2").toDouble() == 0.4);
+    EDI_CHECK(editedLine.value("y2").toDouble() == 0.6);
+    EDI_CHECK(!controller.editSelectedHandleNormalized("missing_handle", 0.1, 0.1));
+    EDI_CHECK(controller.updateSelectedObjectGeometryField("x2", 0.7));
+    EDI_CHECK(controller.updateSelectedObjectGeometryField("y2", 0.8));
     objects = controller.modelDocument().value("drawing_objects").toList();
     QVariantMap numericallyEditedLine;
     for (const QVariant &objectValue : objects) {
@@ -327,15 +327,15 @@ int main(int argc, char **argv)
             numericallyEditedLine = object;
         }
     }
-    assert(!numericallyEditedLine.isEmpty());
-    assert(nearlyEqual(numericallyEditedLine.value("x2").toDouble(), 0.7));
-    assert(nearlyEqual(numericallyEditedLine.value("y2").toDouble(), 0.8));
+    EDI_CHECK(!numericallyEditedLine.isEmpty());
+    EDI_CHECK(nearlyEqual(numericallyEditedLine.value("x2").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(numericallyEditedLine.value("y2").toDouble(), 0.8));
     QVariantMap numericLineBounds = numericallyEditedLine.value("bounds").toMap();
-    assert(nearlyEqual(numericLineBounds.value("width").toDouble(), 0.6));
-    assert(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
-    assert(!controller.updateSelectedObjectGeometryField("x2", std::numeric_limits<double>::infinity()));
+    EDI_CHECK(nearlyEqual(numericLineBounds.value("width").toDouble(), 0.6));
+    EDI_CHECK(!controller.updateSelectedObjectGeometryField("missing_field", 0.1));
+    EDI_CHECK(!controller.updateSelectedObjectGeometryField("x2", std::numeric_limits<double>::infinity()));
 
-    assert(controller.moveSelectionNormalized(0.1, -0.2));
+    EDI_CHECK(controller.moveSelectionNormalized(0.1, -0.2));
     objects = controller.modelDocument().value("drawing_objects").toList();
     QVariantMap movedLine;
     for (const QVariant &objectValue : objects) {
@@ -344,73 +344,73 @@ int main(int argc, char **argv)
             movedLine = object;
         }
     }
-    assert(!movedLine.isEmpty());
-    assert(nearlyEqual(movedLine.value("x1").toDouble(), 0.2));
-    assert(nearlyEqual(movedLine.value("y1").toDouble(), 0.0));
-    assert(nearlyEqual(movedLine.value("x2").toDouble(), 0.8));
-    assert(nearlyEqual(movedLine.value("y2").toDouble(), 0.6));
+    EDI_CHECK(!movedLine.isEmpty());
+    EDI_CHECK(nearlyEqual(movedLine.value("x1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(movedLine.value("y1").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(movedLine.value("x2").toDouble(), 0.8));
+    EDI_CHECK(nearlyEqual(movedLine.value("y2").toDouble(), 0.6));
 
-    assert(controller.offsetSelectedObject("left"));
+    EDI_CHECK(controller.offsetSelectedObject("left"));
     objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == 3);
+    EDI_CHECK(objects.size() == 3);
     QVariantMap offsetLine = objects.back().toMap();
-    assert(offsetLine.value("kind").toString() == "line");
-    assert(controller.selectedObjectId() == offsetLine.value("id").toString());
-    assert(nearlyEqual(offsetLine.value("x1").toDouble(), 0.1646446609));
-    assert(nearlyEqual(offsetLine.value("y1").toDouble(), 0.0353553391));
-    assert(nearlyEqual(offsetLine.value("x2").toDouble(), 0.7646446609));
-    assert(nearlyEqual(offsetLine.value("y2").toDouble(), 0.6353553391));
+    EDI_CHECK(offsetLine.value("kind").toString() == "line");
+    EDI_CHECK(controller.selectedObjectId() == offsetLine.value("id").toString());
+    EDI_CHECK(nearlyEqual(offsetLine.value("x1").toDouble(), 0.1646446609));
+    EDI_CHECK(nearlyEqual(offsetLine.value("y1").toDouble(), 0.0353553391));
+    EDI_CHECK(nearlyEqual(offsetLine.value("x2").toDouble(), 0.7646446609));
+    EDI_CHECK(nearlyEqual(offsetLine.value("y2").toDouble(), 0.6353553391));
 
-    assert(controller.mirrorSelectedObject("vertical"));
+    EDI_CHECK(controller.mirrorSelectedObject("vertical"));
     objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == 4);
+    EDI_CHECK(objects.size() == 4);
     QVariantMap mirroredLine = objects.back().toMap();
-    assert(mirroredLine.value("kind").toString() == "line");
-    assert(controller.selectedObjectId() == mirroredLine.value("id").toString());
-    assert(nearlyEqual(mirroredLine.value("x1").toDouble(), 0.7646446609));
-    assert(nearlyEqual(mirroredLine.value("y1").toDouble(), 0.0353553391));
-    assert(nearlyEqual(mirroredLine.value("x2").toDouble(), 0.1646446609));
-    assert(nearlyEqual(mirroredLine.value("y2").toDouble(), 0.6353553391));
+    EDI_CHECK(mirroredLine.value("kind").toString() == "line");
+    EDI_CHECK(controller.selectedObjectId() == mirroredLine.value("id").toString());
+    EDI_CHECK(nearlyEqual(mirroredLine.value("x1").toDouble(), 0.7646446609));
+    EDI_CHECK(nearlyEqual(mirroredLine.value("y1").toDouble(), 0.0353553391));
+    EDI_CHECK(nearlyEqual(mirroredLine.value("x2").toDouble(), 0.1646446609));
+    EDI_CHECK(nearlyEqual(mirroredLine.value("y2").toDouble(), 0.6353553391));
 
-    assert(controller.repeatSelectedObject("x"));
+    EDI_CHECK(controller.repeatSelectedObject("x"));
     objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == 7);
+    EDI_CHECK(objects.size() == 7);
     QVariantMap repeatedLine1 = objects[4].toMap();
     QVariantMap repeatedLine3 = objects[6].toMap();
-    assert(repeatedLine1.value("kind").toString() == "line");
-    assert(nearlyEqual(repeatedLine1.value("x1").toDouble(), 0.8646446609));
-    assert(nearlyEqual(repeatedLine1.value("y1").toDouble(), 0.0353553391));
-    assert(nearlyEqual(repeatedLine1.value("x2").toDouble(), 0.2646446609));
-    assert(nearlyEqual(repeatedLine3.value("x1").toDouble(), 1.0646446609));
-    assert(nearlyEqual(repeatedLine3.value("x2").toDouble(), 0.4646446609));
+    EDI_CHECK(repeatedLine1.value("kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(repeatedLine1.value("x1").toDouble(), 0.8646446609));
+    EDI_CHECK(nearlyEqual(repeatedLine1.value("y1").toDouble(), 0.0353553391));
+    EDI_CHECK(nearlyEqual(repeatedLine1.value("x2").toDouble(), 0.2646446609));
+    EDI_CHECK(nearlyEqual(repeatedLine3.value("x1").toDouble(), 1.0646446609));
+    EDI_CHECK(nearlyEqual(repeatedLine3.value("x2").toDouble(), 0.4646446609));
     QVariantList repeatedSelection = controller.modelDocument().value("selected_object_ids").toList();
-    assert(repeatedSelection.size() == 3);
-    assert(!controller.repeatSelectedObject("diagonal"));
-    assert(controller.modelDocument().value("drawing_objects").toList().size() == 7);
+    EDI_CHECK(repeatedSelection.size() == 3);
+    EDI_CHECK(!controller.repeatSelectedObject("diagonal"));
+    EDI_CHECK(controller.modelDocument().value("drawing_objects").toList().size() == 7);
 
     controller.clickCanvasNormalized(0.3, 0.35);
     const int beforeUnsupportedOffsetCount = controller.modelDocument().value("drawing_objects").toList().size();
-    assert(!controller.offsetSelectedObject("right"));
-    assert(controller.modelDocument().value("drawing_objects").toList().size() == beforeUnsupportedOffsetCount);
-    assert(controller.mirrorSelectedObject("horizontal"));
+    EDI_CHECK(!controller.offsetSelectedObject("right"));
+    EDI_CHECK(controller.modelDocument().value("drawing_objects").toList().size() == beforeUnsupportedOffsetCount);
+    EDI_CHECK(controller.mirrorSelectedObject("horizontal"));
     objects = controller.modelDocument().value("drawing_objects").toList();
-    assert(objects.size() == beforeUnsupportedOffsetCount + 1);
+    EDI_CHECK(objects.size() == beforeUnsupportedOffsetCount + 1);
     QVariantMap mirroredPoint = objects.back().toMap();
-    assert(mirroredPoint.value("kind").toString() == "point");
-    assert(nearlyEqual(mirroredPoint.value("x").toDouble(), 0.3));
-    assert(nearlyEqual(mirroredPoint.value("y").toDouble(), 0.35));
-    assert(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
+    EDI_CHECK(mirroredPoint.value("kind").toString() == "point");
+    EDI_CHECK(nearlyEqual(mirroredPoint.value("x").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(mirroredPoint.value("y").toDouble(), 0.35));
+    EDI_CHECK(!controller.moveSelectionNormalized(std::numeric_limits<double>::infinity(), 0.0));
 
     DrawingDocumentController gridController;
     gridController.setGridSnapEnabled(true);
-    assert(gridController.gridSnapEnabled());
+    EDI_CHECK(gridController.gridSnapEnabled());
     gridController.setSelectedToolId("point_tool");
     gridController.clickCanvasNormalized(0.14, 0.14);
     QVariantMap gridPoint = gridController.modelDocument().value("drawing_objects").toList().front().toMap();
     const double squareQuarterInchStep = 0.25 / 12.0;
     const double snappedSquarePoint = 7.0 * squareQuarterInchStep;
-    assert(nearlyEqual(gridPoint.value("x").toDouble(), snappedSquarePoint));
-    assert(nearlyEqual(gridPoint.value("y").toDouble(), snappedSquarePoint));
+    EDI_CHECK(nearlyEqual(gridPoint.value("x").toDouble(), snappedSquarePoint));
+    EDI_CHECK(nearlyEqual(gridPoint.value("y").toDouble(), snappedSquarePoint));
 
     DrawingDocumentController guideController;
     guideController.setSelectedToolId("horizontal_guide_tool");
@@ -418,134 +418,134 @@ int main(int argc, char **argv)
     guideController.setSelectedToolId("vertical_guide_tool");
     guideController.clickCanvasNormalized(0.6, 0.7);
     QVariantList guideObjects = guideController.modelDocument().value("drawing_objects").toList();
-    assert(guideObjects.size() == 2);
+    EDI_CHECK(guideObjects.size() == 2);
     QVariantMap horizontalGuide = guideObjects[0].toMap();
     QVariantMap verticalGuide = guideObjects[1].toMap();
-    assert(horizontalGuide.value("kind").toString() == "guide");
-    assert(horizontalGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(horizontalGuide.value("position").toDouble(), 0.3));
-    assert(!horizontalGuide.value("plot_ready").toBool());
-    assert(horizontalGuide.value("guide_visual_controls").toBool());
-    assert(horizontalGuide.value("guide_label").toString() == "H guide 0.300");
-    assert(horizontalGuide.value("guide_custom_label").toString().isEmpty());
-    assert(horizontalGuide.value("guide_color").toString() == "#83aeca");
-    assert(horizontalGuide.value("guide_dash_style").toString() == "dash");
-    assert(horizontalGuide.value("guide_show_label").toBool());
-    assert(verticalGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
-    assert(verticalGuide.value("guide_drawable_controls").toBool());
-    assert(guideController.setSelectedGuideLabel("material edge"));
-    assert(guideController.setSelectedGuideColor("#54d2c6"));
-    assert(guideController.setSelectedGuideDashStyle("solid"));
-    assert(guideController.setSelectedGuideLabelVisible(false));
+    EDI_CHECK(horizontalGuide.value("kind").toString() == "guide");
+    EDI_CHECK(horizontalGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(horizontalGuide.value("position").toDouble(), 0.3));
+    EDI_CHECK(!horizontalGuide.value("plot_ready").toBool());
+    EDI_CHECK(horizontalGuide.value("guide_visual_controls").toBool());
+    EDI_CHECK(horizontalGuide.value("guide_label").toString() == "H guide 0.300");
+    EDI_CHECK(horizontalGuide.value("guide_custom_label").toString().isEmpty());
+    EDI_CHECK(horizontalGuide.value("guide_color").toString() == "#83aeca");
+    EDI_CHECK(horizontalGuide.value("guide_dash_style").toString() == "dash");
+    EDI_CHECK(horizontalGuide.value("guide_show_label").toBool());
+    EDI_CHECK(verticalGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
+    EDI_CHECK(verticalGuide.value("guide_drawable_controls").toBool());
+    EDI_CHECK(guideController.setSelectedGuideLabel("material edge"));
+    EDI_CHECK(guideController.setSelectedGuideColor("#54d2c6"));
+    EDI_CHECK(guideController.setSelectedGuideDashStyle("solid"));
+    EDI_CHECK(guideController.setSelectedGuideLabelVisible(false));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(verticalGuide.value("guide_label").toString() == "material edge");
-    assert(verticalGuide.value("guide_custom_label").toString() == "material edge");
-    assert(verticalGuide.value("guide_color").toString() == "#54d2c6");
-    assert(verticalGuide.value("guide_dash_style").toString() == "solid");
-    assert(!verticalGuide.value("guide_show_label").toBool());
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
+    EDI_CHECK(verticalGuide.value("guide_label").toString() == "material edge");
+    EDI_CHECK(verticalGuide.value("guide_custom_label").toString() == "material edge");
+    EDI_CHECK(verticalGuide.value("guide_color").toString() == "#54d2c6");
+    EDI_CHECK(verticalGuide.value("guide_dash_style").toString() == "solid");
+    EDI_CHECK(!verticalGuide.value("guide_show_label").toBool());
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 0.6));
     const int guideVisualRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
-    assert(!guideController.setSelectedGuideColor("teal"));
-    assert(!guideController.setSelectedGuideDashStyle("stripe"));
-    assert(guideController.modelDocument().value("revision").toInt() == guideVisualRevisionBeforeInvalid);
+    EDI_CHECK(!guideController.setSelectedGuideColor("teal"));
+    EDI_CHECK(!guideController.setSelectedGuideDashStyle("stripe"));
+    EDI_CHECK(guideController.modelDocument().value("revision").toInt() == guideVisualRevisionBeforeInvalid);
     DrawingDocumentController nonGuideVisualController;
     nonGuideVisualController.setSelectedToolId("point_tool");
     nonGuideVisualController.clickCanvasNormalized(0.2, 0.3);
-    assert(!nonGuideVisualController.setSelectedGuideLabel("not a guide"));
+    EDI_CHECK(!nonGuideVisualController.setSelectedGuideLabel("not a guide"));
     QVariantMap verticalGuidePhysical = verticalGuide.value("physical_geometry").toMap();
-    assert(verticalGuidePhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 7.2));
-    assert(guideController.updateSelectedObjectPhysicalGeometryField("position", 3.0));
+    EDI_CHECK(verticalGuidePhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 7.2));
+    EDI_CHECK(guideController.updateSelectedObjectPhysicalGeometryField("position", 3.0));
     QVariantMap guideEditStatus = editStatus(guideController);
-    assert(guideEditStatus.value("ok").toBool());
-    assert(guideEditStatus.value("mode").toString() == "physical");
-    assert(guideEditStatus.value("field_id").toString() == "position");
+    EDI_CHECK(guideEditStatus.value("ok").toBool());
+    EDI_CHECK(guideEditStatus.value("mode").toString() == "physical");
+    EDI_CHECK(guideEditStatus.value("field_id").toString() == "position");
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 0.25));
     verticalGuidePhysical = verticalGuide.value("physical_geometry").toMap();
-    assert(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(verticalGuidePhysical.value("position").toDouble(), 3.0));
     const int guidePhysicalRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
-    assert(!guideController.updateSelectedObjectPhysicalGeometryField("position", 13.0));
+    EDI_CHECK(!guideController.updateSelectedObjectPhysicalGeometryField("position", 13.0));
     guideEditStatus = editStatus(guideController);
-    assert(!guideEditStatus.value("ok").toBool());
-    assert(guideEditStatus.value("mode").toString() == "physical");
-    assert(guideEditStatus.value("field_id").toString() == "position");
-    assert(guideEditStatus.value("code").toString() == "invalid_geometry");
-    assert(guideEditStatus.value("message").toString() == "guide position must be normalized");
-    assert(guideController.modelDocument().value("revision").toInt() == guidePhysicalRevisionBeforeInvalid);
-    assert(guideController.moveSelectedGuideToDrawableOrigin());
+    EDI_CHECK(!guideEditStatus.value("ok").toBool());
+    EDI_CHECK(guideEditStatus.value("mode").toString() == "physical");
+    EDI_CHECK(guideEditStatus.value("field_id").toString() == "position");
+    EDI_CHECK(guideEditStatus.value("code").toString() == "invalid_geometry");
+    EDI_CHECK(guideEditStatus.value("message").toString() == "guide position must be normalized");
+    EDI_CHECK(guideController.modelDocument().value("revision").toInt() == guidePhysicalRevisionBeforeInvalid);
+    EDI_CHECK(guideController.moveSelectedGuideToDrawableOrigin());
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), squareQuarterInchStep));
-    assert(guideController.centerSelectedGuideInDrawable());
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(guideController.centerSelectedGuideInDrawable());
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.5));
-    assert(guideController.moveSelectedGuideToDrawableMax());
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 0.5));
+    EDI_CHECK(guideController.moveSelectedGuideToDrawableMax());
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
-    assert(guideController.offsetSelectedGuide("negative", "fine"));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    EDI_CHECK(guideController.offsetSelectedGuide("negative", "fine"));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 0.25));
-    assert(guideController.offsetSelectedGuide("positive", "fine"));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 0.25));
+    EDI_CHECK(guideController.offsetSelectedGuide("positive", "fine"));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
-    assert(guideController.offsetSelectedGuide("negative", "coarse"));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    EDI_CHECK(guideController.offsetSelectedGuide("negative", "coarse"));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 4.0));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep - squareQuarterInchStep * 4.0));
     const int guideOffsetRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
-    assert(!guideController.offsetSelectedGuide("sideways", "grid"));
-    assert(guideController.modelDocument().value("revision").toInt() == guideOffsetRevisionBeforeInvalid);
-    assert(guideController.updateSelectedObjectGeometryField("position", 0.8));
+    EDI_CHECK(!guideController.offsetSelectedGuide("sideways", "grid"));
+    EDI_CHECK(guideController.modelDocument().value("revision").toInt() == guideOffsetRevisionBeforeInvalid);
+    EDI_CHECK(guideController.updateSelectedObjectGeometryField("position", 0.8));
     guideObjects = guideController.modelDocument().value("drawing_objects").toList();
     verticalGuide = guideObjects[1].toMap();
-    assert(nearlyEqual(verticalGuide.value("position").toDouble(), 0.8));
+    EDI_CHECK(nearlyEqual(verticalGuide.value("position").toDouble(), 0.8));
     const int guideRevisionBeforeInvalid = guideController.modelDocument().value("revision").toInt();
-    assert(!guideController.updateSelectedObjectGeometryField("position", 1.2));
-    assert(guideController.modelDocument().value("revision").toInt() == guideRevisionBeforeInvalid);
+    EDI_CHECK(!guideController.updateSelectedObjectGeometryField("position", 1.2));
+    EDI_CHECK(guideController.modelDocument().value("revision").toInt() == guideRevisionBeforeInvalid);
 
     DrawingDocumentController horizontalGuidePlacementController;
     horizontalGuidePlacementController.setSelectedToolId("horizontal_guide_tool");
     horizontalGuidePlacementController.clickCanvasNormalized(0.2, 0.3);
-    assert(horizontalGuidePlacementController.moveSelectedGuideToDrawableOrigin());
+    EDI_CHECK(horizontalGuidePlacementController.moveSelectedGuideToDrawableOrigin());
     QVariantMap horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), squareQuarterInchStep));
-    assert(horizontalGuidePlacementController.centerSelectedGuideInDrawable());
+    EDI_CHECK(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(horizontalGuidePlacementController.centerSelectedGuideInDrawable());
     horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
-    assert(horizontalGuidePlacementController.moveSelectedGuideToDrawableMax());
+    EDI_CHECK(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
+    EDI_CHECK(horizontalGuidePlacementController.moveSelectedGuideToDrawableMax());
     horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
-    assert(horizontalGuidePlacementController.updateSelectedObjectPhysicalGeometryField("position", 6.0));
+    EDI_CHECK(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+    EDI_CHECK(horizontalGuidePlacementController.updateSelectedObjectPhysicalGeometryField("position", 6.0));
     horizontalMovedGuide = horizontalGuidePlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(horizontalMovedGuide.value("position").toDouble(), 0.5));
 
     DrawingDocumentController lockedGuidePlacementController;
     lockedGuidePlacementController.setSelectedToolId("horizontal_guide_tool");
     lockedGuidePlacementController.clickCanvasNormalized(0.2, 0.3);
-    assert(lockedGuidePlacementController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedGuidePlacementController.setSelectedObjectLocked(true));
     const int lockedGuideRevision = lockedGuidePlacementController.modelDocument().value("revision").toInt();
-    assert(!lockedGuidePlacementController.moveSelectedGuideToDrawableOrigin());
-    assert(lockedGuidePlacementController.modelDocument().value("revision").toInt() == lockedGuideRevision);
+    EDI_CHECK(!lockedGuidePlacementController.moveSelectedGuideToDrawableOrigin());
+    EDI_CHECK(lockedGuidePlacementController.modelDocument().value("revision").toInt() == lockedGuideRevision);
 
     DrawingDocumentController layerLockedGuidePlacementController;
     layerLockedGuidePlacementController.setSelectedToolId("vertical_guide_tool");
     layerLockedGuidePlacementController.clickCanvasNormalized(0.6, 0.7);
-    assert(layerLockedGuidePlacementController.setActiveLayerLocked(true));
+    EDI_CHECK(layerLockedGuidePlacementController.setActiveLayerLocked(true));
     const int layerLockedGuideRevision = layerLockedGuidePlacementController.modelDocument().value("revision").toInt();
-    assert(!layerLockedGuidePlacementController.centerSelectedGuideInDrawable());
-    assert(layerLockedGuidePlacementController.modelDocument().value("revision").toInt() == layerLockedGuideRevision);
+    EDI_CHECK(!layerLockedGuidePlacementController.centerSelectedGuideInDrawable());
+    EDI_CHECK(layerLockedGuidePlacementController.modelDocument().value("revision").toInt() == layerLockedGuideRevision);
 
     DrawingDocumentController boundsGuideController;
     boundsGuideController.setSelectedToolId("rectangle_tool");
@@ -553,68 +553,68 @@ int main(int argc, char **argv)
     boundsGuideController.clickCanvasNormalized(0.6, 0.7);
     QVariantMap boundsGuideModel = boundsGuideController.modelDocument();
     QVariantList boundsGuideObjects = boundsGuideModel.value("drawing_objects").toList();
-    assert(boundsGuideObjects.size() == 1);
+    EDI_CHECK(boundsGuideObjects.size() == 1);
     const QString boundsGuideSourceId = boundsGuideObjects.front().toMap().value("id").toString();
-    assert(boundsGuideObjects.front().toMap().value("bounds_guide_controls").toBool());
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    EDI_CHECK(boundsGuideObjects.front().toMap().value("bounds_guide_controls").toBool());
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
     boundsGuideModel = boundsGuideController.modelDocument();
     boundsGuideObjects = boundsGuideModel.value("drawing_objects").toList();
-    assert(boundsGuideObjects.size() == 2);
-    assert(boundsGuideModel.value("guide_count").toInt() == 1);
-    assert(boundsGuideModel.value("visible_guide_count").toInt() == 1);
-    assert(boundsGuideModel.value("duplicate_guide_count").toInt() == 0);
+    EDI_CHECK(boundsGuideObjects.size() == 2);
+    EDI_CHECK(boundsGuideModel.value("guide_count").toInt() == 1);
+    EDI_CHECK(boundsGuideModel.value("visible_guide_count").toInt() == 1);
+    EDI_CHECK(boundsGuideModel.value("duplicate_guide_count").toInt() == 0);
     QVariantMap boundsGuide = boundsGuideObjects.back().toMap();
-    assert(boundsGuide.value("kind").toString() == "guide");
-    assert(boundsGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.2));
-    assert(!boundsGuide.value("plot_ready").toBool());
-    assert(boundsGuideController.selectedObjectId() == boundsGuideSourceId);
+    EDI_CHECK(boundsGuide.value("kind").toString() == "guide");
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.2));
+    EDI_CHECK(!boundsGuide.value("plot_ready").toBool());
+    EDI_CHECK(boundsGuideController.selectedObjectId() == boundsGuideSourceId);
     const int duplicateBoundsGuideRevision = boundsGuideController.modelDocument().value("revision").toInt();
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
     boundsGuideModel = boundsGuideController.modelDocument();
-    assert(boundsGuideModel.value("revision").toInt() == duplicateBoundsGuideRevision);
-    assert(boundsGuideModel.value("drawing_objects").toList().size() == 2);
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("right")));
+    EDI_CHECK(boundsGuideModel.value("revision").toInt() == duplicateBoundsGuideRevision);
+    EDI_CHECK(boundsGuideModel.value("drawing_objects").toList().size() == 2);
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("right")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(boundsGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.6));
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("vertical_center")));
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.6));
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("vertical_center")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(boundsGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.4));
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("top")));
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.4));
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("top")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(boundsGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.3));
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("bottom")));
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.3));
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("bottom")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(boundsGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.7));
-    assert(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("horizontal_center")));
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.7));
+    EDI_CHECK(boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("horizontal_center")));
     boundsGuide = boundsGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(boundsGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(boundsGuide.value("position").toDouble(), 0.5));
-    assert(boundsGuideController.modelDocument().value("drawing_objects").toList().size() == 7);
+    EDI_CHECK(boundsGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(boundsGuide.value("position").toDouble(), 0.5));
+    EDI_CHECK(boundsGuideController.modelDocument().value("drawing_objects").toList().size() == 7);
     const int boundsGuideRevisionBeforeInvalid = boundsGuideController.modelDocument().value("revision").toInt();
-    assert(!boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("diagonal")));
-    assert(boundsGuideController.modelDocument().value("revision").toInt() == boundsGuideRevisionBeforeInvalid);
+    EDI_CHECK(!boundsGuideController.createGuideFromSelectedBounds(QStringLiteral("diagonal")));
+    EDI_CHECK(boundsGuideController.modelDocument().value("revision").toInt() == boundsGuideRevisionBeforeInvalid);
 
     DrawingDocumentController guidePresetController;
     guidePresetController.setSelectedToolId("point_tool");
     guidePresetController.clickCanvasNormalized(0.4, 0.4);
     const QString guidePresetSelectedId = guidePresetController.selectedObjectId();
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
     QVariantMap guidePresetModel = guidePresetController.modelDocument();
     QVariantList guidePresetObjects = guidePresetModel.value("drawing_objects").toList();
-    assert(guidePresetObjects.size() == 5);
-    assert(guidePresetModel.value("guide_count").toInt() == 4);
-    assert(guidePresetModel.value("visible_guide_count").toInt() == 4);
-    assert(guidePresetController.selectedObjectId() == guidePresetSelectedId);
+    EDI_CHECK(guidePresetObjects.size() == 5);
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 4);
+    EDI_CHECK(guidePresetModel.value("visible_guide_count").toInt() == 4);
+    EDI_CHECK(guidePresetController.selectedObjectId() == guidePresetSelectedId);
     const int guidePresetDuplicateRevision = guidePresetModel.value("revision").toInt();
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
     guidePresetModel = guidePresetController.modelDocument();
-    assert(guidePresetModel.value("revision").toInt() == guidePresetDuplicateRevision);
-    assert(guidePresetModel.value("guide_count").toInt() == 4);
+    EDI_CHECK(guidePresetModel.value("revision").toInt() == guidePresetDuplicateRevision);
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 4);
 
     bool foundDrawableLeft = false;
     bool foundDrawableBottom = false;
@@ -625,113 +625,113 @@ int main(int argc, char **argv)
         }
         if (object.value("guide_label").toString() == "drawable left") {
             foundDrawableLeft = true;
-            assert(object.value("orientation").toString() == "vertical");
-            assert(nearlyEqual(object.value("position").toDouble(), squareQuarterInchStep));
-            assert(object.value("guide_color").toString() == "#f6c65b");
+            EDI_CHECK(object.value("orientation").toString() == "vertical");
+            EDI_CHECK(nearlyEqual(object.value("position").toDouble(), squareQuarterInchStep));
+            EDI_CHECK(object.value("guide_color").toString() == "#f6c65b");
         } else if (object.value("guide_label").toString() == "drawable bottom") {
             foundDrawableBottom = true;
-            assert(object.value("orientation").toString() == "horizontal");
-            assert(nearlyEqual(object.value("position").toDouble(), 1.0 - squareQuarterInchStep));
-            assert(object.value("guide_color").toString() == "#f6c65b");
+            EDI_CHECK(object.value("orientation").toString() == "horizontal");
+            EDI_CHECK(nearlyEqual(object.value("position").toDouble(), 1.0 - squareQuarterInchStep));
+            EDI_CHECK(object.value("guide_color").toString() == "#f6c65b");
         }
     }
-    assert(foundDrawableLeft);
-    assert(foundDrawableBottom);
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("drawable_centerlines")));
+    EDI_CHECK(foundDrawableLeft);
+    EDI_CHECK(foundDrawableBottom);
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("drawable_centerlines")));
     guidePresetModel = guidePresetController.modelDocument();
-    assert(guidePresetModel.value("guide_count").toInt() == 6);
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("thirds")));
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 6);
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("thirds")));
     guidePresetModel = guidePresetController.modelDocument();
-    assert(guidePresetModel.value("guide_count").toInt() == 10);
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("quarters")));
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 10);
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("quarters")));
     guidePresetModel = guidePresetController.modelDocument();
-    assert(guidePresetModel.value("guide_count").toInt() == 14);
-    assert(guidePresetController.applyGuidePreset(QStringLiteral("margin_safe")));
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 14);
+    EDI_CHECK(guidePresetController.applyGuidePreset(QStringLiteral("margin_safe")));
     guidePresetModel = guidePresetController.modelDocument();
-    assert(guidePresetModel.value("guide_count").toInt() == 14);
-    assert(!guidePresetController.applyGuidePreset(QStringLiteral("unknown_preset")));
+    EDI_CHECK(guidePresetModel.value("guide_count").toInt() == 14);
+    EDI_CHECK(!guidePresetController.applyGuidePreset(QStringLiteral("unknown_preset")));
 
     DrawingDocumentController hiddenGuidePresetController;
-    assert(hiddenGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
-    assert(hiddenGuidePresetController.setAllGuidesVisible(false));
+    EDI_CHECK(hiddenGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    EDI_CHECK(hiddenGuidePresetController.setAllGuidesVisible(false));
     QVariantMap hiddenGuidePresetModel = hiddenGuidePresetController.modelDocument();
-    assert(hiddenGuidePresetModel.value("guide_count").toInt() == 4);
-    assert(hiddenGuidePresetModel.value("visible_guide_count").toInt() == 0);
+    EDI_CHECK(hiddenGuidePresetModel.value("guide_count").toInt() == 4);
+    EDI_CHECK(hiddenGuidePresetModel.value("visible_guide_count").toInt() == 0);
 
     DrawingDocumentController lockedLayerGuidePresetController;
-    assert(lockedLayerGuidePresetController.setActiveLayerLocked(true));
+    EDI_CHECK(lockedLayerGuidePresetController.setActiveLayerLocked(true));
     const int lockedLayerGuidePresetRevision = lockedLayerGuidePresetController.modelDocument().value("revision").toInt();
-    assert(!lockedLayerGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
-    assert(lockedLayerGuidePresetController.modelDocument().value("revision").toInt() == lockedLayerGuidePresetRevision);
-    assert(lockedLayerGuidePresetController.modelDocument().value("guide_count").toInt() == 0);
+    EDI_CHECK(!lockedLayerGuidePresetController.applyGuidePreset(QStringLiteral("drawable_bounds")));
+    EDI_CHECK(lockedLayerGuidePresetController.modelDocument().value("revision").toInt() == lockedLayerGuidePresetRevision);
+    EDI_CHECK(lockedLayerGuidePresetController.modelDocument().value("guide_count").toInt() == 0);
 
     DrawingDocumentController offsetGuideController;
     offsetGuideController.setSelectedToolId("rectangle_tool");
     offsetGuideController.clickCanvasNormalized(0.2, 0.3);
     offsetGuideController.clickCanvasNormalized(0.6, 0.7);
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
     QVariantMap offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.2 - squareQuarterInchStep));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.2 - squareQuarterInchStep));
     const int duplicateOffsetGuideRevision = offsetGuideController.modelDocument().value("revision").toInt();
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
-    assert(offsetGuideController.modelDocument().value("revision").toInt() == duplicateOffsetGuideRevision);
-    assert(offsetGuideController.modelDocument().value("drawing_objects").toList().size() == 2);
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("right"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuideController.modelDocument().value("revision").toInt() == duplicateOffsetGuideRevision);
+    EDI_CHECK(offsetGuideController.modelDocument().value("drawing_objects").toList().size() == 2);
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("right"), QStringLiteral("grid")));
     offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.6 + squareQuarterInchStep));
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.6 + squareQuarterInchStep));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
     offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.3 - squareQuarterInchStep));
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("bottom"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.3 - squareQuarterInchStep));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("bottom"), QStringLiteral("grid")));
     offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.7 + squareQuarterInchStep));
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_x_plus"), QStringLiteral("fine")));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.7 + squareQuarterInchStep));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_x_plus"), QStringLiteral("fine")));
     offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "vertical");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.4 + squareQuarterInchStep * 0.25));
-    assert(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_y_minus"), QStringLiteral("coarse")));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "vertical");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.4 + squareQuarterInchStep * 0.25));
+    EDI_CHECK(offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("center_y_minus"), QStringLiteral("coarse")));
     offsetGuide = offsetGuideController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(offsetGuide.value("orientation").toString() == "horizontal");
-    assert(nearlyEqual(offsetGuide.value("position").toDouble(), 0.5 - squareQuarterInchStep * 4.0));
+    EDI_CHECK(offsetGuide.value("orientation").toString() == "horizontal");
+    EDI_CHECK(nearlyEqual(offsetGuide.value("position").toDouble(), 0.5 - squareQuarterInchStep * 4.0));
     const int offsetGuideRevisionBeforeInvalid = offsetGuideController.modelDocument().value("revision").toInt();
-    assert(!offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("diagonal"), QStringLiteral("grid")));
-    assert(offsetGuideController.modelDocument().value("revision").toInt() == offsetGuideRevisionBeforeInvalid);
+    EDI_CHECK(!offsetGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("diagonal"), QStringLiteral("grid")));
+    EDI_CHECK(offsetGuideController.modelDocument().value("revision").toInt() == offsetGuideRevisionBeforeInvalid);
 
     DrawingDocumentController lockedBoundsGuideController;
     lockedBoundsGuideController.setSelectedToolId("line_tool");
     lockedBoundsGuideController.clickCanvasNormalized(0.2, 0.3);
     lockedBoundsGuideController.clickCanvasNormalized(0.6, 0.7);
-    assert(lockedBoundsGuideController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedBoundsGuideController.setSelectedObjectLocked(true));
     const int lockedBoundsGuideRevision = lockedBoundsGuideController.modelDocument().value("revision").toInt();
-    assert(!lockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
-    assert(!lockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
-    assert(lockedBoundsGuideController.modelDocument().value("revision").toInt() == lockedBoundsGuideRevision);
-    assert(lockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(!lockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    EDI_CHECK(!lockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    EDI_CHECK(lockedBoundsGuideController.modelDocument().value("revision").toInt() == lockedBoundsGuideRevision);
+    EDI_CHECK(lockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
 
     DrawingDocumentController layerLockedBoundsGuideController;
     layerLockedBoundsGuideController.setSelectedToolId("circle_tool");
     layerLockedBoundsGuideController.clickCanvasNormalized(0.5, 0.5);
     layerLockedBoundsGuideController.clickCanvasNormalized(0.6, 0.5);
-    assert(layerLockedBoundsGuideController.setActiveLayerLocked(true));
+    EDI_CHECK(layerLockedBoundsGuideController.setActiveLayerLocked(true));
     const int layerLockedBoundsGuideRevision = layerLockedBoundsGuideController.modelDocument().value("revision").toInt();
-    assert(!layerLockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("top")));
-    assert(!layerLockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
-    assert(layerLockedBoundsGuideController.modelDocument().value("revision").toInt() == layerLockedBoundsGuideRevision);
-    assert(layerLockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(!layerLockedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("top")));
+    EDI_CHECK(!layerLockedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("top"), QStringLiteral("grid")));
+    EDI_CHECK(layerLockedBoundsGuideController.modelDocument().value("revision").toInt() == layerLockedBoundsGuideRevision);
+    EDI_CHECK(layerLockedBoundsGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
 
     DrawingDocumentController unsupportedBoundsGuideController;
     unsupportedBoundsGuideController.setSelectedToolId("horizontal_guide_tool");
     unsupportedBoundsGuideController.clickCanvasNormalized(0.2, 0.3);
     QVariantMap unsupportedGuide = unsupportedBoundsGuideController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(!unsupportedGuide.value("bounds_guide_controls").toBool());
+    EDI_CHECK(!unsupportedGuide.value("bounds_guide_controls").toBool());
     const int unsupportedBoundsGuideRevision = unsupportedBoundsGuideController.modelDocument().value("revision").toInt();
-    assert(!unsupportedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
-    assert(!unsupportedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
-    assert(unsupportedBoundsGuideController.modelDocument().value("revision").toInt() == unsupportedBoundsGuideRevision);
+    EDI_CHECK(!unsupportedBoundsGuideController.createGuideFromSelectedBounds(QStringLiteral("left")));
+    EDI_CHECK(!unsupportedBoundsGuideController.createOffsetGuideFromSelectedBounds(QStringLiteral("left"), QStringLiteral("grid")));
+    EDI_CHECK(unsupportedBoundsGuideController.modelDocument().value("revision").toInt() == unsupportedBoundsGuideRevision);
 
     DrawingDocumentController directDuplicateGuideController;
     directDuplicateGuideController.setSelectedToolId("horizontal_guide_tool");
@@ -739,29 +739,29 @@ int main(int argc, char **argv)
     const QString directGuideId = directDuplicateGuideController.selectedObjectId();
     directDuplicateGuideController.clickCanvasNormalized(0.8, 0.3);
     QVariantMap directDuplicateGuideModel = directDuplicateGuideController.modelDocument();
-    assert(directDuplicateGuideModel.value("drawing_objects").toList().size() == 1);
-    assert(directDuplicateGuideModel.value("guide_count").toInt() == 1);
-    assert(directDuplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
-    assert(directDuplicateGuideController.selectedObjectId() == directGuideId);
+    EDI_CHECK(directDuplicateGuideModel.value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(directDuplicateGuideModel.value("guide_count").toInt() == 1);
+    EDI_CHECK(directDuplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
+    EDI_CHECK(directDuplicateGuideController.selectedObjectId() == directGuideId);
 
     DrawingDocumentController mergeDuplicateGuideController;
     mergeDuplicateGuideController.setSelectedToolId("horizontal_guide_tool");
     mergeDuplicateGuideController.clickCanvasNormalized(0.2, 0.3);
     mergeDuplicateGuideController.clickCanvasNormalized(0.2, 0.4);
-    assert(mergeDuplicateGuideController.updateSelectedObjectGeometryField(QStringLiteral("position"), 0.3));
-    assert(mergeDuplicateGuideController.setSelectedObjectLocked(true));
+    EDI_CHECK(mergeDuplicateGuideController.updateSelectedObjectGeometryField(QStringLiteral("position"), 0.3));
+    EDI_CHECK(mergeDuplicateGuideController.setSelectedObjectLocked(true));
     QVariantMap duplicateGuideModel = mergeDuplicateGuideController.modelDocument();
-    assert(duplicateGuideModel.value("drawing_objects").toList().size() == 2);
-    assert(duplicateGuideModel.value("guide_count").toInt() == 2);
-    assert(duplicateGuideModel.value("duplicate_guide_count").toInt() == 1);
-    assert(mergeDuplicateGuideController.mergeDuplicateGuides());
+    EDI_CHECK(duplicateGuideModel.value("drawing_objects").toList().size() == 2);
+    EDI_CHECK(duplicateGuideModel.value("guide_count").toInt() == 2);
+    EDI_CHECK(duplicateGuideModel.value("duplicate_guide_count").toInt() == 1);
+    EDI_CHECK(mergeDuplicateGuideController.mergeDuplicateGuides());
     duplicateGuideModel = mergeDuplicateGuideController.modelDocument();
     QVariantList mergedGuides = duplicateGuideModel.value("drawing_objects").toList();
-    assert(mergedGuides.size() == 1);
-    assert(duplicateGuideModel.value("guide_count").toInt() == 1);
-    assert(duplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
-    assert(mergedGuides.front().toMap().value("kind").toString() == "guide");
-    assert(!mergedGuides.front().toMap().value("locked").toBool());
+    EDI_CHECK(mergedGuides.size() == 1);
+    EDI_CHECK(duplicateGuideModel.value("guide_count").toInt() == 1);
+    EDI_CHECK(duplicateGuideModel.value("duplicate_guide_count").toInt() == 0);
+    EDI_CHECK(mergedGuides.front().toMap().value("kind").toString() == "guide");
+    EDI_CHECK(!mergedGuides.front().toMap().value("locked").toBool());
 
     DrawingDocumentController guideAlignLeftController;
     guideAlignLeftController.setSelectedToolId("vertical_guide_tool");
@@ -770,10 +770,10 @@ int main(int argc, char **argv)
     guideAlignLeftController.clickCanvasNormalized(0.3, 0.3);
     guideAlignLeftController.clickCanvasNormalized(0.5, 0.5);
     QVariantMap guideAlignRect = guideAlignLeftController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(guideAlignRect.value("align_to_guide_controls").toBool());
-    assert(guideAlignLeftController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    EDI_CHECK(guideAlignRect.value("align_to_guide_controls").toBool());
+    EDI_CHECK(guideAlignLeftController.alignSelectionToNearestGuide(QStringLiteral("left")));
     guideAlignRect = guideAlignLeftController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.1));
 
     DrawingDocumentController guideAlignCenterXController;
     guideAlignCenterXController.setSelectedToolId("vertical_guide_tool");
@@ -781,9 +781,9 @@ int main(int argc, char **argv)
     guideAlignCenterXController.setSelectedToolId("rectangle_tool");
     guideAlignCenterXController.clickCanvasNormalized(0.3, 0.3);
     guideAlignCenterXController.clickCanvasNormalized(0.5, 0.5);
-    assert(guideAlignCenterXController.alignSelectionToNearestGuide(QStringLiteral("center_x")));
+    EDI_CHECK(guideAlignCenterXController.alignSelectionToNearestGuide(QStringLiteral("center_x")));
     guideAlignRect = guideAlignCenterXController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.5));
 
     DrawingDocumentController guideAlignRightController;
     guideAlignRightController.setSelectedToolId("vertical_guide_tool");
@@ -791,9 +791,9 @@ int main(int argc, char **argv)
     guideAlignRightController.setSelectedToolId("rectangle_tool");
     guideAlignRightController.clickCanvasNormalized(0.3, 0.3);
     guideAlignRightController.clickCanvasNormalized(0.5, 0.5);
-    assert(guideAlignRightController.alignSelectionToNearestGuide(QStringLiteral("right")));
+    EDI_CHECK(guideAlignRightController.alignSelectionToNearestGuide(QStringLiteral("right")));
     guideAlignRect = guideAlignRightController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("x").toDouble(), 0.6));
 
     DrawingDocumentController guideAlignTopController;
     guideAlignTopController.setSelectedToolId("horizontal_guide_tool");
@@ -801,9 +801,9 @@ int main(int argc, char **argv)
     guideAlignTopController.setSelectedToolId("rectangle_tool");
     guideAlignTopController.clickCanvasNormalized(0.3, 0.3);
     guideAlignTopController.clickCanvasNormalized(0.5, 0.5);
-    assert(guideAlignTopController.alignSelectionToNearestGuide(QStringLiteral("top")));
+    EDI_CHECK(guideAlignTopController.alignSelectionToNearestGuide(QStringLiteral("top")));
     guideAlignRect = guideAlignTopController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.1));
 
     DrawingDocumentController guideAlignCenterYController;
     guideAlignCenterYController.setSelectedToolId("horizontal_guide_tool");
@@ -811,9 +811,9 @@ int main(int argc, char **argv)
     guideAlignCenterYController.setSelectedToolId("rectangle_tool");
     guideAlignCenterYController.clickCanvasNormalized(0.3, 0.3);
     guideAlignCenterYController.clickCanvasNormalized(0.5, 0.5);
-    assert(guideAlignCenterYController.alignSelectionToNearestGuide(QStringLiteral("center_y")));
+    EDI_CHECK(guideAlignCenterYController.alignSelectionToNearestGuide(QStringLiteral("center_y")));
     guideAlignRect = guideAlignCenterYController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.5));
 
     DrawingDocumentController guideAlignBottomController;
     guideAlignBottomController.setSelectedToolId("horizontal_guide_tool");
@@ -821,28 +821,28 @@ int main(int argc, char **argv)
     guideAlignBottomController.setSelectedToolId("rectangle_tool");
     guideAlignBottomController.clickCanvasNormalized(0.3, 0.3);
     guideAlignBottomController.clickCanvasNormalized(0.5, 0.5);
-    assert(guideAlignBottomController.alignSelectionToNearestGuide(QStringLiteral("bottom")));
+    EDI_CHECK(guideAlignBottomController.alignSelectionToNearestGuide(QStringLiteral("bottom")));
     guideAlignRect = guideAlignBottomController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(guideAlignRect.value("y").toDouble(), 0.6));
 
     DrawingDocumentController guideAlignNoGuideController;
     guideAlignNoGuideController.setSelectedToolId("rectangle_tool");
     guideAlignNoGuideController.clickCanvasNormalized(0.3, 0.3);
     guideAlignNoGuideController.clickCanvasNormalized(0.5, 0.5);
     const int guideAlignNoGuideRevision = guideAlignNoGuideController.modelDocument().value("revision").toInt();
-    assert(!guideAlignNoGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
-    assert(guideAlignNoGuideController.modelDocument().value("revision").toInt() == guideAlignNoGuideRevision);
+    EDI_CHECK(!guideAlignNoGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    EDI_CHECK(guideAlignNoGuideController.modelDocument().value("revision").toInt() == guideAlignNoGuideRevision);
 
     DrawingDocumentController guideAlignHiddenGuideController;
     guideAlignHiddenGuideController.setSelectedToolId("vertical_guide_tool");
     guideAlignHiddenGuideController.clickCanvasNormalized(0.1, 0.2);
-    assert(guideAlignHiddenGuideController.setAllGuidesVisible(false));
+    EDI_CHECK(guideAlignHiddenGuideController.setAllGuidesVisible(false));
     guideAlignHiddenGuideController.setSelectedToolId("rectangle_tool");
     guideAlignHiddenGuideController.clickCanvasNormalized(0.3, 0.3);
     guideAlignHiddenGuideController.clickCanvasNormalized(0.5, 0.5);
     const int guideAlignHiddenGuideRevision = guideAlignHiddenGuideController.modelDocument().value("revision").toInt();
-    assert(!guideAlignHiddenGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
-    assert(guideAlignHiddenGuideController.modelDocument().value("revision").toInt() == guideAlignHiddenGuideRevision);
+    EDI_CHECK(!guideAlignHiddenGuideController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    EDI_CHECK(guideAlignHiddenGuideController.modelDocument().value("revision").toInt() == guideAlignHiddenGuideRevision);
 
     DrawingDocumentController lockedGuideAlignController;
     lockedGuideAlignController.setSelectedToolId("vertical_guide_tool");
@@ -850,36 +850,36 @@ int main(int argc, char **argv)
     lockedGuideAlignController.setSelectedToolId("rectangle_tool");
     lockedGuideAlignController.clickCanvasNormalized(0.3, 0.3);
     lockedGuideAlignController.clickCanvasNormalized(0.5, 0.5);
-    assert(lockedGuideAlignController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedGuideAlignController.setSelectedObjectLocked(true));
     const int lockedGuideAlignRevision = lockedGuideAlignController.modelDocument().value("revision").toInt();
-    assert(!lockedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
-    assert(lockedGuideAlignController.modelDocument().value("revision").toInt() == lockedGuideAlignRevision);
+    EDI_CHECK(!lockedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    EDI_CHECK(lockedGuideAlignController.modelDocument().value("revision").toInt() == lockedGuideAlignRevision);
 
     DrawingDocumentController unsupportedGuideAlignController;
     unsupportedGuideAlignController.setSelectedToolId("vertical_guide_tool");
     unsupportedGuideAlignController.clickCanvasNormalized(0.1, 0.2);
     const int unsupportedGuideAlignRevision = unsupportedGuideAlignController.modelDocument().value("revision").toInt();
-    assert(!unsupportedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
-    assert(unsupportedGuideAlignController.modelDocument().value("revision").toInt() == unsupportedGuideAlignRevision);
+    EDI_CHECK(!unsupportedGuideAlignController.alignSelectionToNearestGuide(QStringLiteral("left")));
+    EDI_CHECK(unsupportedGuideAlignController.modelDocument().value("revision").toInt() == unsupportedGuideAlignRevision);
 
     DrawingDocumentController deleteSelectedGuideController;
     deleteSelectedGuideController.setSelectedToolId("point_tool");
     deleteSelectedGuideController.clickCanvasNormalized(0.1, 0.1);
     deleteSelectedGuideController.setSelectedToolId("horizontal_guide_tool");
     deleteSelectedGuideController.clickCanvasNormalized(0.2, 0.3);
-    assert(deleteSelectedGuideController.deleteSelectedGuide());
+    EDI_CHECK(deleteSelectedGuideController.deleteSelectedGuide());
     QVariantList deleteSelectedGuideObjects = deleteSelectedGuideController.modelDocument().value("drawing_objects").toList();
-    assert(deleteSelectedGuideObjects.size() == 1);
-    assert(deleteSelectedGuideObjects.front().toMap().value("kind").toString() == "point");
+    EDI_CHECK(deleteSelectedGuideObjects.size() == 1);
+    EDI_CHECK(deleteSelectedGuideObjects.front().toMap().value("kind").toString() == "point");
 
     DrawingDocumentController lockedDeleteSelectedGuideController;
     lockedDeleteSelectedGuideController.setSelectedToolId("vertical_guide_tool");
     lockedDeleteSelectedGuideController.clickCanvasNormalized(0.6, 0.7);
-    assert(lockedDeleteSelectedGuideController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedDeleteSelectedGuideController.setSelectedObjectLocked(true));
     const int lockedDeleteSelectedGuideRevision = lockedDeleteSelectedGuideController.modelDocument().value("revision").toInt();
-    assert(!lockedDeleteSelectedGuideController.deleteSelectedGuide());
-    assert(lockedDeleteSelectedGuideController.modelDocument().value("revision").toInt() == lockedDeleteSelectedGuideRevision);
-    assert(lockedDeleteSelectedGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(!lockedDeleteSelectedGuideController.deleteSelectedGuide());
+    EDI_CHECK(lockedDeleteSelectedGuideController.modelDocument().value("revision").toInt() == lockedDeleteSelectedGuideRevision);
+    EDI_CHECK(lockedDeleteSelectedGuideController.modelDocument().value("drawing_objects").toList().size() == 1);
 
     DrawingDocumentController deleteAllGuidesController;
     deleteAllGuidesController.setSelectedToolId("point_tool");
@@ -888,11 +888,11 @@ int main(int argc, char **argv)
     deleteAllGuidesController.clickCanvasNormalized(0.2, 0.3);
     deleteAllGuidesController.setSelectedToolId("vertical_guide_tool");
     deleteAllGuidesController.clickCanvasNormalized(0.6, 0.7);
-    assert(deleteAllGuidesController.setAllGuidesLocked(true));
-    assert(deleteAllGuidesController.deleteAllGuides());
+    EDI_CHECK(deleteAllGuidesController.setAllGuidesLocked(true));
+    EDI_CHECK(deleteAllGuidesController.deleteAllGuides());
     QVariantList deleteAllGuideObjects = deleteAllGuidesController.modelDocument().value("drawing_objects").toList();
-    assert(deleteAllGuideObjects.size() == 1);
-    assert(deleteAllGuideObjects.front().toMap().value("kind").toString() == "point");
+    EDI_CHECK(deleteAllGuideObjects.size() == 1);
+    EDI_CHECK(deleteAllGuideObjects.front().toMap().value("kind").toString() == "point");
 
     DrawingDocumentController guideLifecycleController;
     guideLifecycleController.setSelectedToolId("horizontal_guide_tool");
@@ -902,27 +902,27 @@ int main(int argc, char **argv)
     guideLifecycleController.setObjectSnapEnabled(true);
     guideLifecycleController.updatePointerNormalized(0.34, 0.74);
     QVariantMap guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
-    assert(guideLifecyclePointer.value("source").toString() == "guide");
-    assert(guideLifecycleController.setAllGuidesVisible(false));
+    EDI_CHECK(guideLifecyclePointer.value("source").toString() == "guide");
+    EDI_CHECK(guideLifecycleController.setAllGuidesVisible(false));
     QVariantList hiddenGuideObjects = guideLifecycleController.modelDocument().value("drawing_objects").toList();
-    assert(!hiddenGuideObjects[0].toMap().value("visible").toBool());
-    assert(!hiddenGuideObjects[1].toMap().value("visible").toBool());
+    EDI_CHECK(!hiddenGuideObjects[0].toMap().value("visible").toBool());
+    EDI_CHECK(!hiddenGuideObjects[1].toMap().value("visible").toBool());
     guideLifecycleController.updatePointerNormalized(0.34, 0.74);
     guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
-    assert(guideLifecyclePointer.value("kind").toString() == "none");
-    assert(guideLifecycleController.setAllGuidesVisible(true));
-    assert(guideLifecycleController.setAllGuidesLocked(true));
+    EDI_CHECK(guideLifecyclePointer.value("kind").toString() == "none");
+    EDI_CHECK(guideLifecycleController.setAllGuidesVisible(true));
+    EDI_CHECK(guideLifecycleController.setAllGuidesLocked(true));
     QVariantList lockedGuideObjects = guideLifecycleController.modelDocument().value("drawing_objects").toList();
-    assert(lockedGuideObjects[0].toMap().value("locked").toBool());
-    assert(lockedGuideObjects[1].toMap().value("locked").toBool());
+    EDI_CHECK(lockedGuideObjects[0].toMap().value("locked").toBool());
+    EDI_CHECK(lockedGuideObjects[1].toMap().value("locked").toBool());
     const int lockedGuideMoveRevision = guideLifecycleController.modelDocument().value("revision").toInt();
-    assert(!guideLifecycleController.moveSelectedGuideToDrawableOrigin());
-    assert(guideLifecycleController.modelDocument().value("revision").toInt() == lockedGuideMoveRevision);
+    EDI_CHECK(!guideLifecycleController.moveSelectedGuideToDrawableOrigin());
+    EDI_CHECK(guideLifecycleController.modelDocument().value("revision").toInt() == lockedGuideMoveRevision);
     guideLifecycleController.updatePointerNormalized(0.34, 0.74);
     guideLifecyclePointer = guideLifecycleController.modelDocument().value("pointer").toMap();
-    assert(guideLifecyclePointer.value("source").toString() == "guide");
-    assert(guideLifecycleController.setAllGuidesLocked(false));
-    assert(guideLifecycleController.moveSelectedGuideToDrawableOrigin());
+    EDI_CHECK(guideLifecyclePointer.value("source").toString() == "guide");
+    EDI_CHECK(guideLifecycleController.setAllGuidesLocked(false));
+    EDI_CHECK(guideLifecycleController.moveSelectedGuideToDrawableOrigin());
 
     DrawingDocumentController constructionController;
     constructionController.setSelectedToolId("horizontal_construction_line_tool");
@@ -930,170 +930,170 @@ int main(int argc, char **argv)
     constructionController.setSelectedToolId("vertical_construction_line_tool");
     constructionController.clickCanvasNormalized(0.6, 0.7);
     QVariantList constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
-    assert(constructionObjects.size() == 2);
+    EDI_CHECK(constructionObjects.size() == 2);
     QVariantMap horizontalConstruction = constructionObjects[0].toMap();
     QVariantMap verticalConstruction = constructionObjects[1].toMap();
-    assert(horizontalConstruction.value("kind").toString() == "construction_line");
-    assert(nearlyEqual(horizontalConstruction.value("x1").toDouble(), 0.0));
-    assert(nearlyEqual(horizontalConstruction.value("y1").toDouble(), 0.3));
-    assert(nearlyEqual(horizontalConstruction.value("x2").toDouble(), 1.0));
-    assert(nearlyEqual(horizontalConstruction.value("y2").toDouble(), 0.3));
-    assert(!horizontalConstruction.value("plot_ready").toBool());
-    assert(nearlyEqual(verticalConstruction.value("x1").toDouble(), 0.6));
-    assert(nearlyEqual(verticalConstruction.value("y1").toDouble(), 0.0));
-    assert(nearlyEqual(verticalConstruction.value("x2").toDouble(), 0.6));
-    assert(nearlyEqual(verticalConstruction.value("y2").toDouble(), 1.0));
-    assert(verticalConstruction.value("construction_drawable_controls").toBool());
-    assert(constructionController.selectedObjectId() == verticalConstruction.value("id").toString());
-    assert(constructionController.offsetSelectedObject("left"));
+    EDI_CHECK(horizontalConstruction.value("kind").toString() == "construction_line");
+    EDI_CHECK(nearlyEqual(horizontalConstruction.value("x1").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(horizontalConstruction.value("y1").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(horizontalConstruction.value("x2").toDouble(), 1.0));
+    EDI_CHECK(nearlyEqual(horizontalConstruction.value("y2").toDouble(), 0.3));
+    EDI_CHECK(!horizontalConstruction.value("plot_ready").toBool());
+    EDI_CHECK(nearlyEqual(verticalConstruction.value("x1").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(verticalConstruction.value("y1").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(verticalConstruction.value("x2").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(verticalConstruction.value("y2").toDouble(), 1.0));
+    EDI_CHECK(verticalConstruction.value("construction_drawable_controls").toBool());
+    EDI_CHECK(constructionController.selectedObjectId() == verticalConstruction.value("id").toString());
+    EDI_CHECK(constructionController.offsetSelectedObject("left"));
     constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
-    assert(constructionObjects.size() == 3);
+    EDI_CHECK(constructionObjects.size() == 3);
     QVariantMap offsetConstruction = constructionObjects.back().toMap();
-    assert(offsetConstruction.value("kind").toString() == "construction_line");
-    assert(nearlyEqual(offsetConstruction.value("x1").toDouble(), 0.55));
-    assert(nearlyEqual(offsetConstruction.value("y1").toDouble(), 0.0));
-    assert(nearlyEqual(offsetConstruction.value("x2").toDouble(), 0.55));
-    assert(nearlyEqual(offsetConstruction.value("y2").toDouble(), 1.0));
-    assert(constructionController.mirrorSelectedObject("horizontal"));
+    EDI_CHECK(offsetConstruction.value("kind").toString() == "construction_line");
+    EDI_CHECK(nearlyEqual(offsetConstruction.value("x1").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(offsetConstruction.value("y1").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(offsetConstruction.value("x2").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(offsetConstruction.value("y2").toDouble(), 1.0));
+    EDI_CHECK(constructionController.mirrorSelectedObject("horizontal"));
     constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
-    assert(constructionObjects.size() == 4);
+    EDI_CHECK(constructionObjects.size() == 4);
     QVariantMap mirroredConstruction = constructionObjects.back().toMap();
-    assert(mirroredConstruction.value("kind").toString() == "construction_line");
-    assert(nearlyEqual(mirroredConstruction.value("x1").toDouble(), 0.55));
-    assert(nearlyEqual(mirroredConstruction.value("y1").toDouble(), 1.0));
-    assert(nearlyEqual(mirroredConstruction.value("x2").toDouble(), 0.55));
-    assert(nearlyEqual(mirroredConstruction.value("y2").toDouble(), 0.0));
+    EDI_CHECK(mirroredConstruction.value("kind").toString() == "construction_line");
+    EDI_CHECK(nearlyEqual(mirroredConstruction.value("x1").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(mirroredConstruction.value("y1").toDouble(), 1.0));
+    EDI_CHECK(nearlyEqual(mirroredConstruction.value("x2").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(mirroredConstruction.value("y2").toDouble(), 0.0));
 
-    assert(constructionController.repeatSelectedObject("y"));
+    EDI_CHECK(constructionController.repeatSelectedObject("y"));
     constructionObjects = constructionController.modelDocument().value("drawing_objects").toList();
-    assert(constructionObjects.size() == 7);
+    EDI_CHECK(constructionObjects.size() == 7);
     QVariantMap repeatedConstruction = constructionObjects.back().toMap();
-    assert(repeatedConstruction.value("kind").toString() == "construction_line");
-    assert(nearlyEqual(repeatedConstruction.value("x1").toDouble(), 0.55));
-    assert(nearlyEqual(repeatedConstruction.value("y1").toDouble(), 1.3));
-    assert(nearlyEqual(repeatedConstruction.value("x2").toDouble(), 0.55));
-    assert(nearlyEqual(repeatedConstruction.value("y2").toDouble(), 0.3));
+    EDI_CHECK(repeatedConstruction.value("kind").toString() == "construction_line");
+    EDI_CHECK(nearlyEqual(repeatedConstruction.value("x1").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(repeatedConstruction.value("y1").toDouble(), 1.3));
+    EDI_CHECK(nearlyEqual(repeatedConstruction.value("x2").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(repeatedConstruction.value("y2").toDouble(), 0.3));
 
     DrawingDocumentController verticalConstructionPlacementController;
     verticalConstructionPlacementController.setSelectedToolId("vertical_construction_line_tool");
     verticalConstructionPlacementController.clickCanvasNormalized(0.6, 0.7);
-    assert(verticalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    EDI_CHECK(verticalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
     QVariantMap verticalFittedConstruction = verticalConstructionPlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(verticalFittedConstruction.value("x1").toDouble(), 0.6));
-    assert(nearlyEqual(verticalFittedConstruction.value("y1").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(verticalFittedConstruction.value("x2").toDouble(), 0.6));
-    assert(nearlyEqual(verticalFittedConstruction.value("y2").toDouble(), 1.0 - squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(verticalFittedConstruction.value("x1").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(verticalFittedConstruction.value("y1").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(verticalFittedConstruction.value("x2").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(verticalFittedConstruction.value("y2").toDouble(), 1.0 - squareQuarterInchStep));
 
     DrawingDocumentController horizontalConstructionPlacementController;
     horizontalConstructionPlacementController.setSelectedToolId("horizontal_construction_line_tool");
     horizontalConstructionPlacementController.clickCanvasNormalized(0.2, 0.3);
-    assert(horizontalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    EDI_CHECK(horizontalConstructionPlacementController.fitSelectedConstructionLineToDrawable());
     QVariantMap horizontalFittedConstruction = horizontalConstructionPlacementController.modelDocument()
         .value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(horizontalFittedConstruction.value("x1").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(horizontalFittedConstruction.value("y1").toDouble(), 0.3));
-    assert(nearlyEqual(horizontalFittedConstruction.value("x2").toDouble(), 1.0 - squareQuarterInchStep));
-    assert(nearlyEqual(horizontalFittedConstruction.value("y2").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(horizontalFittedConstruction.value("x1").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(horizontalFittedConstruction.value("y1").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(horizontalFittedConstruction.value("x2").toDouble(), 1.0 - squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(horizontalFittedConstruction.value("y2").toDouble(), 0.3));
 
     DrawingDocumentController lockedConstructionPlacementController;
     lockedConstructionPlacementController.setSelectedToolId("vertical_construction_line_tool");
     lockedConstructionPlacementController.clickCanvasNormalized(0.6, 0.7);
-    assert(lockedConstructionPlacementController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedConstructionPlacementController.setSelectedObjectLocked(true));
     const int lockedConstructionRevision = lockedConstructionPlacementController.modelDocument().value("revision").toInt();
-    assert(!lockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
-    assert(lockedConstructionPlacementController.modelDocument().value("revision").toInt() == lockedConstructionRevision);
+    EDI_CHECK(!lockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    EDI_CHECK(lockedConstructionPlacementController.modelDocument().value("revision").toInt() == lockedConstructionRevision);
 
     DrawingDocumentController layerLockedConstructionPlacementController;
     layerLockedConstructionPlacementController.setSelectedToolId("horizontal_construction_line_tool");
     layerLockedConstructionPlacementController.clickCanvasNormalized(0.2, 0.3);
-    assert(layerLockedConstructionPlacementController.setActiveLayerLocked(true));
+    EDI_CHECK(layerLockedConstructionPlacementController.setActiveLayerLocked(true));
     const int layerLockedConstructionRevision = layerLockedConstructionPlacementController.modelDocument().value("revision").toInt();
-    assert(!layerLockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
-    assert(layerLockedConstructionPlacementController.modelDocument().value("revision").toInt() == layerLockedConstructionRevision);
+    EDI_CHECK(!layerLockedConstructionPlacementController.fitSelectedConstructionLineToDrawable());
+    EDI_CHECK(layerLockedConstructionPlacementController.modelDocument().value("revision").toInt() == layerLockedConstructionRevision);
 
     DrawingDocumentController angledConstructionController;
     angledConstructionController.setSelectedToolId("angled_construction_line_tool");
     angledConstructionController.clickCanvasNormalized(0.1, 0.2);
     angledConstructionController.updateCreationPreviewNormalized(0.7, 0.4);
     QVariantMap angledPreview = angledConstructionController.modelDocument().value("preview_object").toMap();
-    assert(!angledPreview.isEmpty());
-    assert(angledPreview.value("kind").toString() == "construction_line");
-    assert(!angledPreview.value("plot_ready").toBool());
-    assert(nearlyEqual(angledPreview.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(angledPreview.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(angledPreview.value("x2").toDouble(), 0.7));
-    assert(nearlyEqual(angledPreview.value("y2").toDouble(), 0.4));
-    assert(angledConstructionController.modelDocument().value("drawing_objects").toList().isEmpty());
+    EDI_CHECK(!angledPreview.isEmpty());
+    EDI_CHECK(angledPreview.value("kind").toString() == "construction_line");
+    EDI_CHECK(!angledPreview.value("plot_ready").toBool());
+    EDI_CHECK(nearlyEqual(angledPreview.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(angledPreview.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(angledPreview.value("x2").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(angledPreview.value("y2").toDouble(), 0.4));
+    EDI_CHECK(angledConstructionController.modelDocument().value("drawing_objects").toList().isEmpty());
     angledConstructionController.clickCanvasNormalized(0.7, 0.4);
     QVariantMap angledModel = angledConstructionController.modelDocument();
-    assert(!angledModel.contains("preview_object"));
+    EDI_CHECK(!angledModel.contains("preview_object"));
     QVariantList angledObjects = angledModel.value("drawing_objects").toList();
-    assert(angledObjects.size() == 1);
+    EDI_CHECK(angledObjects.size() == 1);
     QVariantMap angledConstruction = angledObjects.front().toMap();
-    assert(angledConstruction.value("kind").toString() == "construction_line");
-    assert(nearlyEqual(angledConstruction.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(angledConstruction.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.7));
-    assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.4));
-    assert(!angledConstruction.value("construction_drawable_controls").toBool());
+    EDI_CHECK(angledConstruction.value("kind").toString() == "construction_line");
+    EDI_CHECK(nearlyEqual(angledConstruction.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(angledConstruction.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.4));
+    EDI_CHECK(!angledConstruction.value("construction_drawable_controls").toBool());
     const int angledConstructionFitRevision = angledConstructionController.modelDocument().value("revision").toInt();
-    assert(!angledConstructionController.fitSelectedConstructionLineToDrawable());
-    assert(angledConstructionController.modelDocument().value("revision").toInt() == angledConstructionFitRevision);
-    assert(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.8));
-    assert(angledConstructionController.updateSelectedObjectGeometryField("y2", 0.5));
+    EDI_CHECK(!angledConstructionController.fitSelectedConstructionLineToDrawable());
+    EDI_CHECK(angledConstructionController.modelDocument().value("revision").toInt() == angledConstructionFitRevision);
+    EDI_CHECK(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.8));
+    EDI_CHECK(angledConstructionController.updateSelectedObjectGeometryField("y2", 0.5));
     angledConstruction = angledConstructionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.8));
-    assert(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.5));
-    assert(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.1));
+    EDI_CHECK(nearlyEqual(angledConstruction.value("x2").toDouble(), 0.8));
+    EDI_CHECK(nearlyEqual(angledConstruction.value("y2").toDouble(), 0.5));
+    EDI_CHECK(angledConstructionController.updateSelectedObjectGeometryField("x2", 0.1));
     const int constructionRevisionBeforeInvalid = angledConstructionController.modelDocument().value("revision").toInt();
-    assert(!angledConstructionController.updateSelectedObjectGeometryField("y2", 0.2));
-    assert(angledConstructionController.modelDocument().value("revision").toInt() == constructionRevisionBeforeInvalid);
+    EDI_CHECK(!angledConstructionController.updateSelectedObjectGeometryField("y2", 0.2));
+    EDI_CHECK(angledConstructionController.modelDocument().value("revision").toInt() == constructionRevisionBeforeInvalid);
 
     DrawingDocumentController dimensionController;
     dimensionController.setSelectedToolId("distance_dimension_tool");
     dimensionController.clickCanvasNormalized(0.1, 0.2);
     dimensionController.updateCreationPreviewNormalized(0.4, 0.6);
     QVariantMap dimensionPreview = dimensionController.modelDocument().value("preview_object").toMap();
-    assert(!dimensionPreview.isEmpty());
-    assert(dimensionPreview.value("kind").toString() == "dimension");
-    assert(!dimensionPreview.value("plot_ready").toBool());
-    assert(dimensionPreview.value("dimension_kind").toString() == "distance");
-    assert(dimensionPreview.value("dimension_show_label").toBool());
-    assert(nearlyEqual(dimensionPreview.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(dimensionPreview.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(dimensionPreview.value("x2").toDouble(), 0.4));
-    assert(nearlyEqual(dimensionPreview.value("y2").toDouble(), 0.6));
-    assert(dimensionPreview.value("label").toString() == "0.5 canvas_unit");
-    assert(dimensionController.modelDocument().value("drawing_objects").toList().isEmpty());
+    EDI_CHECK(!dimensionPreview.isEmpty());
+    EDI_CHECK(dimensionPreview.value("kind").toString() == "dimension");
+    EDI_CHECK(!dimensionPreview.value("plot_ready").toBool());
+    EDI_CHECK(dimensionPreview.value("dimension_kind").toString() == "distance");
+    EDI_CHECK(dimensionPreview.value("dimension_show_label").toBool());
+    EDI_CHECK(nearlyEqual(dimensionPreview.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(dimensionPreview.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(dimensionPreview.value("x2").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(dimensionPreview.value("y2").toDouble(), 0.6));
+    EDI_CHECK(dimensionPreview.value("label").toString() == "0.5 canvas_unit");
+    EDI_CHECK(dimensionController.modelDocument().value("drawing_objects").toList().isEmpty());
     dimensionController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap dimensionModel = dimensionController.modelDocument();
-    assert(!dimensionModel.contains("preview_object"));
+    EDI_CHECK(!dimensionModel.contains("preview_object"));
     QVariantList dimensionObjects = dimensionModel.value("drawing_objects").toList();
-    assert(dimensionObjects.size() == 1);
+    EDI_CHECK(dimensionObjects.size() == 1);
     QVariantMap dimension = dimensionObjects.front().toMap();
-    assert(dimension.value("kind").toString() == "dimension");
-    assert(!dimension.value("plot_ready").toBool());
-    assert(dimension.value("dimension_kind").toString() == "distance");
-    assert(dimension.value("dimension_visual_controls").toBool());
-    assert(dimension.value("dimension_show_label").toBool());
+    EDI_CHECK(dimension.value("kind").toString() == "dimension");
+    EDI_CHECK(!dimension.value("plot_ready").toBool());
+    EDI_CHECK(dimension.value("dimension_kind").toString() == "distance");
+    EDI_CHECK(dimension.value("dimension_visual_controls").toBool());
+    EDI_CHECK(dimension.value("dimension_show_label").toBool());
     QStringList dimensionFieldIds = numericFieldIds(dimension);
-    assert(dimensionFieldIds.contains("dimension_length"));
-    assert(dimensionFieldIds.contains("dimension_angle_deg"));
+    EDI_CHECK(dimensionFieldIds.contains("dimension_length"));
+    EDI_CHECK(dimensionFieldIds.contains("dimension_angle_deg"));
     QVariantMap dimensionLengthField = numericField(dimension, "dimension_length");
-    assert(dimensionLengthField.value("physical_editable").toBool());
-    assert(dimensionLengthField.value("physical_unit_kind").toString() == "length");
-    assert(dimensionLengthField.value("physical_unit_label").toString() == "in");
-    assert(nearlyEqual(dimensionLengthField.value("physical_minimum").toDouble(), 0.0));
+    EDI_CHECK(dimensionLengthField.value("physical_editable").toBool());
+    EDI_CHECK(dimensionLengthField.value("physical_unit_kind").toString() == "length");
+    EDI_CHECK(dimensionLengthField.value("physical_unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(dimensionLengthField.value("physical_minimum").toDouble(), 0.0));
     QVariantMap dimensionAngleField = numericField(dimension, "dimension_angle_deg");
-    assert(dimensionAngleField.value("physical_editable").toBool());
-    assert(dimensionAngleField.value("physical_unit_kind").toString() == "angle");
-    assert(dimensionAngleField.value("physical_unit_label").toString() == "deg");
+    EDI_CHECK(dimensionAngleField.value("physical_editable").toBool());
+    EDI_CHECK(dimensionAngleField.value("physical_unit_kind").toString() == "angle");
+    EDI_CHECK(dimensionAngleField.value("physical_unit_label").toString() == "deg");
     QStringList dimensionHandleIds = editHandleIds(dimension);
-    assert(dimension.value("editable_handle_count").toInt() == 3);
-    assert(dimensionHandleIds.contains("dimension_start"));
-    assert(dimensionHandleIds.contains("dimension_end"));
-    assert(dimensionHandleIds.contains("dimension_offset"));
+    EDI_CHECK(dimension.value("editable_handle_count").toInt() == 3);
+    EDI_CHECK(dimensionHandleIds.contains("dimension_start"));
+    EDI_CHECK(dimensionHandleIds.contains("dimension_end"));
+    EDI_CHECK(dimensionHandleIds.contains("dimension_offset"));
     QVariantList dimensionHandles = dimension.value("edit_handles").toList();
     QVariantMap dimensionOffsetHandle;
     for (const QVariant &handle : dimensionHandles) {
@@ -1102,168 +1102,168 @@ int main(int argc, char **argv)
             dimensionOffsetHandle = candidate;
         }
     }
-    assert(!dimensionOffsetHandle.isEmpty());
-    assert(dimensionOffsetHandle.value("role").toString() == "offset");
-    assert(dimensionOffsetHandle.value("editable").toBool());
-    assert(dimensionOffsetHandle.value("cursor").toString() == "move");
-    assert(dimensionOffsetHandle.value("shape").toString() == "diamond");
-    assert(nearlyEqual(dimensionOffsetHandle.value("size_px").toDouble(), 8.0));
-    assert(nearlyEqual(dimensionOffsetHandle.value("hit_tolerance_px").toDouble(), 14.0));
-    assert(nearlyEqual(dimensionOffsetHandle.value("x").toDouble(), 0.218));
-    assert(nearlyEqual(dimensionOffsetHandle.value("y").toDouble(), 0.424));
-    assert(dimensionOffsetHandle.value("has_anchor").toBool());
-    assert(nearlyEqual(dimensionOffsetHandle.value("anchor_x").toDouble(), 0.25));
-    assert(nearlyEqual(dimensionOffsetHandle.value("anchor_y").toDouble(), 0.4));
-    assert(dimension.value("label").toString() == "0.5 canvas_unit");
+    EDI_CHECK(!dimensionOffsetHandle.isEmpty());
+    EDI_CHECK(dimensionOffsetHandle.value("role").toString() == "offset");
+    EDI_CHECK(dimensionOffsetHandle.value("editable").toBool());
+    EDI_CHECK(dimensionOffsetHandle.value("cursor").toString() == "move");
+    EDI_CHECK(dimensionOffsetHandle.value("shape").toString() == "diamond");
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("size_px").toDouble(), 8.0));
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("hit_tolerance_px").toDouble(), 14.0));
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("x").toDouble(), 0.218));
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("y").toDouble(), 0.424));
+    EDI_CHECK(dimensionOffsetHandle.value("has_anchor").toBool());
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("anchor_x").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(dimensionOffsetHandle.value("anchor_y").toDouble(), 0.4));
+    EDI_CHECK(dimension.value("label").toString() == "0.5 canvas_unit");
 
     auto projectedPointBuild = edi::drafting::buildDraftingObject(
         "projected_point",
         edi::drafting::DraftingShapeKind::Point,
         edi::drafting::PointGeometry{{0.2, 0.3}});
-    assert(projectedPointBuild.ok);
+    EDI_CHECK(projectedPointBuild.ok);
     QVariantMap projectedPoint = drawing_core::draftingObjectToCanvasProjection(projectedPointBuild.object);
     QVariantMap projectedPointXField = numericField(projectedPoint, "x");
-    assert(!projectedPointXField.value("physical_editable").toBool());
-    assert(!projectedPoint.contains("physical_geometry"));
+    EDI_CHECK(!projectedPointXField.value("physical_editable").toBool());
+    EDI_CHECK(!projectedPoint.contains("physical_geometry"));
 
     auto projectedPolygonBuild = edi::drafting::buildDraftingObject(
         "projected_polygon",
         edi::drafting::DraftingShapeKind::Polygon,
         edi::drafting::PolygonGeometry{{{0.1, 0.1}, {0.4, 0.1}, {0.4, 0.4}}});
-    assert(projectedPolygonBuild.ok);
+    EDI_CHECK(projectedPolygonBuild.ok);
     QVariantMap projectedPolygon = drawing_core::draftingObjectToCanvasProjection(projectedPolygonBuild.object);
     QVariantList projectedPolygonHandles = projectedPolygon.value("edit_handles").toList();
-    assert(projectedPolygon.value("handle_count").toInt() == 3);
-    assert(projectedPolygon.value("editable_handle_count").toInt() == 0);
-    assert(projectedPolygonHandles.size() == 3);
+    EDI_CHECK(projectedPolygon.value("handle_count").toInt() == 3);
+    EDI_CHECK(projectedPolygon.value("editable_handle_count").toInt() == 0);
+    EDI_CHECK(projectedPolygonHandles.size() == 3);
     QVariantMap projectedVertex = projectedPolygonHandles.front().toMap();
-    assert(projectedVertex.value("id").toString() == "vertex_0");
-    assert(projectedVertex.value("role").toString() == "vertex");
-    assert(!projectedVertex.value("editable").toBool());
-    assert(projectedVertex.value("read_only").toBool());
-    assert(projectedVertex.value("cursor").toString() == "default");
-    assert(projectedVertex.value("shape").toString() == "square");
-    assert(nearlyEqual(projectedVertex.value("size_px").toDouble(), 6.0));
-    assert(nearlyEqual(projectedVertex.value("hit_tolerance_px").toDouble(), 0.0));
+    EDI_CHECK(projectedVertex.value("id").toString() == "vertex_0");
+    EDI_CHECK(projectedVertex.value("role").toString() == "vertex");
+    EDI_CHECK(!projectedVertex.value("editable").toBool());
+    EDI_CHECK(projectedVertex.value("read_only").toBool());
+    EDI_CHECK(projectedVertex.value("cursor").toString() == "default");
+    EDI_CHECK(projectedVertex.value("shape").toString() == "square");
+    EDI_CHECK(nearlyEqual(projectedVertex.value("size_px").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(projectedVertex.value("hit_tolerance_px").toDouble(), 0.0));
 
     QVariantMap dimensionPhysical = dimension.value("physical_geometry").toMap();
-    assert(dimensionPhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(dimensionPhysical.value("dimension_distance").toDouble(), 6.0));
-    assert(nearlyEqual(dimensionPhysical.value("dimension_length").toDouble(), 6.0));
-    assert(nearlyEqual(dimensionPhysical.value("dimension_angle_deg").toDouble(), 53.1301023542));
-    assert(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 0.48));
-    assert(dimensionPhysical.value("dimension_label").toString() == "6 in");
+    EDI_CHECK(dimensionPhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("dimension_distance").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("dimension_length").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("dimension_angle_deg").toDouble(), 53.1301023542));
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 0.48));
+    EDI_CHECK(dimensionPhysical.value("dimension_label").toString() == "6 in");
     dimensionController.updatePointerNormalized(0.218, 0.424);
     QVariantMap dimensionQuickMeasure = dimensionController.modelDocument().value("quick_measurement").toMap();
-    assert(dimensionQuickMeasure.value("ok").toBool());
-    assert(dimensionQuickMeasure.value("kind").toString() == "dimension");
-    assert(dimensionQuickMeasure.value("object_kind").toString() == "dimension");
-    assert(dimensionQuickMeasure.value("dimension_kind").toString() == "distance");
-    assert(nearlyEqual(dimensionQuickMeasure.value("length").toDouble(), dimension.value("dimension_length").toDouble()));
-    assert(nearlyEqual(dimensionQuickMeasure.value("displayed_length").toDouble(), dimension.value("dimension_length").toDouble()));
-    assert(nearlyEqual(dimensionQuickMeasure.value("physical_displayed_length").toDouble(), dimensionPhysical.value("dimension_length").toDouble()));
-    assert(nearlyEqual(dimensionQuickMeasure.value("physical_angle_deg").toDouble(), dimensionPhysical.value("dimension_angle_deg").toDouble()));
-    assert(nearlyEqual(dimensionQuickMeasure.value("physical_offset").toDouble(), dimensionPhysical.value("offset").toDouble()));
-    assert(nearlyEqual(dimension.value("dimension_x1").toDouble(), 0.068));
-    assert(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
-    assert(nearlyEqual(dimension.value("dimension_x2").toDouble(), 0.368));
-    assert(nearlyEqual(dimension.value("dimension_y2").toDouble(), 0.624));
-    assert(nearlyEqual(dimension.value("extension_x1").toDouble(), 0.1));
-    assert(nearlyEqual(dimension.value("extension_y1").toDouble(), 0.2));
-    assert(nearlyEqual(dimension.value("extension_x2").toDouble(), 0.068));
-    assert(nearlyEqual(dimension.value("extension_y2").toDouble(), 0.224));
-    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.04));
-    assert(dimensionController.setSelectedDimensionLabelVisible(false));
+    EDI_CHECK(dimensionQuickMeasure.value("ok").toBool());
+    EDI_CHECK(dimensionQuickMeasure.value("kind").toString() == "dimension");
+    EDI_CHECK(dimensionQuickMeasure.value("object_kind").toString() == "dimension");
+    EDI_CHECK(dimensionQuickMeasure.value("dimension_kind").toString() == "distance");
+    EDI_CHECK(nearlyEqual(dimensionQuickMeasure.value("length").toDouble(), dimension.value("dimension_length").toDouble()));
+    EDI_CHECK(nearlyEqual(dimensionQuickMeasure.value("displayed_length").toDouble(), dimension.value("dimension_length").toDouble()));
+    EDI_CHECK(nearlyEqual(dimensionQuickMeasure.value("physical_displayed_length").toDouble(), dimensionPhysical.value("dimension_length").toDouble()));
+    EDI_CHECK(nearlyEqual(dimensionQuickMeasure.value("physical_angle_deg").toDouble(), dimensionPhysical.value("dimension_angle_deg").toDouble()));
+    EDI_CHECK(nearlyEqual(dimensionQuickMeasure.value("physical_offset").toDouble(), dimensionPhysical.value("offset").toDouble()));
+    EDI_CHECK(nearlyEqual(dimension.value("dimension_x1").toDouble(), 0.068));
+    EDI_CHECK(nearlyEqual(dimension.value("dimension_y1").toDouble(), 0.224));
+    EDI_CHECK(nearlyEqual(dimension.value("dimension_x2").toDouble(), 0.368));
+    EDI_CHECK(nearlyEqual(dimension.value("dimension_y2").toDouble(), 0.624));
+    EDI_CHECK(nearlyEqual(dimension.value("extension_x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(dimension.value("extension_y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(dimension.value("extension_x2").toDouble(), 0.068));
+    EDI_CHECK(nearlyEqual(dimension.value("extension_y2").toDouble(), 0.224));
+    EDI_CHECK(nearlyEqual(dimension.value("offset").toDouble(), 0.04));
+    EDI_CHECK(dimensionController.setSelectedDimensionLabelVisible(false));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(!dimension.value("dimension_show_label").toBool());
-    assert(dimensionController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
+    EDI_CHECK(!dimension.value("dimension_show_label").toBool());
+    EDI_CHECK(dimensionController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(dimension.value("offset").toDouble(), 0.1));
     dimensionPhysical = dimension.value("physical_geometry").toMap();
-    assert(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 1.2));
-    assert(dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 3.0));
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("offset").toDouble(), 1.2));
+    EDI_CHECK(dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 3.0));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(dimension.value("x2").toDouble(), 0.25));
-    assert(nearlyEqual(dimension.value("y2").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(dimension.value("x2").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(dimension.value("y2").toDouble(), 0.4));
     dimensionPhysical = dimension.value("physical_geometry").toMap();
-    assert(nearlyEqual(dimensionPhysical.value("dimension_length").toDouble(), 3.0));
-    assert(dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_angle_deg", 0.0));
+    EDI_CHECK(nearlyEqual(dimensionPhysical.value("dimension_length").toDouble(), 3.0));
+    EDI_CHECK(dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_angle_deg", 0.0));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(dimension.value("x2").toDouble(), 0.35));
-    assert(nearlyEqual(dimension.value("y2").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(dimension.value("x2").toDouble(), 0.35));
+    EDI_CHECK(nearlyEqual(dimension.value("y2").toDouble(), 0.2));
     const int dimensionPhysicalRevisionBeforeInvalid = dimensionController.modelDocument().value("revision").toInt();
-    assert(!dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", -1.0));
-    assert(dimensionController.modelDocument().value("revision").toInt() == dimensionPhysicalRevisionBeforeInvalid);
+    EDI_CHECK(!dimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", -1.0));
+    EDI_CHECK(dimensionController.modelDocument().value("revision").toInt() == dimensionPhysicalRevisionBeforeInvalid);
     DrawingDocumentController nonDimensionLabelController;
     nonDimensionLabelController.setSelectedToolId("point_tool");
     nonDimensionLabelController.clickCanvasNormalized(0.2, 0.2);
-    assert(!nonDimensionLabelController.setSelectedDimensionLabelVisible(false));
-    assert(dimensionController.updateSelectedObjectGeometryField("offset", 0.08));
-    assert(dimensionController.updateSelectedObjectGeometryField("y2", 0.4));
-    assert(dimensionController.updateSelectedObjectGeometryField("x2", 0.5));
+    EDI_CHECK(!nonDimensionLabelController.setSelectedDimensionLabelVisible(false));
+    EDI_CHECK(dimensionController.updateSelectedObjectGeometryField("offset", 0.08));
+    EDI_CHECK(dimensionController.updateSelectedObjectGeometryField("y2", 0.4));
+    EDI_CHECK(dimensionController.updateSelectedObjectGeometryField("x2", 0.5));
     dimension = dimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(dimension.value("offset").toDouble(), 0.08));
-    assert(nearlyEqual(dimension.value("x2").toDouble(), 0.5));
-    assert(dimensionController.updateSelectedObjectGeometryField("x2", 0.1));
+    EDI_CHECK(nearlyEqual(dimension.value("offset").toDouble(), 0.08));
+    EDI_CHECK(nearlyEqual(dimension.value("x2").toDouble(), 0.5));
+    EDI_CHECK(dimensionController.updateSelectedObjectGeometryField("x2", 0.1));
     const int dimensionRevisionBeforeInvalid = dimensionController.modelDocument().value("revision").toInt();
-    assert(!dimensionController.updateSelectedObjectGeometryField("y2", 0.2));
-    assert(dimensionController.modelDocument().value("revision").toInt() == dimensionRevisionBeforeInvalid);
+    EDI_CHECK(!dimensionController.updateSelectedObjectGeometryField("y2", 0.2));
+    EDI_CHECK(dimensionController.modelDocument().value("revision").toInt() == dimensionRevisionBeforeInvalid);
 
     DrawingDocumentController widthDimensionController;
     widthDimensionController.setSelectedToolId("width_dimension_tool");
     widthDimensionController.clickCanvasNormalized(0.1, 0.2);
     widthDimensionController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap widthDimension = widthDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(widthDimension.value("dimension_kind").toString() == "width");
+    EDI_CHECK(widthDimension.value("dimension_kind").toString() == "width");
     QStringList widthDimensionFieldIds = numericFieldIds(widthDimension);
-    assert(widthDimensionFieldIds.contains("dimension_length"));
-    assert(!widthDimensionFieldIds.contains("dimension_angle_deg"));
-    assert(nearlyEqual(widthDimension.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(widthDimension.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(widthDimension.value("x2").toDouble(), 0.4));
-    assert(nearlyEqual(widthDimension.value("y2").toDouble(), 0.2));
-    assert(widthDimension.value("label").toString() == "0.3 canvas_unit");
-    assert(widthDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
+    EDI_CHECK(widthDimensionFieldIds.contains("dimension_length"));
+    EDI_CHECK(!widthDimensionFieldIds.contains("dimension_angle_deg"));
+    EDI_CHECK(nearlyEqual(widthDimension.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(widthDimension.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(widthDimension.value("x2").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(widthDimension.value("y2").toDouble(), 0.2));
+    EDI_CHECK(widthDimension.value("label").toString() == "0.3 canvas_unit");
+    EDI_CHECK(widthDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
     widthDimension = widthDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(widthDimension.value("x2").toDouble(), 0.6));
-    assert(nearlyEqual(widthDimension.value("y2").toDouble(), 0.2));
-    assert(!widthDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_angle_deg", 45.0));
+    EDI_CHECK(nearlyEqual(widthDimension.value("x2").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(widthDimension.value("y2").toDouble(), 0.2));
+    EDI_CHECK(!widthDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_angle_deg", 45.0));
 
     DrawingDocumentController heightDimensionController;
     heightDimensionController.setSelectedToolId("height_dimension_tool");
     heightDimensionController.clickCanvasNormalized(0.1, 0.2);
     heightDimensionController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap heightDimension = heightDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(heightDimension.value("dimension_kind").toString() == "height");
+    EDI_CHECK(heightDimension.value("dimension_kind").toString() == "height");
     QStringList heightDimensionFieldIds = numericFieldIds(heightDimension);
-    assert(heightDimensionFieldIds.contains("dimension_length"));
-    assert(!heightDimensionFieldIds.contains("dimension_angle_deg"));
-    assert(nearlyEqual(heightDimension.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(heightDimension.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(heightDimension.value("x2").toDouble(), 0.1));
-    assert(nearlyEqual(heightDimension.value("y2").toDouble(), 0.6));
-    assert(heightDimension.value("label").toString() == "0.4 canvas_unit");
-    assert(heightDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
+    EDI_CHECK(heightDimensionFieldIds.contains("dimension_length"));
+    EDI_CHECK(!heightDimensionFieldIds.contains("dimension_angle_deg"));
+    EDI_CHECK(nearlyEqual(heightDimension.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(heightDimension.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(heightDimension.value("x2").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(heightDimension.value("y2").toDouble(), 0.6));
+    EDI_CHECK(heightDimension.value("label").toString() == "0.4 canvas_unit");
+    EDI_CHECK(heightDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
     heightDimension = heightDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(heightDimension.value("x2").toDouble(), 0.1));
-    assert(nearlyEqual(heightDimension.value("y2").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(heightDimension.value("x2").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(heightDimension.value("y2").toDouble(), 0.7));
 
     DrawingDocumentController diameterDimensionController;
     diameterDimensionController.setSelectedToolId("diameter_dimension_tool");
     diameterDimensionController.clickCanvasNormalized(0.1, 0.2);
     diameterDimensionController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap diameterDimension = diameterDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(diameterDimension.value("dimension_kind").toString() == "diameter");
+    EDI_CHECK(diameterDimension.value("dimension_kind").toString() == "diameter");
     QStringList diameterDimensionFieldIds = numericFieldIds(diameterDimension);
-    assert(diameterDimensionFieldIds.contains("dimension_length"));
-    assert(diameterDimensionFieldIds.contains("dimension_angle_deg"));
-    assert(diameterDimension.value("label").toString() == "1 canvas_unit");
-    assert(nearlyEqual(diameterDimension.value("dimension_distance").toDouble(), 1.0));
-    assert(diameterDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
+    EDI_CHECK(diameterDimensionFieldIds.contains("dimension_length"));
+    EDI_CHECK(diameterDimensionFieldIds.contains("dimension_angle_deg"));
+    EDI_CHECK(diameterDimension.value("label").toString() == "1 canvas_unit");
+    EDI_CHECK(nearlyEqual(diameterDimension.value("dimension_distance").toDouble(), 1.0));
+    EDI_CHECK(diameterDimensionController.updateSelectedObjectPhysicalGeometryField("dimension_length", 6.0));
     diameterDimension = diameterDimensionController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(diameterDimension.value("x2").toDouble(), 0.25));
-    assert(nearlyEqual(diameterDimension.value("y2").toDouble(), 0.4));
-    assert(nearlyEqual(diameterDimension.value("dimension_distance").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(diameterDimension.value("x2").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(diameterDimension.value("y2").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(diameterDimension.value("dimension_distance").toDouble(), 0.5));
 
     DrawingDocumentController dimensionOffsetScaleController;
     dimensionOffsetScaleController.setGridSize(12.0, 6.0);
@@ -1272,102 +1272,102 @@ int main(int argc, char **argv)
     dimensionOffsetScaleController.clickCanvasNormalized(0.4, 0.2);
     QVariantMap scaledOffsetDimension = dimensionOffsetScaleController.modelDocument().value("drawing_objects").toList().front().toMap();
     QVariantMap scaledOffsetPhysical = scaledOffsetDimension.value("physical_geometry").toMap();
-    assert(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 0.24));
-    assert(dimensionOffsetScaleController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
+    EDI_CHECK(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 0.24));
+    EDI_CHECK(dimensionOffsetScaleController.updateSelectedObjectPhysicalGeometryField("offset", 1.2));
     scaledOffsetDimension = dimensionOffsetScaleController.modelDocument().value("drawing_objects").toList().front().toMap();
     scaledOffsetPhysical = scaledOffsetDimension.value("physical_geometry").toMap();
-    assert(nearlyEqual(scaledOffsetDimension.value("offset").toDouble(), 0.2));
-    assert(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 1.2));
+    EDI_CHECK(nearlyEqual(scaledOffsetDimension.value("offset").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(scaledOffsetPhysical.value("offset").toDouble(), 1.2));
 
     DrawingDocumentController dimensionKindController;
     dimensionKindController.setSelectedToolId("distance_dimension_tool");
     dimensionKindController.clickCanvasNormalized(0.1, 0.2);
     dimensionKindController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(dimensionKindObject.value("dimension_kind").toString() == "distance");
-    assert(dimensionKindController.setSelectedDimensionKind("width"));
+    EDI_CHECK(dimensionKindObject.value("dimension_kind").toString() == "distance");
+    EDI_CHECK(dimensionKindController.setSelectedDimensionKind("width"));
     dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(dimensionKindObject.value("dimension_kind").toString() == "width");
-    assert(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.6));
-    assert(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.2));
+    EDI_CHECK(dimensionKindObject.value("dimension_kind").toString() == "width");
+    EDI_CHECK(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.2));
     QStringList switchedWidthFields = numericFieldIds(dimensionKindObject);
-    assert(switchedWidthFields.contains("dimension_length"));
-    assert(!switchedWidthFields.contains("dimension_angle_deg"));
-    assert(dimensionKindController.setSelectedDimensionKind("height"));
+    EDI_CHECK(switchedWidthFields.contains("dimension_length"));
+    EDI_CHECK(!switchedWidthFields.contains("dimension_angle_deg"));
+    EDI_CHECK(dimensionKindController.setSelectedDimensionKind("height"));
     dimensionKindObject = dimensionKindController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(dimensionKindObject.value("dimension_kind").toString() == "height");
-    assert(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.1));
-    assert(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.7));
-    assert(!dimensionKindController.setSelectedDimensionKind("ordinal"));
+    EDI_CHECK(dimensionKindObject.value("dimension_kind").toString() == "height");
+    EDI_CHECK(nearlyEqual(dimensionKindObject.value("x2").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(dimensionKindObject.value("y2").toDouble(), 0.7));
+    EDI_CHECK(!dimensionKindController.setSelectedDimensionKind("ordinal"));
     const int dimensionKindRevisionBeforeInvalidLength = dimensionKindController.modelDocument().value("revision").toInt();
-    assert(!dimensionKindController.updateSelectedObjectGeometryField("dimension_length", 0.0));
-    assert(dimensionKindController.modelDocument().value("revision").toInt() == dimensionKindRevisionBeforeInvalidLength);
+    EDI_CHECK(!dimensionKindController.updateSelectedObjectGeometryField("dimension_length", 0.0));
+    EDI_CHECK(dimensionKindController.modelDocument().value("revision").toInt() == dimensionKindRevisionBeforeInvalidLength);
     DrawingDocumentController nonDimensionKindController;
     nonDimensionKindController.setSelectedToolId("point_tool");
     nonDimensionKindController.clickCanvasNormalized(0.2, 0.2);
-    assert(!nonDimensionKindController.setSelectedDimensionKind("width"));
+    EDI_CHECK(!nonDimensionKindController.setSelectedDimensionKind("width"));
 
     DrawingDocumentController dimensionHandleController;
     dimensionHandleController.setSelectedToolId("distance_dimension_tool");
     dimensionHandleController.clickCanvasNormalized(0.1, 0.2);
     dimensionHandleController.clickCanvasNormalized(0.5, 0.2);
-    assert(dimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.8, 0.4));
+    EDI_CHECK(dimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.8, 0.4));
     QVariantMap handleDimension = dimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(handleDimension.value("x2").toDouble(), 0.8));
-    assert(nearlyEqual(handleDimension.value("y2").toDouble(), 0.4));
-    assert(dimensionHandleController.editSelectedHandleNormalized("dimension_offset", 0.45, 0.45));
+    EDI_CHECK(nearlyEqual(handleDimension.value("x2").toDouble(), 0.8));
+    EDI_CHECK(nearlyEqual(handleDimension.value("y2").toDouble(), 0.4));
+    EDI_CHECK(dimensionHandleController.editSelectedHandleNormalized("dimension_offset", 0.45, 0.45));
     handleDimension = dimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(handleDimension.value("offset").toDouble() > 0.0);
-    assert(!dimensionHandleController.editSelectedHandleNormalized("dimension_missing", 0.2, 0.2));
+    EDI_CHECK(handleDimension.value("offset").toDouble() > 0.0);
+    EDI_CHECK(!dimensionHandleController.editSelectedHandleNormalized("dimension_missing", 0.2, 0.2));
 
     DrawingDocumentController widthDimensionHandleController;
     widthDimensionHandleController.setSelectedToolId("width_dimension_tool");
     widthDimensionHandleController.clickCanvasNormalized(0.1, 0.2);
     widthDimensionHandleController.clickCanvasNormalized(0.5, 0.8);
-    assert(widthDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
+    EDI_CHECK(widthDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
     QVariantMap widthHandleDimension = widthDimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(widthHandleDimension.value("dimension_kind").toString() == "width");
-    assert(nearlyEqual(widthHandleDimension.value("x2").toDouble(), 0.9));
-    assert(nearlyEqual(widthHandleDimension.value("y2").toDouble(), 0.2));
+    EDI_CHECK(widthHandleDimension.value("dimension_kind").toString() == "width");
+    EDI_CHECK(nearlyEqual(widthHandleDimension.value("x2").toDouble(), 0.9));
+    EDI_CHECK(nearlyEqual(widthHandleDimension.value("y2").toDouble(), 0.2));
 
     DrawingDocumentController heightDimensionHandleController;
     heightDimensionHandleController.setSelectedToolId("height_dimension_tool");
     heightDimensionHandleController.clickCanvasNormalized(0.1, 0.2);
     heightDimensionHandleController.clickCanvasNormalized(0.5, 0.8);
-    assert(heightDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
+    EDI_CHECK(heightDimensionHandleController.editSelectedHandleNormalized("dimension_end", 0.9, 0.9));
     QVariantMap heightHandleDimension = heightDimensionHandleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(heightHandleDimension.value("dimension_kind").toString() == "height");
-    assert(nearlyEqual(heightHandleDimension.value("x2").toDouble(), 0.1));
-    assert(nearlyEqual(heightHandleDimension.value("y2").toDouble(), 0.9));
+    EDI_CHECK(heightHandleDimension.value("dimension_kind").toString() == "height");
+    EDI_CHECK(nearlyEqual(heightHandleDimension.value("x2").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(heightHandleDimension.value("y2").toDouble(), 0.9));
 
     DrawingDocumentController objectSnapController;
     objectSnapController.setSelectedToolId("point_tool");
     objectSnapController.clickCanvasNormalized(0.25, 0.25);
     objectSnapController.setObjectSnapEnabled(true);
-    assert(objectSnapController.objectSnapEnabled());
+    EDI_CHECK(objectSnapController.objectSnapEnabled());
     objectSnapController.clickCanvasNormalized(0.26, 0.24);
     QVariantList snappedObjects = objectSnapController.modelDocument().value("drawing_objects").toList();
-    assert(snappedObjects.size() == 2);
+    EDI_CHECK(snappedObjects.size() == 2);
     QVariantMap snappedPoint = snappedObjects.back().toMap();
-    assert(nearlyEqual(snappedPoint.value("x").toDouble(), 0.25));
-    assert(nearlyEqual(snappedPoint.value("y").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(snappedPoint.value("x").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(snappedPoint.value("y").toDouble(), 0.25));
 
     QVariantList beforePointerObjects = objectSnapController.modelDocument().value("drawing_objects").toList();
     objectSnapController.updatePointerNormalized(0.26, 0.24);
     QVariantMap pointerModel = objectSnapController.modelDocument();
     QVariantMap pointer = pointerModel.value("pointer").toMap();
-    assert(!pointer.isEmpty());
-    assert(nearlyEqual(pointer.value("raw").toMap().value("x").toDouble(), 0.26));
-    assert(nearlyEqual(pointer.value("raw").toMap().value("y").toDouble(), 0.24));
-    assert(pointer.value("kind").toString() == "object");
-    assert(pointer.value("source").toString() == "endpoint");
-    assert(nearlyEqual(pointer.value("snapped").toMap().value("x").toDouble(), 0.25));
-    assert(nearlyEqual(pointer.value("snapped").toMap().value("y").toDouble(), 0.25));
-    assert(nearlyEqual(pointer.value("snapped_unit_x").toDouble(), 3.0));
-    assert(nearlyEqual(pointer.value("snapped_unit_y").toDouble(), 3.0));
-    assert(pointer.value("unit_label").toString() == "in");
-    assert(pointer.value("inside_drawable").toBool());
-    assert(pointerModel.value("drawing_objects").toList().size() == beforePointerObjects.size());
+    EDI_CHECK(!pointer.isEmpty());
+    EDI_CHECK(nearlyEqual(pointer.value("raw").toMap().value("x").toDouble(), 0.26));
+    EDI_CHECK(nearlyEqual(pointer.value("raw").toMap().value("y").toDouble(), 0.24));
+    EDI_CHECK(pointer.value("kind").toString() == "object");
+    EDI_CHECK(pointer.value("source").toString() == "endpoint");
+    EDI_CHECK(nearlyEqual(pointer.value("snapped").toMap().value("x").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(pointer.value("snapped").toMap().value("y").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(pointer.value("snapped_unit_x").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(pointer.value("snapped_unit_y").toDouble(), 3.0));
+    EDI_CHECK(pointer.value("unit_label").toString() == "in");
+    EDI_CHECK(pointer.value("inside_drawable").toBool());
+    EDI_CHECK(pointerModel.value("drawing_objects").toList().size() == beforePointerObjects.size());
 
     DrawingDocumentController guidePointerController;
     guidePointerController.setSelectedToolId("horizontal_guide_tool");
@@ -1379,25 +1379,25 @@ int main(int argc, char **argv)
     guidePointerController.updatePointerNormalized(0.34, 0.74);
     QVariantMap guidePointerModel = guidePointerController.modelDocument();
     QVariantMap guidePointer = guidePointerModel.value("pointer").toMap();
-    assert(guidePointer.value("kind").toString() == "object");
-    assert(guidePointer.value("source").toString() == "guide");
-    assert(guidePointer.value("label").toString() == "guide");
-    assert(!guidePointer.value("source_object_id").toString().isEmpty());
-    assert(nearlyEqual(guidePointer.value("snapped").toMap().value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guidePointer.value("snapped").toMap().value("y").toDouble(), 0.75));
-    assert(guidePointerModel.value("drawing_objects").toList().size() == beforeGuidePointerObjects.size());
+    EDI_CHECK(guidePointer.value("kind").toString() == "object");
+    EDI_CHECK(guidePointer.value("source").toString() == "guide");
+    EDI_CHECK(guidePointer.value("label").toString() == "guide");
+    EDI_CHECK(!guidePointer.value("source_object_id").toString().isEmpty());
+    EDI_CHECK(nearlyEqual(guidePointer.value("snapped").toMap().value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guidePointer.value("snapped").toMap().value("y").toDouble(), 0.75));
+    EDI_CHECK(guidePointerModel.value("drawing_objects").toList().size() == beforeGuidePointerObjects.size());
     guidePointerController.setGuideSnapEnabled(false);
     guidePointerController.updatePointerNormalized(0.34, 0.74);
     guidePointer = guidePointerController.modelDocument().value("pointer").toMap();
-    assert(guidePointer.value("kind").toString() == "none");
+    EDI_CHECK(guidePointer.value("kind").toString() == "none");
 
     DrawingDocumentController emptyMeasureController;
     emptyMeasureController.updatePointerNormalized(0.5, 0.5);
     QVariantMap emptyMeasureModel = emptyMeasureController.modelDocument();
     QVariantMap emptyMeasure = emptyMeasureModel.value("quick_measurement").toMap();
-    assert(!emptyMeasure.value("ok").toBool());
-    assert(emptyMeasure.value("kind").toString() == "none");
-    assert(emptyMeasure.value("message").toString() == "no measurable target");
+    EDI_CHECK(!emptyMeasure.value("ok").toBool());
+    EDI_CHECK(emptyMeasure.value("kind").toString() == "none");
+    EDI_CHECK(emptyMeasure.value("message").toString() == "no measurable target");
 
     DrawingDocumentController lineMeasureController;
     lineMeasureController.setSelectedToolId("line_tool");
@@ -1408,18 +1408,18 @@ int main(int argc, char **argv)
     lineMeasureController.updatePointerNormalized(0.25, 0.4);
     QVariantMap lineMeasureModel = lineMeasureController.modelDocument();
     QVariantMap lineMeasure = lineMeasureModel.value("quick_measurement").toMap();
-    assert(lineMeasure.value("ok").toBool());
-    assert(lineMeasure.value("kind").toString() == "line");
-    assert(lineMeasure.value("object_kind").toString() == "line");
-    assert(nearlyEqual(lineMeasure.value("length").toDouble(), 0.5));
-    assert(nearlyEqual(lineMeasure.value("physical_length").toDouble(), 6.0));
-    assert(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), 53.1301023542));
-    assert(lineMeasure.value("unit_label").toString() == "in");
+    EDI_CHECK(lineMeasure.value("ok").toBool());
+    EDI_CHECK(lineMeasure.value("kind").toString() == "line");
+    EDI_CHECK(lineMeasure.value("object_kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(lineMeasure.value("length").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(lineMeasure.value("physical_length").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), 53.1301023542));
+    EDI_CHECK(lineMeasure.value("unit_label").toString() == "in");
     QVariantMap projectedLinePhysical = lineMeasureModel.value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
-    assert(nearlyEqual(lineMeasure.value("physical_length").toDouble(), projectedLinePhysical.value("line_length").toDouble()));
-    assert(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), projectedLinePhysical.value("line_angle_deg").toDouble()));
-    assert(lineMeasureModel.value("revision").toInt() == lineMeasureRevision);
-    assert(lineMeasureModel.value("drawing_objects").toList().size() == lineMeasureObjectCount);
+    EDI_CHECK(nearlyEqual(lineMeasure.value("physical_length").toDouble(), projectedLinePhysical.value("line_length").toDouble()));
+    EDI_CHECK(nearlyEqual(lineMeasure.value("physical_angle_deg").toDouble(), projectedLinePhysical.value("line_angle_deg").toDouble()));
+    EDI_CHECK(lineMeasureModel.value("revision").toInt() == lineMeasureRevision);
+    EDI_CHECK(lineMeasureModel.value("drawing_objects").toList().size() == lineMeasureObjectCount);
 
     DrawingDocumentController circleMeasureController;
     circleMeasureController.setSelectedToolId("circle_tool");
@@ -1427,15 +1427,15 @@ int main(int argc, char **argv)
     circleMeasureController.clickCanvasNormalized(0.7, 0.5);
     circleMeasureController.updatePointerNormalized(0.7, 0.5);
     QVariantMap circleMeasure = circleMeasureController.modelDocument().value("quick_measurement").toMap();
-    assert(circleMeasure.value("ok").toBool());
-    assert(circleMeasure.value("kind").toString() == "circle");
-    assert(nearlyEqual(circleMeasure.value("radius").toDouble(), 0.2));
-    assert(nearlyEqual(circleMeasure.value("diameter").toDouble(), 0.4));
-    assert(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), 2.4));
-    assert(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), 4.8));
+    EDI_CHECK(circleMeasure.value("ok").toBool());
+    EDI_CHECK(circleMeasure.value("kind").toString() == "circle");
+    EDI_CHECK(nearlyEqual(circleMeasure.value("radius").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(circleMeasure.value("diameter").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), 2.4));
+    EDI_CHECK(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), 4.8));
     QVariantMap projectedCirclePhysical = circleMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
-    assert(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), projectedCirclePhysical.value("radius").toDouble()));
-    assert(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), projectedCirclePhysical.value("diameter").toDouble()));
+    EDI_CHECK(nearlyEqual(circleMeasure.value("physical_radius").toDouble(), projectedCirclePhysical.value("radius").toDouble()));
+    EDI_CHECK(nearlyEqual(circleMeasure.value("physical_diameter").toDouble(), projectedCirclePhysical.value("diameter").toDouble()));
 
     DrawingDocumentController rectMeasureController;
     rectMeasureController.setSelectedToolId("rectangle_tool");
@@ -1443,29 +1443,29 @@ int main(int argc, char **argv)
     rectMeasureController.clickCanvasNormalized(0.4, 0.6);
     rectMeasureController.updatePointerNormalized(0.2, 0.3);
     QVariantMap rectMeasure = rectMeasureController.modelDocument().value("quick_measurement").toMap();
-    assert(rectMeasure.value("ok").toBool());
-    assert(rectMeasure.value("kind").toString() == "rectangle");
-    assert(nearlyEqual(rectMeasure.value("width").toDouble(), 0.3));
-    assert(nearlyEqual(rectMeasure.value("height").toDouble(), 0.4));
-    assert(nearlyEqual(rectMeasure.value("physical_width").toDouble(), 3.6));
-    assert(nearlyEqual(rectMeasure.value("physical_height").toDouble(), 4.8));
-    assert(nearlyEqual(rectMeasure.value("physical_area").toDouble(), 17.28));
+    EDI_CHECK(rectMeasure.value("ok").toBool());
+    EDI_CHECK(rectMeasure.value("kind").toString() == "rectangle");
+    EDI_CHECK(nearlyEqual(rectMeasure.value("width").toDouble(), 0.3));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("height").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("physical_width").toDouble(), 3.6));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("physical_height").toDouble(), 4.8));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("physical_area").toDouble(), 17.28));
     QVariantMap projectedRectPhysical = rectMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
-    assert(nearlyEqual(rectMeasure.value("physical_width").toDouble(), projectedRectPhysical.value("width").toDouble()));
-    assert(nearlyEqual(rectMeasure.value("physical_height").toDouble(), projectedRectPhysical.value("height").toDouble()));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("physical_width").toDouble(), projectedRectPhysical.value("width").toDouble()));
+    EDI_CHECK(nearlyEqual(rectMeasure.value("physical_height").toDouble(), projectedRectPhysical.value("height").toDouble()));
 
     DrawingDocumentController pointMeasureController;
     pointMeasureController.setSelectedToolId("point_tool");
     pointMeasureController.clickCanvasNormalized(0.25, 0.5);
     pointMeasureController.updatePointerNormalized(0.25, 0.5);
     QVariantMap pointMeasure = pointMeasureController.modelDocument().value("quick_measurement").toMap();
-    assert(pointMeasure.value("ok").toBool());
-    assert(pointMeasure.value("kind").toString() == "point");
-    assert(nearlyEqual(pointMeasure.value("physical_x").toDouble(), 3.0));
-    assert(nearlyEqual(pointMeasure.value("physical_y").toDouble(), 6.0));
+    EDI_CHECK(pointMeasure.value("ok").toBool());
+    EDI_CHECK(pointMeasure.value("kind").toString() == "point");
+    EDI_CHECK(nearlyEqual(pointMeasure.value("physical_x").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(pointMeasure.value("physical_y").toDouble(), 6.0));
     QVariantMap projectedPointPhysical = pointMeasureController.modelDocument().value("drawing_objects").toList().front().toMap().value("physical_geometry").toMap();
-    assert(nearlyEqual(pointMeasure.value("physical_x").toDouble(), projectedPointPhysical.value("x").toDouble()));
-    assert(nearlyEqual(pointMeasure.value("physical_y").toDouble(), projectedPointPhysical.value("y").toDouble()));
+    EDI_CHECK(nearlyEqual(pointMeasure.value("physical_x").toDouble(), projectedPointPhysical.value("x").toDouble()));
+    EDI_CHECK(nearlyEqual(pointMeasure.value("physical_y").toDouble(), projectedPointPhysical.value("y").toDouble()));
 
     DrawingDocumentController guideCreationSnapController;
     guideCreationSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1476,11 +1476,11 @@ int main(int argc, char **argv)
     guideCreationSnapController.setSelectedToolId("point_tool");
     guideCreationSnapController.clickCanvasNormalized(0.34, 0.74);
     QVariantList guideSnappedObjects = guideCreationSnapController.modelDocument().value("drawing_objects").toList();
-    assert(guideSnappedObjects.size() == 3);
+    EDI_CHECK(guideSnappedObjects.size() == 3);
     QVariantMap guideSnappedPoint = guideSnappedObjects.back().toMap();
-    assert(guideSnappedPoint.value("kind").toString() == "point");
-    assert(nearlyEqual(guideSnappedPoint.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideSnappedPoint.value("y").toDouble(), 0.75));
+    EDI_CHECK(guideSnappedPoint.value("kind").toString() == "point");
+    EDI_CHECK(nearlyEqual(guideSnappedPoint.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideSnappedPoint.value("y").toDouble(), 0.75));
 
     DrawingDocumentController guideMoveDisabledCreationController;
     guideMoveDisabledCreationController.setSelectedToolId("horizontal_guide_tool");
@@ -1492,9 +1492,9 @@ int main(int argc, char **argv)
     guideMoveDisabledCreationController.setSelectedToolId("point_tool");
     guideMoveDisabledCreationController.clickCanvasNormalized(0.34, 0.74);
     QVariantMap guideMoveDisabledCreatedPoint = guideMoveDisabledCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(guideMoveDisabledCreatedPoint.value("kind").toString() == "point");
-    assert(nearlyEqual(guideMoveDisabledCreatedPoint.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideMoveDisabledCreatedPoint.value("y").toDouble(), 0.75));
+    EDI_CHECK(guideMoveDisabledCreatedPoint.value("kind").toString() == "point");
+    EDI_CHECK(nearlyEqual(guideMoveDisabledCreatedPoint.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideMoveDisabledCreatedPoint.value("y").toDouble(), 0.75));
 
     DrawingDocumentController guideCreationSnapDisabledController;
     guideCreationSnapDisabledController.setSelectedToolId("horizontal_guide_tool");
@@ -1506,8 +1506,8 @@ int main(int argc, char **argv)
     guideCreationSnapDisabledController.setSelectedToolId("point_tool");
     guideCreationSnapDisabledController.clickCanvasNormalized(0.34, 0.74);
     QVariantMap guideUnsnappedPoint = guideCreationSnapDisabledController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideUnsnappedPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(guideUnsnappedPoint.value("y").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(guideUnsnappedPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(guideUnsnappedPoint.value("y").toDouble(), 0.74));
 
     DrawingDocumentController hiddenGuideCreationController;
     hiddenGuideCreationController.setSelectedToolId("horizontal_guide_tool");
@@ -1515,19 +1515,19 @@ int main(int argc, char **argv)
     hiddenGuideCreationController.setSelectedToolId("vertical_guide_tool");
     hiddenGuideCreationController.clickCanvasNormalized(0.33, 0.2);
     hiddenGuideCreationController.setObjectSnapEnabled(true);
-    assert(hiddenGuideCreationController.setAllGuidesVisible(false));
+    EDI_CHECK(hiddenGuideCreationController.setAllGuidesVisible(false));
     hiddenGuideCreationController.setSelectedToolId("point_tool");
     hiddenGuideCreationController.clickCanvasNormalized(0.34, 0.74);
     QVariantMap hiddenGuideUnsnappedPoint = hiddenGuideCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(hiddenGuideUnsnappedPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(hiddenGuideUnsnappedPoint.value("y").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(hiddenGuideUnsnappedPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(hiddenGuideUnsnappedPoint.value("y").toDouble(), 0.74));
 
     DrawingDocumentController hiddenGuideLayerCreationController;
-    assert(hiddenGuideLayerCreationController.createLayer());
+    EDI_CHECK(hiddenGuideLayerCreationController.createLayer());
     hiddenGuideLayerCreationController.setSelectedToolId("vertical_guide_tool");
     hiddenGuideLayerCreationController.clickCanvasNormalized(0.33, 0.2);
-    assert(hiddenGuideLayerCreationController.setActiveLayerVisible(false));
-    assert(hiddenGuideLayerCreationController.setActiveLayerId(QStringLiteral("default")));
+    EDI_CHECK(hiddenGuideLayerCreationController.setActiveLayerVisible(false));
+    EDI_CHECK(hiddenGuideLayerCreationController.setActiveLayerId(QStringLiteral("default")));
     hiddenGuideLayerCreationController.setObjectSnapEnabled(true);
     hiddenGuideLayerCreationController.setSelectedToolId("point_tool");
     hiddenGuideLayerCreationController.clickCanvasNormalized(0.34, 0.2);
@@ -1538,20 +1538,20 @@ int main(int argc, char **argv)
             hiddenGuideLayerPoint = objectMap;
         }
     }
-    assert(!hiddenGuideLayerPoint.isEmpty());
-    assert(nearlyEqual(hiddenGuideLayerPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(hiddenGuideLayerPoint.value("y").toDouble(), 0.2));
+    EDI_CHECK(!hiddenGuideLayerPoint.isEmpty());
+    EDI_CHECK(nearlyEqual(hiddenGuideLayerPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(hiddenGuideLayerPoint.value("y").toDouble(), 0.2));
 
     DrawingDocumentController lockedGuideCreationController;
     lockedGuideCreationController.setSelectedToolId("vertical_guide_tool");
     lockedGuideCreationController.clickCanvasNormalized(0.33, 0.2);
-    assert(lockedGuideCreationController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedGuideCreationController.setSelectedObjectLocked(true));
     lockedGuideCreationController.setObjectSnapEnabled(true);
     lockedGuideCreationController.setSelectedToolId("point_tool");
     lockedGuideCreationController.clickCanvasNormalized(0.34, 0.2);
     QVariantMap lockedGuideSnappedPoint = lockedGuideCreationController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(lockedGuideSnappedPoint.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(lockedGuideSnappedPoint.value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(lockedGuideSnappedPoint.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(lockedGuideSnappedPoint.value("y").toDouble(), 0.2));
 
     DrawingDocumentController guideMoveSnapController;
     guideMoveSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1561,22 +1561,22 @@ int main(int argc, char **argv)
     guideMoveSnapController.setSelectedToolId("point_tool");
     guideMoveSnapController.clickCanvasNormalized(0.2, 0.2);
     guideMoveSnapController.setObjectSnapEnabled(true);
-    assert(guideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
+    EDI_CHECK(guideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap guideMoveModel = guideMoveSnapController.modelDocument();
     QVariantMap guideMovedPoint = guideMoveModel.value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideMovedPoint.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideMovedPoint.value("y").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideMovedPoint.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideMovedPoint.value("y").toDouble(), 0.75));
     QVariantMap guideDragSnap = guideMoveModel.value("guide_drag_snap").toMap();
-    assert(!guideDragSnap.isEmpty());
-    assert(guideDragSnap.value("kind").toString() == "guide");
-    assert(guideDragSnap.value("mode").toString() == "move_selection");
-    assert(guideDragSnap.value("anchor_label").toString() == "point");
-    assert(guideDragSnap.value("intersection").toBool());
-    assert(!guideDragSnap.value("source_object_id").toString().isEmpty());
-    assert(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("x").toDouble(), 0.34));
-    assert(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("y").toDouble(), 0.74));
-    assert(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("y").toDouble(), 0.75));
+    EDI_CHECK(!guideDragSnap.isEmpty());
+    EDI_CHECK(guideDragSnap.value("kind").toString() == "guide");
+    EDI_CHECK(guideDragSnap.value("mode").toString() == "move_selection");
+    EDI_CHECK(guideDragSnap.value("anchor_label").toString() == "point");
+    EDI_CHECK(guideDragSnap.value("intersection").toBool());
+    EDI_CHECK(!guideDragSnap.value("source_object_id").toString().isEmpty());
+    EDI_CHECK(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(guideDragSnap.value("raw_anchor").toMap().value("y").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideDragSnap.value("snapped_anchor").toMap().value("y").toDouble(), 0.75));
 
     DrawingDocumentController disabledGuideMoveSnapController;
     disabledGuideMoveSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1587,12 +1587,12 @@ int main(int argc, char **argv)
     disabledGuideMoveSnapController.clickCanvasNormalized(0.2, 0.2);
     disabledGuideMoveSnapController.setObjectSnapEnabled(true);
     disabledGuideMoveSnapController.setGuideSnapEnabled(false);
-    assert(disabledGuideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
+    EDI_CHECK(disabledGuideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap disabledGuideMoveModel = disabledGuideMoveSnapController.modelDocument();
     QVariantMap disabledGuideMovedPoint = disabledGuideMoveModel.value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(disabledGuideMovedPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(disabledGuideMovedPoint.value("y").toDouble(), 0.74));
-    assert(!disabledGuideMoveModel.contains("guide_drag_snap"));
+    EDI_CHECK(nearlyEqual(disabledGuideMovedPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(disabledGuideMovedPoint.value("y").toDouble(), 0.74));
+    EDI_CHECK(!disabledGuideMoveModel.contains("guide_drag_snap"));
 
     DrawingDocumentController disabledGuideMoveOnlySnapController;
     disabledGuideMoveOnlySnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1603,38 +1603,38 @@ int main(int argc, char **argv)
     disabledGuideMoveOnlySnapController.clickCanvasNormalized(0.2, 0.2);
     disabledGuideMoveOnlySnapController.setObjectSnapEnabled(true);
     disabledGuideMoveOnlySnapController.setGuideMoveSnapEnabled(false);
-    assert(disabledGuideMoveOnlySnapController.moveSelectionNormalized(0.14, 0.54));
+    EDI_CHECK(disabledGuideMoveOnlySnapController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap disabledGuideMoveOnlyModel = disabledGuideMoveOnlySnapController.modelDocument();
     QVariantMap disabledGuideMoveOnlyPoint = disabledGuideMoveOnlyModel.value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(disabledGuideMoveOnlyPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(disabledGuideMoveOnlyPoint.value("y").toDouble(), 0.74));
-    assert(!disabledGuideMoveOnlyModel.contains("guide_drag_snap"));
+    EDI_CHECK(nearlyEqual(disabledGuideMoveOnlyPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(disabledGuideMoveOnlyPoint.value("y").toDouble(), 0.74));
+    EDI_CHECK(!disabledGuideMoveOnlyModel.contains("guide_drag_snap"));
 
     DrawingDocumentController hiddenGuideMoveSnapController;
     hiddenGuideMoveSnapController.setSelectedToolId("horizontal_guide_tool");
     hiddenGuideMoveSnapController.clickCanvasNormalized(0.2, 0.75);
     hiddenGuideMoveSnapController.setSelectedToolId("vertical_guide_tool");
     hiddenGuideMoveSnapController.clickCanvasNormalized(0.33, 0.2);
-    assert(hiddenGuideMoveSnapController.setAllGuidesVisible(false));
+    EDI_CHECK(hiddenGuideMoveSnapController.setAllGuidesVisible(false));
     hiddenGuideMoveSnapController.setSelectedToolId("point_tool");
     hiddenGuideMoveSnapController.clickCanvasNormalized(0.2, 0.2);
     hiddenGuideMoveSnapController.setObjectSnapEnabled(true);
-    assert(hiddenGuideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
+    EDI_CHECK(hiddenGuideMoveSnapController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap hiddenGuideMovedPoint = hiddenGuideMoveSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(hiddenGuideMovedPoint.value("x").toDouble(), 0.34));
-    assert(nearlyEqual(hiddenGuideMovedPoint.value("y").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(hiddenGuideMovedPoint.value("x").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(hiddenGuideMovedPoint.value("y").toDouble(), 0.74));
 
     DrawingDocumentController lockedGuideMoveSnapController;
     lockedGuideMoveSnapController.setSelectedToolId("vertical_guide_tool");
     lockedGuideMoveSnapController.clickCanvasNormalized(0.33, 0.2);
-    assert(lockedGuideMoveSnapController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedGuideMoveSnapController.setSelectedObjectLocked(true));
     lockedGuideMoveSnapController.setSelectedToolId("point_tool");
     lockedGuideMoveSnapController.clickCanvasNormalized(0.2, 0.2);
     lockedGuideMoveSnapController.setObjectSnapEnabled(true);
-    assert(lockedGuideMoveSnapController.moveSelectionNormalized(0.14, 0.0));
+    EDI_CHECK(lockedGuideMoveSnapController.moveSelectionNormalized(0.14, 0.0));
     QVariantMap lockedGuideMovedPoint = lockedGuideMoveSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(lockedGuideMovedPoint.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(lockedGuideMovedPoint.value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(lockedGuideMovedPoint.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(lockedGuideMovedPoint.value("y").toDouble(), 0.2));
 
     DrawingDocumentController guideRectangleLeftEdgeMoveController;
     guideRectangleLeftEdgeMoveController.setSelectedToolId("vertical_guide_tool");
@@ -1643,11 +1643,11 @@ int main(int argc, char **argv)
     guideRectangleLeftEdgeMoveController.clickCanvasNormalized(0.2, 0.2);
     guideRectangleLeftEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
     guideRectangleLeftEdgeMoveController.setObjectSnapEnabled(true);
-    assert(guideRectangleLeftEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
+    EDI_CHECK(guideRectangleLeftEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
     QVariantMap guideLeftEdgeRect = lastObjectOfKind(guideRectangleLeftEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
-    assert(nearlyEqual(guideLeftEdgeRect.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideLeftEdgeRect.value("y").toDouble(), 0.2));
-    assert(nearlyEqual(guideLeftEdgeRect.value("width").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideLeftEdgeRect.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideLeftEdgeRect.value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideLeftEdgeRect.value("width").toDouble(), 0.2));
 
     DrawingDocumentController guideRectangleTopEdgeMoveController;
     guideRectangleTopEdgeMoveController.setSelectedToolId("horizontal_guide_tool");
@@ -1656,11 +1656,11 @@ int main(int argc, char **argv)
     guideRectangleTopEdgeMoveController.clickCanvasNormalized(0.2, 0.2);
     guideRectangleTopEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
     guideRectangleTopEdgeMoveController.setObjectSnapEnabled(true);
-    assert(guideRectangleTopEdgeMoveController.moveSelectionNormalized(0.0, 0.54));
+    EDI_CHECK(guideRectangleTopEdgeMoveController.moveSelectionNormalized(0.0, 0.54));
     QVariantMap guideTopEdgeRect = lastObjectOfKind(guideRectangleTopEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
-    assert(nearlyEqual(guideTopEdgeRect.value("x").toDouble(), 0.2));
-    assert(nearlyEqual(guideTopEdgeRect.value("y").toDouble(), 0.75));
-    assert(nearlyEqual(guideTopEdgeRect.value("height").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideTopEdgeRect.value("x").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideTopEdgeRect.value("y").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideTopEdgeRect.value("height").toDouble(), 0.2));
 
     DrawingDocumentController guideLineEndpointMoveController;
     guideLineEndpointMoveController.setSelectedToolId("horizontal_guide_tool");
@@ -1671,12 +1671,12 @@ int main(int argc, char **argv)
     guideLineEndpointMoveController.clickCanvasNormalized(0.1, 0.1);
     guideLineEndpointMoveController.clickCanvasNormalized(0.2, 0.2);
     guideLineEndpointMoveController.setObjectSnapEnabled(true);
-    assert(guideLineEndpointMoveController.moveSelectionNormalized(0.14, 0.54));
+    EDI_CHECK(guideLineEndpointMoveController.moveSelectionNormalized(0.14, 0.54));
     QVariantMap guideEndpointLine = lastObjectOfKind(guideLineEndpointMoveController.modelDocument(), QStringLiteral("line"));
-    assert(nearlyEqual(guideEndpointLine.value("x1").toDouble(), 0.23));
-    assert(nearlyEqual(guideEndpointLine.value("y1").toDouble(), 0.65));
-    assert(nearlyEqual(guideEndpointLine.value("x2").toDouble(), 0.33));
-    assert(nearlyEqual(guideEndpointLine.value("y2").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideEndpointLine.value("x1").toDouble(), 0.23));
+    EDI_CHECK(nearlyEqual(guideEndpointLine.value("y1").toDouble(), 0.65));
+    EDI_CHECK(nearlyEqual(guideEndpointLine.value("x2").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideEndpointLine.value("y2").toDouble(), 0.75));
 
     DrawingDocumentController guideRectangleCornerMoveController;
     guideRectangleCornerMoveController.setSelectedToolId("horizontal_guide_tool");
@@ -1687,12 +1687,12 @@ int main(int argc, char **argv)
     guideRectangleCornerMoveController.clickCanvasNormalized(0.2, 0.2);
     guideRectangleCornerMoveController.clickCanvasNormalized(0.4, 0.4);
     guideRectangleCornerMoveController.setObjectSnapEnabled(true);
-    assert(guideRectangleCornerMoveController.moveSelectionNormalized(-0.06, 0.34));
+    EDI_CHECK(guideRectangleCornerMoveController.moveSelectionNormalized(-0.06, 0.34));
     QVariantMap guideCornerRect = lastObjectOfKind(guideRectangleCornerMoveController.modelDocument(), QStringLiteral("rectangle"));
-    assert(nearlyEqual(guideCornerRect.value("x").toDouble(), 0.13));
-    assert(nearlyEqual(guideCornerRect.value("y").toDouble(), 0.55));
-    assert(nearlyEqual(guideCornerRect.value("width").toDouble(), 0.2));
-    assert(nearlyEqual(guideCornerRect.value("height").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideCornerRect.value("x").toDouble(), 0.13));
+    EDI_CHECK(nearlyEqual(guideCornerRect.value("y").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(guideCornerRect.value("width").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(guideCornerRect.value("height").toDouble(), 0.2));
 
     DrawingDocumentController disabledGuideRectangleEdgeMoveController;
     disabledGuideRectangleEdgeMoveController.setSelectedToolId("vertical_guide_tool");
@@ -1702,10 +1702,10 @@ int main(int argc, char **argv)
     disabledGuideRectangleEdgeMoveController.clickCanvasNormalized(0.4, 0.4);
     disabledGuideRectangleEdgeMoveController.setObjectSnapEnabled(true);
     disabledGuideRectangleEdgeMoveController.setGuideSnapEnabled(false);
-    assert(disabledGuideRectangleEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
+    EDI_CHECK(disabledGuideRectangleEdgeMoveController.moveSelectionNormalized(0.12, 0.0));
     QVariantMap disabledGuideEdgeRect = lastObjectOfKind(disabledGuideRectangleEdgeMoveController.modelDocument(), QStringLiteral("rectangle"));
-    assert(nearlyEqual(disabledGuideEdgeRect.value("x").toDouble(), 0.32));
-    assert(nearlyEqual(disabledGuideEdgeRect.value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(disabledGuideEdgeRect.value("x").toDouble(), 0.32));
+    EDI_CHECK(nearlyEqual(disabledGuideEdgeRect.value("y").toDouble(), 0.2));
 
     DrawingDocumentController guideHandleSnapController;
     guideHandleSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1716,10 +1716,10 @@ int main(int argc, char **argv)
     guideHandleSnapController.clickCanvasNormalized(0.1, 0.1);
     guideHandleSnapController.clickCanvasNormalized(0.2, 0.2);
     guideHandleSnapController.setObjectSnapEnabled(true);
-    assert(guideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
+    EDI_CHECK(guideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
     QVariantMap guideHandleLine = guideHandleSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(guideHandleLine.value("x2").toDouble(), 0.33));
-    assert(nearlyEqual(guideHandleLine.value("y2").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideHandleLine.value("x2").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideHandleLine.value("y2").toDouble(), 0.75));
 
     DrawingDocumentController disabledGuideHandleSnapController;
     disabledGuideHandleSnapController.setSelectedToolId("horizontal_guide_tool");
@@ -1731,289 +1731,289 @@ int main(int argc, char **argv)
     disabledGuideHandleSnapController.clickCanvasNormalized(0.2, 0.2);
     disabledGuideHandleSnapController.setObjectSnapEnabled(true);
     disabledGuideHandleSnapController.setGuideSnapEnabled(false);
-    assert(disabledGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
+    EDI_CHECK(disabledGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
     QVariantMap disabledGuideHandleLine = disabledGuideHandleSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(disabledGuideHandleLine.value("x2").toDouble(), 0.34));
-    assert(nearlyEqual(disabledGuideHandleLine.value("y2").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(disabledGuideHandleLine.value("x2").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(disabledGuideHandleLine.value("y2").toDouble(), 0.74));
 
     DrawingDocumentController hiddenGuideHandleSnapController;
     hiddenGuideHandleSnapController.setSelectedToolId("horizontal_guide_tool");
     hiddenGuideHandleSnapController.clickCanvasNormalized(0.2, 0.75);
     hiddenGuideHandleSnapController.setSelectedToolId("vertical_guide_tool");
     hiddenGuideHandleSnapController.clickCanvasNormalized(0.33, 0.2);
-    assert(hiddenGuideHandleSnapController.setAllGuidesVisible(false));
+    EDI_CHECK(hiddenGuideHandleSnapController.setAllGuidesVisible(false));
     hiddenGuideHandleSnapController.setSelectedToolId("line_tool");
     hiddenGuideHandleSnapController.clickCanvasNormalized(0.1, 0.1);
     hiddenGuideHandleSnapController.clickCanvasNormalized(0.2, 0.2);
     hiddenGuideHandleSnapController.setObjectSnapEnabled(true);
-    assert(hiddenGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
+    EDI_CHECK(hiddenGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.74));
     QVariantMap hiddenGuideHandleLine = hiddenGuideHandleSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(hiddenGuideHandleLine.value("x2").toDouble(), 0.34));
-    assert(nearlyEqual(hiddenGuideHandleLine.value("y2").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(hiddenGuideHandleLine.value("x2").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(hiddenGuideHandleLine.value("y2").toDouble(), 0.74));
 
     DrawingDocumentController lockedGuideHandleSnapController;
     lockedGuideHandleSnapController.setSelectedToolId("vertical_guide_tool");
     lockedGuideHandleSnapController.clickCanvasNormalized(0.33, 0.2);
-    assert(lockedGuideHandleSnapController.setSelectedObjectLocked(true));
+    EDI_CHECK(lockedGuideHandleSnapController.setSelectedObjectLocked(true));
     lockedGuideHandleSnapController.setSelectedToolId("line_tool");
     lockedGuideHandleSnapController.clickCanvasNormalized(0.1, 0.1);
     lockedGuideHandleSnapController.clickCanvasNormalized(0.2, 0.2);
     lockedGuideHandleSnapController.setObjectSnapEnabled(true);
-    assert(lockedGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.2));
+    EDI_CHECK(lockedGuideHandleSnapController.editSelectedHandleNormalized(QStringLiteral("line_end"), 0.34, 0.2));
     QVariantMap lockedGuideHandleLine = lockedGuideHandleSnapController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(nearlyEqual(lockedGuideHandleLine.value("x2").toDouble(), 0.33));
-    assert(nearlyEqual(lockedGuideHandleLine.value("y2").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(lockedGuideHandleLine.value("x2").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(lockedGuideHandleLine.value("y2").toDouble(), 0.2));
 
     DrawingDocumentController invisibleSnapController;
     invisibleSnapController.setSelectedToolId("point_tool");
     invisibleSnapController.clickCanvasNormalized(0.25, 0.25);
-    assert(invisibleSnapController.setSelectedObjectVisible(false));
+    EDI_CHECK(invisibleSnapController.setSelectedObjectVisible(false));
     QVariantMap invisiblePoint = invisibleSnapController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(!invisiblePoint.value("visible").toBool());
+    EDI_CHECK(!invisiblePoint.value("visible").toBool());
     invisibleSnapController.setObjectSnapEnabled(true);
     invisibleSnapController.clickCanvasNormalized(0.26, 0.24);
     QVariantList invisibleSnapObjects = invisibleSnapController.modelDocument().value("drawing_objects").toList();
-    assert(invisibleSnapObjects.size() == 2);
+    EDI_CHECK(invisibleSnapObjects.size() == 2);
     QVariantMap unsnappedPoint = invisibleSnapObjects.back().toMap();
-    assert(nearlyEqual(unsnappedPoint.value("x").toDouble(), 0.26));
-    assert(nearlyEqual(unsnappedPoint.value("y").toDouble(), 0.24));
+    EDI_CHECK(nearlyEqual(unsnappedPoint.value("x").toDouble(), 0.26));
+    EDI_CHECK(nearlyEqual(unsnappedPoint.value("y").toDouble(), 0.24));
 
     DrawingDocumentController invisibleHitController;
     invisibleHitController.setSelectedToolId("point_tool");
     invisibleHitController.clickCanvasNormalized(0.25, 0.25);
-    assert(invisibleHitController.setSelectedObjectVisible(false));
+    EDI_CHECK(invisibleHitController.setSelectedObjectVisible(false));
     invisibleHitController.setSelectedToolId("select_move");
     invisibleHitController.clickCanvasNormalized(0.25, 0.25);
-    assert(invisibleHitController.selectedObjectId().isEmpty());
+    EDI_CHECK(invisibleHitController.selectedObjectId().isEmpty());
 
     DrawingDocumentController layerController;
     layerController.setSelectedToolId("point_tool");
     layerController.clickCanvasNormalized(0.25, 0.25);
     QVariantMap layerModel = layerController.modelDocument();
     QVariantList layers = layerModel.value("layers").toList();
-    assert(layers.size() == 1);
-    assert(layers.front().toMap().value("id").toString() == "default");
-    assert(layers.front().toMap().value("visible").toBool());
-    assert(!layers.front().toMap().value("locked").toBool());
+    EDI_CHECK(layers.size() == 1);
+    EDI_CHECK(layers.front().toMap().value("id").toString() == "default");
+    EDI_CHECK(layers.front().toMap().value("visible").toBool());
+    EDI_CHECK(!layers.front().toMap().value("locked").toBool());
 
-    assert(layerController.setDefaultLayerVisible(false));
+    EDI_CHECK(layerController.setDefaultLayerVisible(false));
     layerModel = layerController.modelDocument();
     layers = layerModel.value("layers").toList();
-    assert(!layers.front().toMap().value("visible").toBool());
+    EDI_CHECK(!layers.front().toMap().value("visible").toBool());
     QVariantMap hiddenLayerPoint = layerModel.value("drawing_objects").toList().front().toMap();
-    assert(hiddenLayerPoint.value("visible").toBool());
-    assert(!hiddenLayerPoint.value("effective_visible").toBool());
+    EDI_CHECK(hiddenLayerPoint.value("visible").toBool());
+    EDI_CHECK(!hiddenLayerPoint.value("effective_visible").toBool());
     layerController.setObjectSnapEnabled(true);
     layerController.clickCanvasNormalized(0.26, 0.24);
     QVariantList hiddenLayerObjects = layerController.modelDocument().value("drawing_objects").toList();
-    assert(hiddenLayerObjects.size() == 2);
+    EDI_CHECK(hiddenLayerObjects.size() == 2);
     QVariantMap hiddenLayerUnsnappedPoint = hiddenLayerObjects.back().toMap();
-    assert(nearlyEqual(hiddenLayerUnsnappedPoint.value("x").toDouble(), 0.26));
-    assert(nearlyEqual(hiddenLayerUnsnappedPoint.value("y").toDouble(), 0.24));
+    EDI_CHECK(nearlyEqual(hiddenLayerUnsnappedPoint.value("x").toDouble(), 0.26));
+    EDI_CHECK(nearlyEqual(hiddenLayerUnsnappedPoint.value("y").toDouble(), 0.24));
     layerController.setSelectedToolId("select_move");
     layerController.clickCanvasNormalized(0.25, 0.25);
-    assert(layerController.selectedObjectId().isEmpty());
+    EDI_CHECK(layerController.selectedObjectId().isEmpty());
 
-    assert(layerController.setDefaultLayerVisible(true));
-    assert(layerController.setDefaultLayerLocked(true));
+    EDI_CHECK(layerController.setDefaultLayerVisible(true));
+    EDI_CHECK(layerController.setDefaultLayerLocked(true));
     layerModel = layerController.modelDocument();
     layers = layerModel.value("layers").toList();
-    assert(layers.front().toMap().value("locked").toBool());
+    EDI_CHECK(layers.front().toMap().value("locked").toBool());
     layerController.setSelectedToolId("point_tool");
     const int lockedLayerObjectCount = layerController.modelDocument().value("drawing_objects").toList().size();
     layerController.clickCanvasNormalized(0.5, 0.5);
-    assert(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount);
-    assert(!layerController.setSelectedObjectLocked(true));
-    assert(!layerController.updateSelectedObjectGeometryField("x", 0.3));
-    assert(!layerController.moveSelectionNormalized(0.1, 0.0));
-    assert(layerController.setDefaultLayerLocked(false));
+    EDI_CHECK(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount);
+    EDI_CHECK(!layerController.setSelectedObjectLocked(true));
+    EDI_CHECK(!layerController.updateSelectedObjectGeometryField("x", 0.3));
+    EDI_CHECK(!layerController.moveSelectionNormalized(0.1, 0.0));
+    EDI_CHECK(layerController.setDefaultLayerLocked(false));
     layerController.clickCanvasNormalized(0.5, 0.5);
-    assert(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount + 1);
+    EDI_CHECK(layerController.modelDocument().value("drawing_objects").toList().size() == lockedLayerObjectCount + 1);
 
     DrawingDocumentController layerManagementController;
-    assert(layerManagementController.createLayer());
+    EDI_CHECK(layerManagementController.createLayer());
     QVariantMap layerManagementModel = layerManagementController.modelDocument();
-    assert(layerManagementModel.value("active_layer_id").toString() == "layer_2");
+    EDI_CHECK(layerManagementModel.value("active_layer_id").toString() == "layer_2");
     QVariantList managedLayers = layerManagementModel.value("layers").toList();
-    assert(managedLayers.size() == 2);
-    assert(layerManagementController.renameActiveLayer("Ink"));
+    EDI_CHECK(managedLayers.size() == 2);
+    EDI_CHECK(layerManagementController.renameActiveLayer("Ink"));
     managedLayers = layerManagementController.modelDocument().value("layers").toList();
-    assert(managedLayers[1].toMap().value("name").toString() == "Ink");
+    EDI_CHECK(managedLayers[1].toMap().value("name").toString() == "Ink");
     layerManagementController.setSelectedToolId("point_tool");
     layerManagementController.clickCanvasNormalized(0.2, 0.2);
     QVariantList managedObjects = layerManagementController.modelDocument().value("drawing_objects").toList();
-    assert(managedObjects.size() == 1);
+    EDI_CHECK(managedObjects.size() == 1);
     QVariantMap managedPoint = managedObjects.front().toMap();
-    assert(managedPoint.value("layer_id").toString() == "layer_2");
-    assert(layerManagementController.moveSelectedObjectToLayer("default"));
+    EDI_CHECK(managedPoint.value("layer_id").toString() == "layer_2");
+    EDI_CHECK(layerManagementController.moveSelectedObjectToLayer("default"));
     managedPoint = layerManagementController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(managedPoint.value("layer_id").toString() == "default");
-    assert(layerManagementController.setActiveLayerId("layer_2"));
-    assert(layerManagementController.setActiveLayerLocked(true));
+    EDI_CHECK(managedPoint.value("layer_id").toString() == "default");
+    EDI_CHECK(layerManagementController.setActiveLayerId("layer_2"));
+    EDI_CHECK(layerManagementController.setActiveLayerLocked(true));
     const int managedObjectCountBeforeLockedCreate = layerManagementController.modelDocument().value("drawing_objects").toList().size();
     layerManagementController.clickCanvasNormalized(0.4, 0.4);
-    assert(layerManagementController.modelDocument().value("drawing_objects").toList().size() == managedObjectCountBeforeLockedCreate);
-    assert(layerManagementController.setActiveLayerLocked(false));
-    assert(layerManagementController.setActiveLayerId("default"));
-    assert(layerManagementController.setActiveLayerLocked(true));
-    assert(!layerManagementController.moveSelectedObjectToLayer("layer_2"));
-    assert(layerManagementController.setActiveLayerLocked(false));
+    EDI_CHECK(layerManagementController.modelDocument().value("drawing_objects").toList().size() == managedObjectCountBeforeLockedCreate);
+    EDI_CHECK(layerManagementController.setActiveLayerLocked(false));
+    EDI_CHECK(layerManagementController.setActiveLayerId("default"));
+    EDI_CHECK(layerManagementController.setActiveLayerLocked(true));
+    EDI_CHECK(!layerManagementController.moveSelectedObjectToLayer("layer_2"));
+    EDI_CHECK(layerManagementController.setActiveLayerLocked(false));
 
     DrawingDocumentController layerOrderController;
     layerOrderController.setSelectedToolId("point_tool");
     layerOrderController.clickCanvasNormalized(0.1, 0.1);
-    assert(layerOrderController.createLayer());
-    assert(layerOrderController.activeLayerId() == "layer_2");
+    EDI_CHECK(layerOrderController.createLayer());
+    EDI_CHECK(layerOrderController.activeLayerId() == "layer_2");
     layerOrderController.clickCanvasNormalized(0.2, 0.2);
     QVariantMap layerOrderModel = layerOrderController.modelDocument();
     QVariantList orderedLayers = layerOrderModel.value("layers").toList();
-    assert(orderedLayers[0].toMap().value("id").toString() == "default");
-    assert(orderedLayers[1].toMap().value("id").toString() == "layer_2");
+    EDI_CHECK(orderedLayers[0].toMap().value("id").toString() == "default");
+    EDI_CHECK(orderedLayers[1].toMap().value("id").toString() == "layer_2");
     QVariantList orderedObjects = layerOrderModel.value("drawing_objects").toList();
-    assert(orderedObjects[0].toMap().value("layer_id").toString() == "default");
-    assert(orderedObjects[1].toMap().value("layer_id").toString() == "layer_2");
-    assert(layerOrderController.moveActiveLayer("down"));
+    EDI_CHECK(orderedObjects[0].toMap().value("layer_id").toString() == "default");
+    EDI_CHECK(orderedObjects[1].toMap().value("layer_id").toString() == "layer_2");
+    EDI_CHECK(layerOrderController.moveActiveLayer("down"));
     layerOrderModel = layerOrderController.modelDocument();
     orderedLayers = layerOrderModel.value("layers").toList();
-    assert(orderedLayers[0].toMap().value("id").toString() == "layer_2");
-    assert(orderedLayers[1].toMap().value("id").toString() == "default");
+    EDI_CHECK(orderedLayers[0].toMap().value("id").toString() == "layer_2");
+    EDI_CHECK(orderedLayers[1].toMap().value("id").toString() == "default");
     orderedObjects = layerOrderModel.value("drawing_objects").toList();
-    assert(orderedObjects[0].toMap().value("layer_id").toString() == "layer_2");
-    assert(orderedObjects[1].toMap().value("layer_id").toString() == "default");
-    assert(!layerOrderController.moveActiveLayer("sideways"));
+    EDI_CHECK(orderedObjects[0].toMap().value("layer_id").toString() == "layer_2");
+    EDI_CHECK(orderedObjects[1].toMap().value("layer_id").toString() == "default");
+    EDI_CHECK(!layerOrderController.moveActiveLayer("sideways"));
 
     DrawingDocumentController layerPlotController;
-    assert(layerPlotController.createLayer());
-    assert(layerPlotController.setActiveLayerPenPreset("pen_blue"));
-    assert(layerPlotController.setActiveLayerStrokeWidthPreset("fine"));
+    EDI_CHECK(layerPlotController.createLayer());
+    EDI_CHECK(layerPlotController.setActiveLayerPenPreset("pen_blue"));
+    EDI_CHECK(layerPlotController.setActiveLayerStrokeWidthPreset("fine"));
     layerPlotController.setSelectedToolId("point_tool");
     layerPlotController.clickCanvasNormalized(0.2, 0.2);
     QVariantMap layerPlotModel = layerPlotController.modelDocument();
     QVariantMap layerPlotPoint = layerPlotModel.value("drawing_objects").toList().front().toMap();
-    assert(layerPlotPoint.value("layer_id").toString() == "layer_2");
-    assert(layerPlotPoint.value("effective_plot_enabled").toBool());
-    assert(layerPlotPoint.value("effective_plot_ready").toBool());
-    assert(layerPlotPoint.value("plot_ready").toBool());
-    assert(!layerPlotPoint.value("plot_blocked").toBool());
-    assert(layerPlotPoint.value("plot_safety_state").toString() == "ready");
-    assert(layerPlotPoint.value("plot_warning_count").toInt() == 0);
-    assert(layerPlotPoint.value("effective_pen_id").toString() == "pen_blue");
-    assert(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
-    assert(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
+    EDI_CHECK(layerPlotPoint.value("layer_id").toString() == "layer_2");
+    EDI_CHECK(layerPlotPoint.value("effective_plot_enabled").toBool());
+    EDI_CHECK(layerPlotPoint.value("effective_plot_ready").toBool());
+    EDI_CHECK(layerPlotPoint.value("plot_ready").toBool());
+    EDI_CHECK(!layerPlotPoint.value("plot_blocked").toBool());
+    EDI_CHECK(layerPlotPoint.value("plot_safety_state").toString() == "ready");
+    EDI_CHECK(layerPlotPoint.value("plot_warning_count").toInt() == 0);
+    EDI_CHECK(layerPlotPoint.value("effective_pen_id").toString() == "pen_blue");
+    EDI_CHECK(layerPlotPoint.value("effective_stroke_color").toString() == "#75c7ff");
+    EDI_CHECK(nearlyEqual(layerPlotPoint.value("effective_stroke_width").toDouble(), 1.0));
     QVariantMap layerPlotSummary = layerPlotModel.value("plot_summary").toMap();
-    assert(layerPlotSummary.value("order_mode").toString() == "layer_order");
-    assert(layerPlotSummary.value("direction_mode").toString() == "preserve_direction");
-    assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
-    assert(layerPlotSummary.value("segment_count").toInt() == 2);
-    assert(layerPlotSummary.value("travel_segment_count").toInt() == 1);
-    assert(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
+    EDI_CHECK(layerPlotSummary.value("order_mode").toString() == "layer_order");
+    EDI_CHECK(layerPlotSummary.value("direction_mode").toString() == "preserve_direction");
+    EDI_CHECK(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    EDI_CHECK(layerPlotSummary.value("segment_count").toInt() == 2);
+    EDI_CHECK(layerPlotSummary.value("travel_segment_count").toInt() == 1);
+    EDI_CHECK(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
     QVariantList layerStats = layerPlotSummary.value("layer_stats").toList();
-    assert(layerStats.size() == 1);
+    EDI_CHECK(layerStats.size() == 1);
     QVariantMap layerStatsEntry = layerStats.front().toMap();
-    assert(layerStatsEntry.value("layer_id").toString() == "layer_2");
-    assert(layerStatsEntry.value("object_count").toInt() == 1);
-    assert(layerStatsEntry.value("segment_count").toInt() == 2);
-    assert(layerStatsEntry.value("stroke_distance").toDouble() > 0.0);
-    assert(layerStatsEntry.value("travel_distance").toDouble() > 0.0);
-    assert(layerStatsEntry.value("ready").toBool());
-    assert(layerStatsEntry.value("blocked_reason").toString() == "ready");
+    EDI_CHECK(layerStatsEntry.value("layer_id").toString() == "layer_2");
+    EDI_CHECK(layerStatsEntry.value("object_count").toInt() == 1);
+    EDI_CHECK(layerStatsEntry.value("segment_count").toInt() == 2);
+    EDI_CHECK(layerStatsEntry.value("stroke_distance").toDouble() > 0.0);
+    EDI_CHECK(layerStatsEntry.value("travel_distance").toDouble() > 0.0);
+    EDI_CHECK(layerStatsEntry.value("ready").toBool());
+    EDI_CHECK(layerStatsEntry.value("blocked_reason").toString() == "ready");
     QVariantList penStats = layerPlotSummary.value("pen_stats").toList();
-    assert(penStats.size() == 1);
+    EDI_CHECK(penStats.size() == 1);
     QVariantMap penStatsEntry = penStats.front().toMap();
-    assert(penStatsEntry.value("pen_id").toString() == "pen_blue");
-    assert(penStatsEntry.value("object_count").toInt() == 1);
-    assert(penStatsEntry.value("segment_count").toInt() == 2);
-    assert(penStatsEntry.value("stroke_distance").toDouble() > 0.0);
-    assert(penStatsEntry.value("travel_distance").toDouble() > 0.0);
-    assert(penStatsEntry.value("ready").toBool());
-    assert(penStatsEntry.value("blocked_reason").toString() == "ready");
+    EDI_CHECK(penStatsEntry.value("pen_id").toString() == "pen_blue");
+    EDI_CHECK(penStatsEntry.value("object_count").toInt() == 1);
+    EDI_CHECK(penStatsEntry.value("segment_count").toInt() == 2);
+    EDI_CHECK(penStatsEntry.value("stroke_distance").toDouble() > 0.0);
+    EDI_CHECK(penStatsEntry.value("travel_distance").toDouble() > 0.0);
+    EDI_CHECK(penStatsEntry.value("ready").toBool());
+    EDI_CHECK(penStatsEntry.value("blocked_reason").toString() == "ready");
     QVariantMap layerPlotPreview = layerPlotSummary.value("preview").toMap();
-    assert(layerPlotPreview.value("order_mode").toString() == "layer_order");
-    assert(layerPlotPreview.value("direction_mode").toString() == "preserve_direction");
-    assert(layerPlotPreview.value("segment_count").toInt() == 2);
-    assert(layerPlotPreview.value("travel_segment_count").toInt() == 1);
-    assert(layerPlotPreview.value("travel_distance").toDouble() > 0.0);
-    assert(layerPlotPreview.value("segments").toList().size() == 2);
+    EDI_CHECK(layerPlotPreview.value("order_mode").toString() == "layer_order");
+    EDI_CHECK(layerPlotPreview.value("direction_mode").toString() == "preserve_direction");
+    EDI_CHECK(layerPlotPreview.value("segment_count").toInt() == 2);
+    EDI_CHECK(layerPlotPreview.value("travel_segment_count").toInt() == 1);
+    EDI_CHECK(layerPlotPreview.value("travel_distance").toDouble() > 0.0);
+    EDI_CHECK(layerPlotPreview.value("segments").toList().size() == 2);
     const QVariantList layerPlotTravelSegments = layerPlotPreview.value("travel_segments").toList();
-    assert(layerPlotTravelSegments.size() == 1);
+    EDI_CHECK(layerPlotTravelSegments.size() == 1);
     const QVariantMap layerPlotTravelSegment = layerPlotTravelSegments.front().toMap();
-    assert(layerPlotTravelSegment.value("from_object_id").toString() == layerPlotPoint.value("id").toString());
-    assert(layerPlotTravelSegment.value("to_object_id").toString() == layerPlotPoint.value("id").toString());
-    assert(layerPlotTravelSegment.value("to_layer_id").toString() == "layer_2");
-    assert(layerPlotTravelSegment.value("to_pen_id").toString() == "pen_blue");
-    assert(layerPlotTravelSegment.value("distance").toDouble() > 0.0);
-    assert(layerPlotSummary.value("warning_count").toInt() == 0);
-    assert(layerPlotSummary.value("ready").toBool());
-    assert(layerPlotSummary.value("status").toString() == "ready");
-    assert(!layerPlotSummary.value("blocked").toBool());
-    assert(layerPlotSummary.value("blocked_reason_count").toInt() == 0);
-    assert(layerPlotController.plotOrderModeId() == "layer_order");
+    EDI_CHECK(layerPlotTravelSegment.value("from_object_id").toString() == layerPlotPoint.value("id").toString());
+    EDI_CHECK(layerPlotTravelSegment.value("to_object_id").toString() == layerPlotPoint.value("id").toString());
+    EDI_CHECK(layerPlotTravelSegment.value("to_layer_id").toString() == "layer_2");
+    EDI_CHECK(layerPlotTravelSegment.value("to_pen_id").toString() == "pen_blue");
+    EDI_CHECK(layerPlotTravelSegment.value("distance").toDouble() > 0.0);
+    EDI_CHECK(layerPlotSummary.value("warning_count").toInt() == 0);
+    EDI_CHECK(layerPlotSummary.value("ready").toBool());
+    EDI_CHECK(layerPlotSummary.value("status").toString() == "ready");
+    EDI_CHECK(!layerPlotSummary.value("blocked").toBool());
+    EDI_CHECK(layerPlotSummary.value("blocked_reason_count").toInt() == 0);
+    EDI_CHECK(layerPlotController.plotOrderModeId() == "layer_order");
     layerPlotController.setPlotOrderModeId("nearest_next");
-    assert(layerPlotController.plotOrderModeId() == "nearest_next");
+    EDI_CHECK(layerPlotController.plotOrderModeId() == "nearest_next");
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
-    assert(layerPlotSummary.value("order_mode").toString() == "nearest_next");
-    assert(layerPlotSummary.value("preview").toMap().value("order_mode").toString() == "nearest_next");
+    EDI_CHECK(layerPlotSummary.value("order_mode").toString() == "nearest_next");
+    EDI_CHECK(layerPlotSummary.value("preview").toMap().value("order_mode").toString() == "nearest_next");
     layerPlotController.setPlotOrderModeId("unknown");
-    assert(layerPlotController.plotOrderModeId() == "layer_order");
-    assert(layerPlotController.plotDirectionModeId() == "preserve_direction");
+    EDI_CHECK(layerPlotController.plotOrderModeId() == "layer_order");
+    EDI_CHECK(layerPlotController.plotDirectionModeId() == "preserve_direction");
     layerPlotController.setPlotDirectionModeId("allow_reverse_segments");
-    assert(layerPlotController.plotDirectionModeId() == "allow_reverse_segments");
+    EDI_CHECK(layerPlotController.plotDirectionModeId() == "allow_reverse_segments");
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
-    assert(layerPlotSummary.value("direction_mode").toString() == "allow_reverse_segments");
-    assert(layerPlotSummary.value("preview").toMap().value("direction_mode").toString() == "allow_reverse_segments");
+    EDI_CHECK(layerPlotSummary.value("direction_mode").toString() == "allow_reverse_segments");
+    EDI_CHECK(layerPlotSummary.value("preview").toMap().value("direction_mode").toString() == "allow_reverse_segments");
     layerPlotController.setPlotDirectionModeId("unknown");
-    assert(layerPlotController.plotDirectionModeId() == "preserve_direction");
-    assert(layerPlotController.setActiveLayerPlotEnabled(false));
+    EDI_CHECK(layerPlotController.plotDirectionModeId() == "preserve_direction");
+    EDI_CHECK(layerPlotController.setActiveLayerPlotEnabled(false));
     layerPlotPoint = layerPlotController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(!layerPlotPoint.value("effective_plot_enabled").toBool());
-    assert(!layerPlotPoint.value("effective_plot_ready").toBool());
-    assert(!layerPlotPoint.value("plot_ready").toBool());
+    EDI_CHECK(!layerPlotPoint.value("effective_plot_enabled").toBool());
+    EDI_CHECK(!layerPlotPoint.value("effective_plot_ready").toBool());
+    EDI_CHECK(!layerPlotPoint.value("plot_ready").toBool());
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
-    assert(layerPlotSummary.value("plot_object_count").toInt() == 0);
-    assert(layerPlotSummary.value("segment_count").toInt() == 0);
+    EDI_CHECK(layerPlotSummary.value("plot_object_count").toInt() == 0);
+    EDI_CHECK(layerPlotSummary.value("segment_count").toInt() == 0);
     layerStats = layerPlotSummary.value("layer_stats").toList();
-    assert(layerStats.size() == 1);
+    EDI_CHECK(layerStats.size() == 1);
     layerStatsEntry = layerStats.front().toMap();
-    assert(layerStatsEntry.value("layer_id").toString() == "layer_2");
-    assert(!layerStatsEntry.value("ready").toBool());
-    assert(layerStatsEntry.value("blocked_reason").toString() == "plot_disabled");
+    EDI_CHECK(layerStatsEntry.value("layer_id").toString() == "layer_2");
+    EDI_CHECK(!layerStatsEntry.value("ready").toBool());
+    EDI_CHECK(layerStatsEntry.value("blocked_reason").toString() == "plot_disabled");
     penStats = layerPlotSummary.value("pen_stats").toList();
-    assert(penStats.size() == 1);
+    EDI_CHECK(penStats.size() == 1);
     penStatsEntry = penStats.front().toMap();
-    assert(penStatsEntry.value("pen_id").toString() == "pen_blue");
-    assert(!penStatsEntry.value("ready").toBool());
-    assert(penStatsEntry.value("blocked_reason").toString() == "no_assigned_segments");
-    assert(layerPlotSummary.value("travel_segment_count").toInt() == 0);
-    assert(nearlyEqual(layerPlotSummary.value("travel_distance").toDouble(), 0.0));
-    assert(layerPlotController.setActiveLayerPlotEnabled(true));
+    EDI_CHECK(penStatsEntry.value("pen_id").toString() == "pen_blue");
+    EDI_CHECK(!penStatsEntry.value("ready").toBool());
+    EDI_CHECK(penStatsEntry.value("blocked_reason").toString() == "no_assigned_segments");
+    EDI_CHECK(layerPlotSummary.value("travel_segment_count").toInt() == 0);
+    EDI_CHECK(nearlyEqual(layerPlotSummary.value("travel_distance").toDouble(), 0.0));
+    EDI_CHECK(layerPlotController.setActiveLayerPlotEnabled(true));
     layerPlotController.setSelectedToolId("horizontal_guide_tool");
     layerPlotController.clickCanvasNormalized(0.4, 0.4);
     QVariantMap layerPlotGuide = layerPlotController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(layerPlotGuide.value("kind").toString() == "guide");
-    assert(layerPlotGuide.value("effective_plot_enabled").toBool());
-    assert(!layerPlotGuide.value("effective_plot_ready").toBool());
-    assert(!layerPlotGuide.value("plot_ready").toBool());
+    EDI_CHECK(layerPlotGuide.value("kind").toString() == "guide");
+    EDI_CHECK(layerPlotGuide.value("effective_plot_enabled").toBool());
+    EDI_CHECK(!layerPlotGuide.value("effective_plot_ready").toBool());
+    EDI_CHECK(!layerPlotGuide.value("plot_ready").toBool());
     layerPlotSummary = layerPlotController.modelDocument().value("plot_summary").toMap();
-    assert(layerPlotSummary.value("plot_object_count").toInt() == 1);
-    assert(layerPlotSummary.value("segment_count").toInt() == 2);
-    assert(layerPlotSummary.value("travel_segment_count").toInt() == 1);
+    EDI_CHECK(layerPlotSummary.value("plot_object_count").toInt() == 1);
+    EDI_CHECK(layerPlotSummary.value("segment_count").toInt() == 2);
+    EDI_CHECK(layerPlotSummary.value("travel_segment_count").toInt() == 1);
     layerPlotController.setSelectedToolId("point_tool");
     layerPlotController.clickCanvasNormalized(0.0, 0.0);
     QVariantMap blockedPlotModel = layerPlotController.modelDocument();
     layerPlotSummary = blockedPlotModel.value("plot_summary").toMap();
-    assert(layerPlotSummary.value("plot_object_count").toInt() == 2);
-    assert(layerPlotSummary.value("segment_count").toInt() == 4);
-    assert(layerPlotSummary.value("travel_segment_count").toInt() == 3);
-    assert(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
-    assert(layerPlotSummary.value("warning_count").toInt() == 1);
-    assert(!layerPlotSummary.value("ready").toBool());
-    assert(layerPlotSummary.value("status").toString() == "blocked");
-    assert(layerPlotSummary.value("blocked").toBool());
-    assert(layerPlotSummary.value("blocked_reason_count").toInt() == 1);
-    assert(layerPlotSummary.value("blocked_reasons").toList().front().toString() == "raw_out_of_drawable_bounds");
-    assert(layerPlotSummary.value("first_warning_kind").toString() == "raw_out_of_drawable_bounds");
+    EDI_CHECK(layerPlotSummary.value("plot_object_count").toInt() == 2);
+    EDI_CHECK(layerPlotSummary.value("segment_count").toInt() == 4);
+    EDI_CHECK(layerPlotSummary.value("travel_segment_count").toInt() == 3);
+    EDI_CHECK(layerPlotSummary.value("travel_distance").toDouble() > 0.0);
+    EDI_CHECK(layerPlotSummary.value("warning_count").toInt() == 1);
+    EDI_CHECK(!layerPlotSummary.value("ready").toBool());
+    EDI_CHECK(layerPlotSummary.value("status").toString() == "blocked");
+    EDI_CHECK(layerPlotSummary.value("blocked").toBool());
+    EDI_CHECK(layerPlotSummary.value("blocked_reason_count").toInt() == 1);
+    EDI_CHECK(layerPlotSummary.value("blocked_reasons").toList().front().toString() == "raw_out_of_drawable_bounds");
+    EDI_CHECK(layerPlotSummary.value("first_warning_kind").toString() == "raw_out_of_drawable_bounds");
     const QString blockedObjectId = layerPlotSummary.value("first_warning_object_id").toString();
-    assert(!blockedObjectId.isEmpty());
+    EDI_CHECK(!blockedObjectId.isEmpty());
     QVariantMap blockedObject;
     for (const QVariant &objectValue : blockedPlotModel.value("drawing_objects").toList()) {
         const QVariantMap object = objectValue.toMap();
@@ -2022,318 +2022,318 @@ int main(int argc, char **argv)
             break;
         }
     }
-    assert(!blockedObject.isEmpty());
-    assert(blockedObject.value("plot_blocked").toBool());
-    assert(blockedObject.value("plot_safety_state").toString() == "blocked");
-    assert(blockedObject.value("plot_warning_count").toInt() == 1);
-    assert(blockedObject.value("plot_warning_kind").toString() == "raw_out_of_drawable_bounds");
-    assert(blockedObject.value("outside_drawable").toBool());
-    assert(!blockedObject.value("calibrated_outside_drawable").toBool());
-    assert(blockedPlotModel.value("warnings").toList().size() == 1);
+    EDI_CHECK(!blockedObject.isEmpty());
+    EDI_CHECK(blockedObject.value("plot_blocked").toBool());
+    EDI_CHECK(blockedObject.value("plot_safety_state").toString() == "blocked");
+    EDI_CHECK(blockedObject.value("plot_warning_count").toInt() == 1);
+    EDI_CHECK(blockedObject.value("plot_warning_kind").toString() == "raw_out_of_drawable_bounds");
+    EDI_CHECK(blockedObject.value("outside_drawable").toBool());
+    EDI_CHECK(!blockedObject.value("calibrated_outside_drawable").toBool());
+    EDI_CHECK(blockedPlotModel.value("warnings").toList().size() == 1);
 
     DrawingDocumentController fitNoSelectionController;
-    assert(!fitNoSelectionController.fitSelectionToDrawableBounds());
+    EDI_CHECK(!fitNoSelectionController.fitSelectionToDrawableBounds());
 
     DrawingDocumentController fitInsideController;
     fitInsideController.setSelectedToolId("point_tool");
     fitInsideController.clickCanvasNormalized(0.5, 0.5);
     QVariantMap fitInsideModel = fitInsideController.modelDocument();
     const int fitInsideRevision = fitInsideModel.value("revision").toInt();
-    assert(fitInsideModel.value("selection_drawable_relation").toString() == "inside");
-    assert(fitInsideController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitInsideModel.value("selection_drawable_relation").toString() == "inside");
+    EDI_CHECK(fitInsideController.fitSelectionToDrawableBounds());
     fitInsideModel = fitInsideController.modelDocument();
     QVariantMap fitInsidePoint = fitInsideModel.value("drawing_objects").toList().front().toMap();
-    assert(fitInsideModel.value("revision").toInt() == fitInsideRevision);
-    assert(nearlyEqual(fitInsidePoint.value("x").toDouble(), 0.5));
-    assert(nearlyEqual(fitInsidePoint.value("y").toDouble(), 0.5));
+    EDI_CHECK(fitInsideModel.value("revision").toInt() == fitInsideRevision);
+    EDI_CHECK(nearlyEqual(fitInsidePoint.value("x").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(fitInsidePoint.value("y").toDouble(), 0.5));
 
     DrawingDocumentController fitOutsideController;
     fitOutsideController.setSelectedToolId("line_tool");
     fitOutsideController.clickCanvasNormalized(0.0, 0.5);
     fitOutsideController.clickCanvasNormalized(0.1, 0.5);
     QVariantMap fitOutsideModel = fitOutsideController.modelDocument();
-    assert(fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
-    assert(fitOutsideModel.value("selection_drawable_relation").toString() == "partially_outside");
-    assert(fitOutsideController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
+    EDI_CHECK(fitOutsideModel.value("selection_drawable_relation").toString() == "partially_outside");
+    EDI_CHECK(fitOutsideController.fitSelectionToDrawableBounds());
     fitOutsideModel = fitOutsideController.modelDocument();
     QVariantMap fitOutsideLine = fitOutsideModel.value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(fitOutsideLine.value("x1").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(fitOutsideLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
-    assert(nearlyEqual(fitOutsideLine.value("y1").toDouble(), 0.5));
-    assert(nearlyEqual(fitOutsideLine.value("y2").toDouble(), 0.5));
-    assert(!fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
+    EDI_CHECK(nearlyEqual(fitOutsideLine.value("x1").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(fitOutsideLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
+    EDI_CHECK(nearlyEqual(fitOutsideLine.value("y1").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(fitOutsideLine.value("y2").toDouble(), 0.5));
+    EDI_CHECK(!fitOutsideModel.value("plot_summary").toMap().value("blocked").toBool());
 
     DrawingDocumentController fitPointMarkController;
     fitPointMarkController.setSelectedToolId("point_tool");
     fitPointMarkController.clickCanvasNormalized(0.0, 0.0);
     QVariantMap fitPointMarkModel = fitPointMarkController.modelDocument();
-    assert(fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
-    assert(fitPointMarkController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
+    EDI_CHECK(fitPointMarkController.fitSelectionToDrawableBounds());
     fitPointMarkModel = fitPointMarkController.modelDocument();
     QVariantMap fitPointMark = fitPointMarkModel.value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(fitPointMark.value("x").toDouble(), squareQuarterInchStep + 0.005));
-    assert(nearlyEqual(fitPointMark.value("y").toDouble(), squareQuarterInchStep + 0.005));
-    assert(!fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
-    assert(fitPointMarkModel.value("has_selection_plot_bounds").toBool());
+    EDI_CHECK(nearlyEqual(fitPointMark.value("x").toDouble(), squareQuarterInchStep + 0.005));
+    EDI_CHECK(nearlyEqual(fitPointMark.value("y").toDouble(), squareQuarterInchStep + 0.005));
+    EDI_CHECK(!fitPointMarkModel.value("plot_summary").toMap().value("blocked").toBool());
+    EDI_CHECK(fitPointMarkModel.value("has_selection_plot_bounds").toBool());
     QVariantMap fitPointMarkSelectionBounds = fitPointMarkModel.value("selection_plot_bounds").toMap();
-    assert(nearlyEqual(fitPointMarkSelectionBounds.value("x").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(fitPointMarkSelectionBounds.value("y").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(fitPointMarkSelectionBounds.value("width").toDouble(), 0.01));
-    assert(nearlyEqual(fitPointMarkSelectionBounds.value("height").toDouble(), 0.01));
-    assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_width").toDouble(), 0.01));
-    assert(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_height").toDouble(), 0.01));
-    assert(fitPointMarkModel.value("selection_plot_bounds_status").toString() == "inside");
-    assert(fitPointMarkModel.value("selection_drawable_relation").toString() == "inside");
+    EDI_CHECK(nearlyEqual(fitPointMarkSelectionBounds.value("x").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(fitPointMarkSelectionBounds.value("y").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(fitPointMarkSelectionBounds.value("width").toDouble(), 0.01));
+    EDI_CHECK(nearlyEqual(fitPointMarkSelectionBounds.value("height").toDouble(), 0.01));
+    EDI_CHECK(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_width").toDouble(), 0.01));
+    EDI_CHECK(nearlyEqual(fitPointMarkModel.value("selection_plot_bounds_height").toDouble(), 0.01));
+    EDI_CHECK(fitPointMarkModel.value("selection_plot_bounds_status").toString() == "inside");
+    EDI_CHECK(fitPointMarkModel.value("selection_drawable_relation").toString() == "inside");
 
     DrawingDocumentController fitTooLargeController;
     fitTooLargeController.setSelectedToolId("line_tool");
     fitTooLargeController.clickCanvasNormalized(0.0, 0.5);
     fitTooLargeController.clickCanvasNormalized(1.0, 0.5);
     const int fitTooLargeRevision = fitTooLargeController.modelDocument().value("revision").toInt();
-    assert(fitTooLargeController.modelDocument().value("selection_drawable_relation").toString() == "too_large");
-    assert(!fitTooLargeController.fitSelectionToDrawableBounds());
-    assert(fitTooLargeController.modelDocument().value("revision").toInt() == fitTooLargeRevision);
+    EDI_CHECK(fitTooLargeController.modelDocument().value("selection_drawable_relation").toString() == "too_large");
+    EDI_CHECK(!fitTooLargeController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitTooLargeController.modelDocument().value("revision").toInt() == fitTooLargeRevision);
 
     DrawingDocumentController fullyOutsideController;
     fullyOutsideController.setSelectedToolId("point_tool");
     fullyOutsideController.clickCanvasNormalized(0.5, 0.5);
-    assert(fullyOutsideController.updateSelectedObjectGeometryField("x", 2.0));
-    assert(fullyOutsideController.updateSelectedObjectGeometryField("y", 2.0));
-    assert(fullyOutsideController.modelDocument().value("selection_drawable_relation").toString() == "fully_outside");
+    EDI_CHECK(fullyOutsideController.updateSelectedObjectGeometryField("x", 2.0));
+    EDI_CHECK(fullyOutsideController.updateSelectedObjectGeometryField("y", 2.0));
+    EDI_CHECK(fullyOutsideController.modelDocument().value("selection_drawable_relation").toString() == "fully_outside");
 
     DrawingDocumentController centerDrawableController;
     centerDrawableController.setSelectedToolId("line_tool");
     centerDrawableController.clickCanvasNormalized(0.0, 0.5);
     centerDrawableController.clickCanvasNormalized(0.1, 0.5);
-    assert(centerDrawableController.centerSelectionInDrawable());
+    EDI_CHECK(centerDrawableController.centerSelectionInDrawable());
     QVariantMap centeredLine = centerDrawableController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(centeredLine.value("x1").toDouble(), 0.45));
-    assert(nearlyEqual(centeredLine.value("x2").toDouble(), 0.55));
-    assert(nearlyEqual(centeredLine.value("y1").toDouble(), 0.5));
-    assert(nearlyEqual(centeredLine.value("y2").toDouble(), 0.5));
-    assert(centerDrawableController.modelDocument().value("selection_drawable_relation").toString() == "inside");
+    EDI_CHECK(nearlyEqual(centeredLine.value("x1").toDouble(), 0.45));
+    EDI_CHECK(nearlyEqual(centeredLine.value("x2").toDouble(), 0.55));
+    EDI_CHECK(nearlyEqual(centeredLine.value("y1").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(centeredLine.value("y2").toDouble(), 0.5));
+    EDI_CHECK(centerDrawableController.modelDocument().value("selection_drawable_relation").toString() == "inside");
 
     DrawingDocumentController originDrawableController;
     originDrawableController.setSelectedToolId("line_tool");
     originDrawableController.clickCanvasNormalized(0.5, 0.5);
     originDrawableController.clickCanvasNormalized(0.6, 0.7);
-    assert(originDrawableController.moveSelectionToDrawableOrigin());
+    EDI_CHECK(originDrawableController.moveSelectionToDrawableOrigin());
     QVariantMap originLine = originDrawableController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(originLine.value("x1").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(originLine.value("y1").toDouble(), squareQuarterInchStep));
-    assert(nearlyEqual(originLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
-    assert(nearlyEqual(originLine.value("y2").toDouble(), squareQuarterInchStep + 0.2));
+    EDI_CHECK(nearlyEqual(originLine.value("x1").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(originLine.value("y1").toDouble(), squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(originLine.value("x2").toDouble(), squareQuarterInchStep + 0.1));
+    EDI_CHECK(nearlyEqual(originLine.value("y2").toDouble(), squareQuarterInchStep + 0.2));
 
     DrawingDocumentController fitLockedController;
     fitLockedController.setSelectedToolId("point_tool");
     fitLockedController.clickCanvasNormalized(0.0, 0.0);
-    assert(fitLockedController.setSelectedObjectLocked(true));
+    EDI_CHECK(fitLockedController.setSelectedObjectLocked(true));
     const int fitLockedRevision = fitLockedController.modelDocument().value("revision").toInt();
-    assert(!fitLockedController.fitSelectionToDrawableBounds());
-    assert(fitLockedController.modelDocument().value("revision").toInt() == fitLockedRevision);
+    EDI_CHECK(!fitLockedController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitLockedController.modelDocument().value("revision").toInt() == fitLockedRevision);
 
     DrawingDocumentController fitNonPlottingController;
     fitNonPlottingController.setSelectedToolId("horizontal_guide_tool");
     fitNonPlottingController.clickCanvasNormalized(0.0, 0.0);
     const int fitNonPlottingRevision = fitNonPlottingController.modelDocument().value("revision").toInt();
-    assert(!fitNonPlottingController.fitSelectionToDrawableBounds());
-    assert(fitNonPlottingController.modelDocument().value("revision").toInt() == fitNonPlottingRevision);
+    EDI_CHECK(!fitNonPlottingController.fitSelectionToDrawableBounds());
+    EDI_CHECK(fitNonPlottingController.modelDocument().value("revision").toInt() == fitNonPlottingRevision);
 
     DrawingDocumentController safeNudgeNoSelectionController;
-    assert(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("right", "grid"));
-    assert(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("diagonal", "grid"));
+    EDI_CHECK(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("right", "grid"));
+    EDI_CHECK(!safeNudgeNoSelectionController.nudgeSelectionInsideDrawable("diagonal", "grid"));
 
     DrawingDocumentController safeNudgeController;
     safeNudgeController.setSelectedToolId("point_tool");
     safeNudgeController.clickCanvasNormalized(0.5, 0.5);
-    assert(safeNudgeController.nudgeSelectionInsideDrawable("right", "grid"));
+    EDI_CHECK(safeNudgeController.nudgeSelectionInsideDrawable("right", "grid"));
     QVariantMap safeNudgedPoint = safeNudgeController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(safeNudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
-    assert(nearlyEqual(safeNudgedPoint.value("y").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(safeNudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(safeNudgedPoint.value("y").toDouble(), 0.5));
 
     DrawingDocumentController safeNudgeBlockedController;
     safeNudgeBlockedController.setSelectedToolId("point_tool");
     safeNudgeBlockedController.clickCanvasNormalized(0.0, 0.0);
-    assert(safeNudgeBlockedController.fitSelectionToDrawableBounds());
+    EDI_CHECK(safeNudgeBlockedController.fitSelectionToDrawableBounds());
     const int safeNudgeBlockedRevision = safeNudgeBlockedController.modelDocument().value("revision").toInt();
-    assert(!safeNudgeBlockedController.nudgeSelectionInsideDrawable("left", "grid"));
+    EDI_CHECK(!safeNudgeBlockedController.nudgeSelectionInsideDrawable("left", "grid"));
     QVariantMap safeNudgeBlockedPoint = safeNudgeBlockedController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(safeNudgeBlockedController.modelDocument().value("revision").toInt() == safeNudgeBlockedRevision);
-    assert(nearlyEqual(safeNudgeBlockedPoint.value("x").toDouble(), squareQuarterInchStep + 0.005));
+    EDI_CHECK(safeNudgeBlockedController.modelDocument().value("revision").toInt() == safeNudgeBlockedRevision);
+    EDI_CHECK(nearlyEqual(safeNudgeBlockedPoint.value("x").toDouble(), squareQuarterInchStep + 0.005));
 
     DrawingDocumentController safeNudgeLockedController;
     safeNudgeLockedController.setSelectedToolId("point_tool");
     safeNudgeLockedController.clickCanvasNormalized(0.5, 0.5);
-    assert(safeNudgeLockedController.setSelectedObjectLocked(true));
+    EDI_CHECK(safeNudgeLockedController.setSelectedObjectLocked(true));
     const int safeNudgeLockedRevision = safeNudgeLockedController.modelDocument().value("revision").toInt();
-    assert(!safeNudgeLockedController.nudgeSelectionInsideDrawable("right", "grid"));
-    assert(safeNudgeLockedController.modelDocument().value("revision").toInt() == safeNudgeLockedRevision);
+    EDI_CHECK(!safeNudgeLockedController.nudgeSelectionInsideDrawable("right", "grid"));
+    EDI_CHECK(safeNudgeLockedController.modelDocument().value("revision").toInt() == safeNudgeLockedRevision);
 
     DrawingDocumentController safeNudgeNonPlottingController;
     safeNudgeNonPlottingController.setSelectedToolId("horizontal_guide_tool");
     safeNudgeNonPlottingController.clickCanvasNormalized(0.5, 0.5);
     const int safeNudgeNonPlottingRevision = safeNudgeNonPlottingController.modelDocument().value("revision").toInt();
-    assert(!safeNudgeNonPlottingController.nudgeSelectionInsideDrawable("right", "grid"));
-    assert(safeNudgeNonPlottingController.modelDocument().value("revision").toInt() == safeNudgeNonPlottingRevision);
+    EDI_CHECK(!safeNudgeNonPlottingController.nudgeSelectionInsideDrawable("right", "grid"));
+    EDI_CHECK(safeNudgeNonPlottingController.modelDocument().value("revision").toInt() == safeNudgeNonPlottingRevision);
 
     DrawingDocumentController calibrationController;
-    assert(calibrationController.createCalibrationPattern("test_square"));
+    EDI_CHECK(calibrationController.createCalibrationPattern("test_square"));
     QVariantMap calibrationModel = calibrationController.modelDocument();
     QVariantList calibrationObjects = calibrationModel.value("drawing_objects").toList();
-    assert(calibrationObjects.size() == 1);
+    EDI_CHECK(calibrationObjects.size() == 1);
     QVariantMap calibrationSquare = calibrationObjects.front().toMap();
-    assert(calibrationSquare.value("kind").toString() == "rectangle");
-    assert(calibrationSquare.value("layer_id").toString() == "default");
-    assert(nearlyEqual(calibrationSquare.value("x").toDouble(), 0.15));
-    assert(nearlyEqual(calibrationSquare.value("y").toDouble(), 0.15));
-    assert(nearlyEqual(calibrationSquare.value("width").toDouble(), 0.24));
-    assert(nearlyEqual(calibrationSquare.value("height").toDouble(), 0.24));
-    assert(calibrationModel.value("selected_object_ids").toList().size() == 1);
-    assert(calibrationController.recordCalibrationMeasurement(0.238));
+    EDI_CHECK(calibrationSquare.value("kind").toString() == "rectangle");
+    EDI_CHECK(calibrationSquare.value("layer_id").toString() == "default");
+    EDI_CHECK(nearlyEqual(calibrationSquare.value("x").toDouble(), 0.15));
+    EDI_CHECK(nearlyEqual(calibrationSquare.value("y").toDouble(), 0.15));
+    EDI_CHECK(nearlyEqual(calibrationSquare.value("width").toDouble(), 0.24));
+    EDI_CHECK(nearlyEqual(calibrationSquare.value("height").toDouble(), 0.24));
+    EDI_CHECK(calibrationModel.value("selected_object_ids").toList().size() == 1);
+    EDI_CHECK(calibrationController.recordCalibrationMeasurement(0.238));
     calibrationModel = calibrationController.modelDocument();
     QVariantMap calibrationMeasurement = calibrationModel.value("calibration_measurement").toMap();
-    assert(calibrationMeasurement.value("pattern_id").toString() == "calibration_square");
-    assert(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.24));
-    assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.238));
-    assert(nearlyEqual(calibrationMeasurement.value("error_value").toDouble(), -0.002));
-    assert(calibrationMeasurement.value("percent_error").toDouble() < 0.0);
+    EDI_CHECK(calibrationMeasurement.value("pattern_id").toString() == "calibration_square");
+    EDI_CHECK(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.24));
+    EDI_CHECK(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.238));
+    EDI_CHECK(nearlyEqual(calibrationMeasurement.value("error_value").toDouble(), -0.002));
+    EDI_CHECK(calibrationMeasurement.value("percent_error").toDouble() < 0.0);
     QVariantMap calibrationCorrection = calibrationModel.value("calibration_correction").toMap();
-    assert(calibrationCorrection.value("ok").toBool());
-    assert(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.24 / 0.238));
-    assert(calibrationCorrection.value("correction_percent").toDouble() > 0.0);
-    assert(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 1.0));
+    EDI_CHECK(calibrationCorrection.value("ok").toBool());
+    EDI_CHECK(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.24 / 0.238));
+    EDI_CHECK(calibrationCorrection.value("correction_percent").toDouble() > 0.0);
+    EDI_CHECK(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 1.0));
     calibrationSquare = calibrationModel.value("drawing_objects").toList().front().toMap();
-    assert(calibrationSquare.value("measurement_note").toString().contains("calibration_square"));
+    EDI_CHECK(calibrationSquare.value("measurement_note").toString().contains("calibration_square"));
     const double calibrationSquareXBeforeApply = calibrationSquare.value("x").toDouble();
-    assert(calibrationController.applyCalibrationCorrection());
+    EDI_CHECK(calibrationController.applyCalibrationCorrection());
     calibrationModel = calibrationController.modelDocument();
     const double appliedCalibrationScale = 0.24 / 0.238;
     const QVariantMap appliedCalibrationPlot = calibrationModel.value("plot_summary").toMap();
-    assert(nearlyEqual(appliedCalibrationPlot.value("calibration_scale").toDouble(), appliedCalibrationScale));
-    assert(appliedCalibrationPlot.value("has_plot_bounds").toBool());
+    EDI_CHECK(nearlyEqual(appliedCalibrationPlot.value("calibration_scale").toDouble(), appliedCalibrationScale));
+    EDI_CHECK(appliedCalibrationPlot.value("has_plot_bounds").toBool());
     const QVariantMap appliedCalibrationPlotBounds = appliedCalibrationPlot.value("plot_bounds").toMap();
-    assert(nearlyEqual(appliedCalibrationPlotBounds.value("x").toDouble(), 0.15 * appliedCalibrationScale));
-    assert(nearlyEqual(appliedCalibrationPlotBounds.value("width").toDouble(), 0.24 * appliedCalibrationScale));
+    EDI_CHECK(nearlyEqual(appliedCalibrationPlotBounds.value("x").toDouble(), 0.15 * appliedCalibrationScale));
+    EDI_CHECK(nearlyEqual(appliedCalibrationPlotBounds.value("width").toDouble(), 0.24 * appliedCalibrationScale));
     const QVariantList appliedCalibrationSegments = appliedCalibrationPlot.value("preview").toMap().value("segments").toList();
-    assert(!appliedCalibrationSegments.isEmpty());
+    EDI_CHECK(!appliedCalibrationSegments.isEmpty());
     const QVariantMap appliedCalibrationSegment = appliedCalibrationSegments.front().toMap();
-    assert(nearlyEqual(appliedCalibrationSegment.value("raw_x1").toDouble(), 0.15));
-    assert(nearlyEqual(appliedCalibrationSegment.value("raw_x2").toDouble(), 0.39));
-    assert(nearlyEqual(appliedCalibrationSegment.value("x1").toDouble(), 0.15 * appliedCalibrationScale));
-    assert(nearlyEqual(appliedCalibrationSegment.value("calibrated_x2").toDouble(), 0.39 * appliedCalibrationScale));
+    EDI_CHECK(nearlyEqual(appliedCalibrationSegment.value("raw_x1").toDouble(), 0.15));
+    EDI_CHECK(nearlyEqual(appliedCalibrationSegment.value("raw_x2").toDouble(), 0.39));
+    EDI_CHECK(nearlyEqual(appliedCalibrationSegment.value("x1").toDouble(), 0.15 * appliedCalibrationScale));
+    EDI_CHECK(nearlyEqual(appliedCalibrationSegment.value("calibrated_x2").toDouble(), 0.39 * appliedCalibrationScale));
     calibrationSquare = calibrationModel.value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(calibrationSquare.value("x").toDouble(), calibrationSquareXBeforeApply));
+    EDI_CHECK(nearlyEqual(calibrationSquare.value("x").toDouble(), calibrationSquareXBeforeApply));
 
-    assert(calibrationController.createLayer());
-    assert(calibrationController.activeLayerId() == "layer_2");
-    assert(calibrationController.createCalibrationPattern("test_circle"));
+    EDI_CHECK(calibrationController.createLayer());
+    EDI_CHECK(calibrationController.activeLayerId() == "layer_2");
+    EDI_CHECK(calibrationController.createCalibrationPattern("test_circle"));
     calibrationModel = calibrationController.modelDocument();
     calibrationObjects = calibrationModel.value("drawing_objects").toList();
-    assert(calibrationObjects.size() == 2);
+    EDI_CHECK(calibrationObjects.size() == 2);
     QVariantMap calibrationCircle = calibrationObjects.back().toMap();
-    assert(calibrationCircle.value("kind").toString() == "circle");
-    assert(calibrationCircle.value("layer_id").toString() == "layer_2");
-    assert(nearlyEqual(calibrationCircle.value("cx").toDouble(), 0.27));
-    assert(nearlyEqual(calibrationCircle.value("cy").toDouble(), 0.27));
-    assert(nearlyEqual(calibrationCircle.value("radius").toDouble(), 0.12));
+    EDI_CHECK(calibrationCircle.value("kind").toString() == "circle");
+    EDI_CHECK(calibrationCircle.value("layer_id").toString() == "layer_2");
+    EDI_CHECK(nearlyEqual(calibrationCircle.value("cx").toDouble(), 0.27));
+    EDI_CHECK(nearlyEqual(calibrationCircle.value("cy").toDouble(), 0.27));
+    EDI_CHECK(nearlyEqual(calibrationCircle.value("radius").toDouble(), 0.12));
 
-    assert(calibrationController.createCalibrationPattern("line_spacing"));
+    EDI_CHECK(calibrationController.createCalibrationPattern("line_spacing"));
     calibrationModel = calibrationController.modelDocument();
     calibrationObjects = calibrationModel.value("drawing_objects").toList();
-    assert(calibrationObjects.size() == 7);
+    EDI_CHECK(calibrationObjects.size() == 7);
     QVariantList calibrationSelection = calibrationModel.value("selected_object_ids").toList();
-    assert(calibrationSelection.size() == 5);
+    EDI_CHECK(calibrationSelection.size() == 5);
     for (int index = 2; index < calibrationObjects.size(); ++index) {
         const QVariantMap line = calibrationObjects[index].toMap();
-        assert(line.value("kind").toString() == "line");
-        assert(line.value("layer_id").toString() == "layer_2");
-        assert(nearlyEqual(line.value("x1").toDouble(), 0.15));
-        assert(nearlyEqual(line.value("x2").toDouble(), 0.39));
+        EDI_CHECK(line.value("kind").toString() == "line");
+        EDI_CHECK(line.value("layer_id").toString() == "layer_2");
+        EDI_CHECK(nearlyEqual(line.value("x1").toDouble(), 0.15));
+        EDI_CHECK(nearlyEqual(line.value("x2").toDouble(), 0.39));
     }
-    assert(calibrationController.recordCalibrationMeasurement(0.041));
+    EDI_CHECK(calibrationController.recordCalibrationMeasurement(0.041));
     calibrationModel = calibrationController.modelDocument();
     calibrationMeasurement = calibrationModel.value("calibration_measurement").toMap();
-    assert(calibrationMeasurement.value("pattern_id").toString() == "calibration_line_spacing");
-    assert(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.04));
-    assert(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.041));
-    assert(calibrationMeasurement.value("percent_error").toDouble() > 0.0);
+    EDI_CHECK(calibrationMeasurement.value("pattern_id").toString() == "calibration_line_spacing");
+    EDI_CHECK(nearlyEqual(calibrationMeasurement.value("expected_value").toDouble(), 0.04));
+    EDI_CHECK(nearlyEqual(calibrationMeasurement.value("measured_value").toDouble(), 0.041));
+    EDI_CHECK(calibrationMeasurement.value("percent_error").toDouble() > 0.0);
     calibrationCorrection = calibrationModel.value("calibration_correction").toMap();
-    assert(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.04 / 0.041));
-    assert(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 0.24 / 0.238));
+    EDI_CHECK(nearlyEqual(calibrationCorrection.value("scale_factor").toDouble(), 0.04 / 0.041));
+    EDI_CHECK(nearlyEqual(calibrationModel.value("plot_summary").toMap().value("calibration_scale").toDouble(), 0.24 / 0.238));
     calibrationObjects = calibrationModel.value("drawing_objects").toList();
     for (int index = 2; index < calibrationObjects.size(); ++index) {
         const QVariantMap line = calibrationObjects[index].toMap();
-        assert(line.value("measurement_note").toString().contains("calibration_line_spacing"));
+        EDI_CHECK(line.value("measurement_note").toString().contains("calibration_line_spacing"));
     }
     QVariantMap calibrationPlotSummary = calibrationModel.value("plot_summary").toMap();
-    assert(calibrationPlotSummary.value("plot_object_count").toInt() == 7);
-    assert(calibrationPlotSummary.value("segment_count").toInt() > 7);
-    assert(!calibrationPlotSummary.value("blocked").toBool());
-    assert(calibrationController.setActiveLayerLocked(true));
-    assert(!calibrationController.createCalibrationPattern("test_square"));
+    EDI_CHECK(calibrationPlotSummary.value("plot_object_count").toInt() == 7);
+    EDI_CHECK(calibrationPlotSummary.value("segment_count").toInt() > 7);
+    EDI_CHECK(!calibrationPlotSummary.value("blocked").toBool());
+    EDI_CHECK(calibrationController.setActiveLayerLocked(true));
+    EDI_CHECK(!calibrationController.createCalibrationPattern("test_square"));
 
     DrawingDocumentController selectionController;
     selectionController.setSelectedToolId("point_tool");
     selectionController.clickCanvasNormalized(0.1, 0.1);
     selectionController.clickCanvasNormalized(0.4, 0.4);
     selectionController.clickCanvasNormalized(0.8, 0.8);
-    assert(selectionController.selectObjectsInBoundsNormalized(0.0, 0.0, 0.5, 0.5));
+    EDI_CHECK(selectionController.selectObjectsInBoundsNormalized(0.0, 0.0, 0.5, 0.5));
     QVariantMap selectionModel = selectionController.modelDocument();
     QVariantList selectedIds = selectionModel.value("selected_object_ids").toList();
-    assert(selectedIds.size() == 2);
-    assert(selectionModel.value("active_object_id").toString() == selectedIds.back().toString());
+    EDI_CHECK(selectedIds.size() == 2);
+    EDI_CHECK(selectionModel.value("active_object_id").toString() == selectedIds.back().toString());
 
     DrawingDocumentController arrangeController;
     arrangeController.setSelectedToolId("point_tool");
     arrangeController.clickCanvasNormalized(0.2, 0.2);
     arrangeController.clickCanvasNormalized(0.5, 0.7);
     arrangeController.clickCanvasNormalized(0.8, 0.4);
-    assert(arrangeController.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0));
-    assert(arrangeController.alignSelection("left"));
+    EDI_CHECK(arrangeController.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0));
+    EDI_CHECK(arrangeController.alignSelection("left"));
     QVariantList arrangedObjects = arrangeController.modelDocument().value("drawing_objects").toList();
-    assert(arrangedObjects.size() == 3);
-    assert(nearlyEqual(arrangedObjects[0].toMap().value("x").toDouble(), 0.2));
-    assert(nearlyEqual(arrangedObjects[1].toMap().value("x").toDouble(), 0.2));
-    assert(nearlyEqual(arrangedObjects[2].toMap().value("x").toDouble(), 0.2));
-    assert(!arrangeController.alignSelection("diagonal"));
-    assert(arrangeController.distributeSelection("y"));
+    EDI_CHECK(arrangedObjects.size() == 3);
+    EDI_CHECK(nearlyEqual(arrangedObjects[0].toMap().value("x").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(arrangedObjects[1].toMap().value("x").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(arrangedObjects[2].toMap().value("x").toDouble(), 0.2));
+    EDI_CHECK(!arrangeController.alignSelection("diagonal"));
+    EDI_CHECK(arrangeController.distributeSelection("y"));
     arrangedObjects = arrangeController.modelDocument().value("drawing_objects").toList();
-    assert(nearlyEqual(arrangedObjects[0].toMap().value("y").toDouble(), 0.2));
-    assert(nearlyEqual(arrangedObjects[1].toMap().value("y").toDouble(), 0.7));
-    assert(nearlyEqual(arrangedObjects[2].toMap().value("y").toDouble(), 0.45));
-    assert(!arrangeController.distributeSelection("diagonal"));
+    EDI_CHECK(nearlyEqual(arrangedObjects[0].toMap().value("y").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(arrangedObjects[1].toMap().value("y").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(arrangedObjects[2].toMap().value("y").toDouble(), 0.45));
+    EDI_CHECK(!arrangeController.distributeSelection("diagonal"));
 
     DrawingDocumentController previewController;
     previewController.setSelectedToolId("line_tool");
     previewController.clickCanvasNormalized(0.2, 0.2);
     QVariantMap pendingModel = previewController.modelDocument();
-    assert(pendingModel.value("drawing_objects").toList().empty());
-    assert(!pendingModel.contains("preview_object"));
+    EDI_CHECK(pendingModel.value("drawing_objects").toList().empty());
+    EDI_CHECK(!pendingModel.contains("preview_object"));
 
     previewController.updateCreationPreviewNormalized(0.6, 0.7);
     QVariantMap previewModel = previewController.modelDocument();
-    assert(previewModel.value("drawing_objects").toList().empty());
-    assert(previewModel.contains("preview_object"));
+    EDI_CHECK(previewModel.value("drawing_objects").toList().empty());
+    EDI_CHECK(previewModel.contains("preview_object"));
     QVariantMap previewLine = previewModel.value("preview_object").toMap();
-    assert(previewLine.value("kind").toString() == "line");
-    assert(nearlyEqual(previewLine.value("x1").toDouble(), 0.2));
-    assert(nearlyEqual(previewLine.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(previewLine.value("x2").toDouble(), 0.6));
-    assert(nearlyEqual(previewLine.value("y2").toDouble(), 0.7));
+    EDI_CHECK(previewLine.value("kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(previewLine.value("x1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(previewLine.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(previewLine.value("x2").toDouble(), 0.6));
+    EDI_CHECK(nearlyEqual(previewLine.value("y2").toDouble(), 0.7));
 
     previewController.clickCanvasNormalized(0.6, 0.7);
     QVariantMap committedPreviewModel = previewController.modelDocument();
-    assert(committedPreviewModel.value("drawing_objects").toList().size() == 1);
-    assert(!committedPreviewModel.contains("preview_object"));
+    EDI_CHECK(committedPreviewModel.value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(!committedPreviewModel.contains("preview_object"));
 
     DrawingDocumentController cancelPreviewController;
     cancelPreviewController.setSelectedToolId("rectangle_tool");
     cancelPreviewController.clickCanvasNormalized(0.1, 0.1);
     cancelPreviewController.updateCreationPreviewNormalized(0.4, 0.4);
-    assert(cancelPreviewController.modelDocument().contains("preview_object"));
+    EDI_CHECK(cancelPreviewController.modelDocument().contains("preview_object"));
     cancelPreviewController.setSelectedToolId("select_move");
-    assert(!cancelPreviewController.modelDocument().contains("preview_object"));
-    assert(cancelPreviewController.modelDocument().value("drawing_objects").toList().empty());
+    EDI_CHECK(!cancelPreviewController.modelDocument().contains("preview_object"));
+    EDI_CHECK(cancelPreviewController.modelDocument().value("drawing_objects").toList().empty());
 
     DrawingDocumentController snappedPreviewController;
     snappedPreviewController.setGridSnapEnabled(true);
@@ -2341,17 +2341,17 @@ int main(int argc, char **argv)
     snappedPreviewController.clickCanvasNormalized(0.14, 0.14);
     snappedPreviewController.updateCreationPreviewNormalized(0.36, 0.36);
     QVariantMap snappedPreview = snappedPreviewController.modelDocument().value("preview_object").toMap();
-    assert(snappedPreview.value("kind").toString() == "rectangle");
-    assert(nearlyEqual(snappedPreview.value("x").toDouble(), snappedSquarePoint));
-    assert(nearlyEqual(snappedPreview.value("y").toDouble(), snappedSquarePoint));
+    EDI_CHECK(snappedPreview.value("kind").toString() == "rectangle");
+    EDI_CHECK(nearlyEqual(snappedPreview.value("x").toDouble(), snappedSquarePoint));
+    EDI_CHECK(nearlyEqual(snappedPreview.value("y").toDouble(), snappedSquarePoint));
     const double snappedSquareExtent = 10.0 * squareQuarterInchStep;
-    assert(nearlyEqual(snappedPreview.value("width").toDouble(), snappedSquareExtent));
-    assert(nearlyEqual(snappedPreview.value("height").toDouble(), snappedSquareExtent));
-    assert(snappedPreviewController.modelDocument().value("drawing_objects").toList().empty());
+    EDI_CHECK(nearlyEqual(snappedPreview.value("width").toDouble(), snappedSquareExtent));
+    EDI_CHECK(nearlyEqual(snappedPreview.value("height").toDouble(), snappedSquareExtent));
+    EDI_CHECK(snappedPreviewController.modelDocument().value("drawing_objects").toList().empty());
     snappedPreviewController.clickCanvasNormalized(0.36, 0.36);
     QVariantMap snappedCommitted = snappedPreviewController.modelDocument();
-    assert(snappedCommitted.value("drawing_objects").toList().size() == 1);
-    assert(!snappedCommitted.contains("preview_object"));
+    EDI_CHECK(snappedCommitted.value("drawing_objects").toList().size() == 1);
+    EDI_CHECK(!snappedCommitted.contains("preview_object"));
 
     DrawingDocumentController guideLinePreviewController;
     guideLinePreviewController.setSelectedToolId("horizontal_guide_tool");
@@ -2363,18 +2363,18 @@ int main(int argc, char **argv)
     guideLinePreviewController.clickCanvasNormalized(0.34, 0.74);
     guideLinePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
     QVariantMap guideLinePreview = guideLinePreviewController.modelDocument().value("preview_object").toMap();
-    assert(guideLinePreview.value("kind").toString() == "line");
-    assert(nearlyEqual(guideLinePreview.value("x1").toDouble(), 0.33));
-    assert(nearlyEqual(guideLinePreview.value("y1").toDouble(), 0.75));
-    assert(nearlyEqual(guideLinePreview.value("x2").toDouble(), 0.52));
-    assert(nearlyEqual(guideLinePreview.value("y2").toDouble(), 0.75));
+    EDI_CHECK(guideLinePreview.value("kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(guideLinePreview.value("x1").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideLinePreview.value("y1").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideLinePreview.value("x2").toDouble(), 0.52));
+    EDI_CHECK(nearlyEqual(guideLinePreview.value("y2").toDouble(), 0.75));
     guideLinePreviewController.clickCanvasNormalized(0.52, 0.74);
     QVariantMap guideLineCommitted = guideLinePreviewController.modelDocument().value("drawing_objects").toList().back().toMap();
-    assert(guideLineCommitted.value("kind").toString() == "line");
-    assert(nearlyEqual(guideLineCommitted.value("x1").toDouble(), 0.33));
-    assert(nearlyEqual(guideLineCommitted.value("y1").toDouble(), 0.75));
-    assert(nearlyEqual(guideLineCommitted.value("x2").toDouble(), 0.52));
-    assert(nearlyEqual(guideLineCommitted.value("y2").toDouble(), 0.75));
+    EDI_CHECK(guideLineCommitted.value("kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(guideLineCommitted.value("x1").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideLineCommitted.value("y1").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideLineCommitted.value("x2").toDouble(), 0.52));
+    EDI_CHECK(nearlyEqual(guideLineCommitted.value("y2").toDouble(), 0.75));
 
     DrawingDocumentController guideRectanglePreviewController;
     guideRectanglePreviewController.setSelectedToolId("horizontal_guide_tool");
@@ -2386,11 +2386,11 @@ int main(int argc, char **argv)
     guideRectanglePreviewController.clickCanvasNormalized(0.34, 0.70);
     guideRectanglePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
     QVariantMap guideRectanglePreview = guideRectanglePreviewController.modelDocument().value("preview_object").toMap();
-    assert(guideRectanglePreview.value("kind").toString() == "rectangle");
-    assert(nearlyEqual(guideRectanglePreview.value("x").toDouble(), 0.33));
-    assert(nearlyEqual(guideRectanglePreview.value("y").toDouble(), 0.70));
-    assert(nearlyEqual(guideRectanglePreview.value("width").toDouble(), 0.19));
-    assert(nearlyEqual(guideRectanglePreview.value("height").toDouble(), 0.05));
+    EDI_CHECK(guideRectanglePreview.value("kind").toString() == "rectangle");
+    EDI_CHECK(nearlyEqual(guideRectanglePreview.value("x").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideRectanglePreview.value("y").toDouble(), 0.70));
+    EDI_CHECK(nearlyEqual(guideRectanglePreview.value("width").toDouble(), 0.19));
+    EDI_CHECK(nearlyEqual(guideRectanglePreview.value("height").toDouble(), 0.05));
 
     DrawingDocumentController guideCirclePreviewController;
     guideCirclePreviewController.setSelectedToolId("horizontal_guide_tool");
@@ -2402,10 +2402,10 @@ int main(int argc, char **argv)
     guideCirclePreviewController.clickCanvasNormalized(0.34, 0.74);
     guideCirclePreviewController.updateCreationPreviewNormalized(0.43, 0.74);
     QVariantMap guideCirclePreview = guideCirclePreviewController.modelDocument().value("preview_object").toMap();
-    assert(guideCirclePreview.value("kind").toString() == "circle");
-    assert(nearlyEqual(guideCirclePreview.value("cx").toDouble(), 0.33));
-    assert(nearlyEqual(guideCirclePreview.value("cy").toDouble(), 0.75));
-    assert(nearlyEqual(guideCirclePreview.value("radius").toDouble(), 0.10));
+    EDI_CHECK(guideCirclePreview.value("kind").toString() == "circle");
+    EDI_CHECK(nearlyEqual(guideCirclePreview.value("cx").toDouble(), 0.33));
+    EDI_CHECK(nearlyEqual(guideCirclePreview.value("cy").toDouble(), 0.75));
+    EDI_CHECK(nearlyEqual(guideCirclePreview.value("radius").toDouble(), 0.10));
 
     DrawingDocumentController disabledGuideLinePreviewController;
     disabledGuideLinePreviewController.setSelectedToolId("horizontal_guide_tool");
@@ -2418,32 +2418,32 @@ int main(int argc, char **argv)
     disabledGuideLinePreviewController.clickCanvasNormalized(0.34, 0.74);
     disabledGuideLinePreviewController.updateCreationPreviewNormalized(0.52, 0.74);
     QVariantMap disabledGuideLinePreview = disabledGuideLinePreviewController.modelDocument().value("preview_object").toMap();
-    assert(disabledGuideLinePreview.value("kind").toString() == "line");
-    assert(nearlyEqual(disabledGuideLinePreview.value("x1").toDouble(), 0.34));
-    assert(nearlyEqual(disabledGuideLinePreview.value("y1").toDouble(), 0.74));
-    assert(nearlyEqual(disabledGuideLinePreview.value("x2").toDouble(), 0.52));
-    assert(nearlyEqual(disabledGuideLinePreview.value("y2").toDouble(), 0.74));
+    EDI_CHECK(disabledGuideLinePreview.value("kind").toString() == "line");
+    EDI_CHECK(nearlyEqual(disabledGuideLinePreview.value("x1").toDouble(), 0.34));
+    EDI_CHECK(nearlyEqual(disabledGuideLinePreview.value("y1").toDouble(), 0.74));
+    EDI_CHECK(nearlyEqual(disabledGuideLinePreview.value("x2").toDouble(), 0.52));
+    EDI_CHECK(nearlyEqual(disabledGuideLinePreview.value("y2").toDouble(), 0.74));
 
     DrawingDocumentController zeroSizeController;
     zeroSizeController.setSelectedToolId("circle_tool");
     zeroSizeController.clickCanvasNormalized(0.5, 0.5);
     zeroSizeController.updateCreationPreviewNormalized(0.5, 0.5);
     QVariantMap zeroCirclePreview = zeroSizeController.modelDocument().value("preview_object").toMap();
-    assert(zeroCirclePreview.value("kind").toString() == "circle");
-    assert(nearlyEqual(zeroCirclePreview.value("radius").toDouble(), 0.0));
+    EDI_CHECK(zeroCirclePreview.value("kind").toString() == "circle");
+    EDI_CHECK(nearlyEqual(zeroCirclePreview.value("radius").toDouble(), 0.0));
     zeroSizeController.clickCanvasNormalized(0.5, 0.5);
     QVariantMap zeroCircleCommitted = zeroSizeController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(zeroCircleCommitted.value("radius").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(zeroCircleCommitted.value("radius").toDouble(), 0.0));
 
     DrawingDocumentController numericRectController;
     numericRectController.setSelectedToolId("rectangle_tool");
     numericRectController.clickCanvasNormalized(0.1, 0.1);
     numericRectController.clickCanvasNormalized(0.4, 0.4);
-    assert(numericRectController.updateSelectedObjectGeometryField("width", 0.5));
-    assert(numericRectController.updateSelectedObjectGeometryField("height", 0.25));
-    assert(numericRectController.updateSelectedObjectGeometryField("rotation_deg", 45.0));
+    EDI_CHECK(numericRectController.updateSelectedObjectGeometryField("width", 0.5));
+    EDI_CHECK(numericRectController.updateSelectedObjectGeometryField("height", 0.25));
+    EDI_CHECK(numericRectController.updateSelectedObjectGeometryField("rotation_deg", 45.0));
     QVariantMap numericRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(numericFieldIds(numericRect) == QStringList({
+    EDI_CHECK(numericFieldIds(numericRect) == QStringList({
         QStringLiteral("x"),
         QStringLiteral("y"),
         QStringLiteral("width"),
@@ -2451,92 +2451,92 @@ int main(int argc, char **argv)
         QStringLiteral("rotation_deg"),
     }));
     QVariantMap numericRectPhysical = numericRect.value("physical_geometry").toMap();
-    assert(numericRectPhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(numericRectPhysical.value("width").toDouble(), 6.0));
-    assert(nearlyEqual(numericRectPhysical.value("height").toDouble(), 3.0));
-    assert(nearlyEqual(numericRectPhysical.value("rotation_deg").toDouble(), 45.0));
-    assert(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
-    assert(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
-    assert(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
+    EDI_CHECK(numericRectPhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(numericRectPhysical.value("width").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(numericRectPhysical.value("height").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(numericRectPhysical.value("rotation_deg").toDouble(), 45.0));
+    EDI_CHECK(nearlyEqual(numericRect.value("width").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(numericRect.value("height").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(numericRect.value("rotation_deg").toDouble(), 45.0));
     QVariantList numericRectMeasurement = numericRect.value("measurement_lines").toList();
-    assert(numericRectMeasurement.size() == 3);
-    assert(numericRectMeasurement[0].toString().startsWith("area: "));
-    assert(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
+    EDI_CHECK(numericRectMeasurement.size() == 3);
+    EDI_CHECK(numericRectMeasurement[0].toString().startsWith("area: "));
+    EDI_CHECK(!numericRectController.updateSelectedObjectGeometryField("width", -0.1));
     QVariantMap rectEditStatus = editStatus(numericRectController);
-    assert(!rectEditStatus.value("ok").toBool());
-    assert(rectEditStatus.value("mode").toString() == "normalized");
-    assert(rectEditStatus.value("field_id").toString() == "width");
-    assert(rectEditStatus.value("code").toString() == "invalid_geometry");
-    assert(rectEditStatus.value("message").toString() == "rectangle dimensions must be non-negative");
+    EDI_CHECK(!rectEditStatus.value("ok").toBool());
+    EDI_CHECK(rectEditStatus.value("mode").toString() == "normalized");
+    EDI_CHECK(rectEditStatus.value("field_id").toString() == "width");
+    EDI_CHECK(rectEditStatus.value("code").toString() == "invalid_geometry");
+    EDI_CHECK(rectEditStatus.value("message").toString() == "rectangle dimensions must be non-negative");
     QVariantMap numericRectAfterInvalid = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
-    assert(numericRectController.updateSelectedObjectPhysicalGeometryField("width", 3.0));
+    EDI_CHECK(nearlyEqual(numericRectAfterInvalid.value("width").toDouble(), 0.5));
+    EDI_CHECK(numericRectController.updateSelectedObjectPhysicalGeometryField("width", 3.0));
     rectEditStatus = editStatus(numericRectController);
-    assert(rectEditStatus.value("ok").toBool());
-    assert(rectEditStatus.value("mode").toString() == "physical");
-    assert(rectEditStatus.value("field_id").toString() == "width");
-    assert(rectEditStatus.value("message").toString().isEmpty());
-    assert(numericRectController.updateSelectedObjectPhysicalGeometryField("height", 6.0));
+    EDI_CHECK(rectEditStatus.value("ok").toBool());
+    EDI_CHECK(rectEditStatus.value("mode").toString() == "physical");
+    EDI_CHECK(rectEditStatus.value("field_id").toString() == "width");
+    EDI_CHECK(rectEditStatus.value("message").toString().isEmpty());
+    EDI_CHECK(numericRectController.updateSelectedObjectPhysicalGeometryField("height", 6.0));
     QVariantMap physicalRect = numericRectController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(physicalRect.value("width").toDouble(), 0.25));
-    assert(nearlyEqual(physicalRect.value("height").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(physicalRect.value("width").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(physicalRect.value("height").toDouble(), 0.5));
 
     DrawingDocumentController numericCircleController;
     numericCircleController.setSelectedToolId("circle_tool");
     numericCircleController.clickCanvasNormalized(0.5, 0.5);
     numericCircleController.clickCanvasNormalized(0.7, 0.5);
-    assert(numericCircleController.updateSelectedObjectGeometryField("cx", 0.4));
-    assert(numericCircleController.updateSelectedObjectGeometryField("cy", 0.45));
-    assert(numericCircleController.updateSelectedObjectGeometryField("radius", 0.125));
+    EDI_CHECK(numericCircleController.updateSelectedObjectGeometryField("cx", 0.4));
+    EDI_CHECK(numericCircleController.updateSelectedObjectGeometryField("cy", 0.45));
+    EDI_CHECK(numericCircleController.updateSelectedObjectGeometryField("radius", 0.125));
     QVariantMap numericCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(numericFieldIds(numericCircle) == QStringList({
+    EDI_CHECK(numericFieldIds(numericCircle) == QStringList({
         QStringLiteral("cx"),
         QStringLiteral("cy"),
         QStringLiteral("radius"),
         QStringLiteral("diameter"),
     }));
     QVariantMap numericCirclePhysical = numericCircle.value("physical_geometry").toMap();
-    assert(numericCirclePhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(numericCirclePhysical.value("radius").toDouble(), 1.5));
-    assert(nearlyEqual(numericCirclePhysical.value("diameter").toDouble(), 3.0));
-    assert(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
-    assert(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
-    assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
-    assert(nearlyEqual(numericCircle.value("diameter").toDouble(), 0.25));
+    EDI_CHECK(numericCirclePhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(numericCirclePhysical.value("radius").toDouble(), 1.5));
+    EDI_CHECK(nearlyEqual(numericCirclePhysical.value("diameter").toDouble(), 3.0));
+    EDI_CHECK(nearlyEqual(numericCircle.value("cx").toDouble(), 0.4));
+    EDI_CHECK(nearlyEqual(numericCircle.value("cy").toDouble(), 0.45));
+    EDI_CHECK(nearlyEqual(numericCircle.value("radius").toDouble(), 0.125));
+    EDI_CHECK(nearlyEqual(numericCircle.value("diameter").toDouble(), 0.25));
     QVariantList numericCircleMeasurement = numericCircle.value("measurement_lines").toList();
-    assert(numericCircleMeasurement.size() == 3);
-    assert(numericCircleMeasurement[0].toString().startsWith("area: "));
-    assert(numericCircleController.updateSelectedObjectGeometryField("diameter", 0.5));
+    EDI_CHECK(numericCircleMeasurement.size() == 3);
+    EDI_CHECK(numericCircleMeasurement[0].toString().startsWith("area: "));
+    EDI_CHECK(numericCircleController.updateSelectedObjectGeometryField("diameter", 0.5));
     numericCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(numericCircle.value("radius").toDouble(), 0.25));
-    assert(nearlyEqual(numericCircle.value("diameter").toDouble(), 0.5));
-    assert(!numericCircleController.updateSelectedObjectGeometryField("radius", -0.01));
-    assert(!numericCircleController.updateSelectedObjectGeometryField("diameter", -0.01));
+    EDI_CHECK(nearlyEqual(numericCircle.value("radius").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(numericCircle.value("diameter").toDouble(), 0.5));
+    EDI_CHECK(!numericCircleController.updateSelectedObjectGeometryField("radius", -0.01));
+    EDI_CHECK(!numericCircleController.updateSelectedObjectGeometryField("diameter", -0.01));
     QVariantMap numericCircleAfterInvalid = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(numericCircleAfterInvalid.value("radius").toDouble(), 0.25));
-    assert(nearlyEqual(numericCircleAfterInvalid.value("diameter").toDouble(), 0.5));
-    assert(numericCircleController.updateSelectedObjectPhysicalGeometryField("radius", 3.0));
+    EDI_CHECK(nearlyEqual(numericCircleAfterInvalid.value("radius").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(numericCircleAfterInvalid.value("diameter").toDouble(), 0.5));
+    EDI_CHECK(numericCircleController.updateSelectedObjectPhysicalGeometryField("radius", 3.0));
     QVariantMap physicalCircle = numericCircleController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(physicalCircle.value("radius").toDouble(), 0.25));
-    assert(nearlyEqual(physicalCircle.value("diameter").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(physicalCircle.value("radius").toDouble(), 0.25));
+    EDI_CHECK(nearlyEqual(physicalCircle.value("diameter").toDouble(), 0.5));
     const int circleRevisionBeforePhysicalInvalid = numericCircleController.modelDocument().value("revision").toInt();
-    assert(!numericCircleController.updateSelectedObjectPhysicalGeometryField("diameter", -1.0));
+    EDI_CHECK(!numericCircleController.updateSelectedObjectPhysicalGeometryField("diameter", -1.0));
     QVariantMap circleEditStatus = editStatus(numericCircleController);
-    assert(!circleEditStatus.value("ok").toBool());
-    assert(circleEditStatus.value("mode").toString() == "physical");
-    assert(circleEditStatus.value("field_id").toString() == "diameter");
-    assert(circleEditStatus.value("code").toString() == "invalid_geometry");
-    assert(circleEditStatus.value("message").toString() == "circle diameter must be non-negative");
-    assert(numericCircleController.modelDocument().value("revision").toInt() == circleRevisionBeforePhysicalInvalid);
+    EDI_CHECK(!circleEditStatus.value("ok").toBool());
+    EDI_CHECK(circleEditStatus.value("mode").toString() == "physical");
+    EDI_CHECK(circleEditStatus.value("field_id").toString() == "diameter");
+    EDI_CHECK(circleEditStatus.value("code").toString() == "invalid_geometry");
+    EDI_CHECK(circleEditStatus.value("message").toString() == "circle diameter must be non-negative");
+    EDI_CHECK(numericCircleController.modelDocument().value("revision").toInt() == circleRevisionBeforePhysicalInvalid);
     numericCircleController.setSelectedToolId("select_move");
-    assert(editStatus(numericCircleController).isEmpty());
+    EDI_CHECK(editStatus(numericCircleController).isEmpty());
 
     DrawingDocumentController numericLineController;
     numericLineController.setSelectedToolId("line_tool");
     numericLineController.clickCanvasNormalized(0.1, 0.2);
     numericLineController.clickCanvasNormalized(0.4, 0.6);
     QVariantMap numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(numericFieldIds(numericLine) == QStringList({
+    EDI_CHECK(numericFieldIds(numericLine) == QStringList({
         QStringLiteral("x1"),
         QStringLiteral("y1"),
         QStringLiteral("x2"),
@@ -2545,71 +2545,71 @@ int main(int argc, char **argv)
         QStringLiteral("line_angle_deg"),
     }));
     QVariantMap numericLinePhysical = numericLine.value("physical_geometry").toMap();
-    assert(numericLinePhysical.value("unit_label").toString() == "in");
-    assert(nearlyEqual(numericLinePhysical.value("x1").toDouble(), 1.2));
-    assert(nearlyEqual(numericLinePhysical.value("y1").toDouble(), 2.4));
-    assert(nearlyEqual(numericLinePhysical.value("x2").toDouble(), 4.8));
-    assert(nearlyEqual(numericLinePhysical.value("y2").toDouble(), 7.2));
-    assert(nearlyEqual(numericLinePhysical.value("line_length").toDouble(), 6.0));
-    assert(nearlyEqual(numericLinePhysical.value("line_angle_deg").toDouble(), 53.1301023542));
-    assert(nearlyEqual(numericLine.value("line_length").toDouble(), 0.5));
-    assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 53.1301023542));
-    assert(numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", 12.0));
+    EDI_CHECK(numericLinePhysical.value("unit_label").toString() == "in");
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("x1").toDouble(), 1.2));
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("y1").toDouble(), 2.4));
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("x2").toDouble(), 4.8));
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("y2").toDouble(), 7.2));
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("line_length").toDouble(), 6.0));
+    EDI_CHECK(nearlyEqual(numericLinePhysical.value("line_angle_deg").toDouble(), 53.1301023542));
+    EDI_CHECK(nearlyEqual(numericLine.value("line_length").toDouble(), 0.5));
+    EDI_CHECK(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 53.1301023542));
+    EDI_CHECK(numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", 12.0));
     numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(numericLine.value("x1").toDouble(), 0.1));
-    assert(nearlyEqual(numericLine.value("y1").toDouble(), 0.2));
-    assert(nearlyEqual(numericLine.value("x2").toDouble(), 0.7));
-    assert(nearlyEqual(numericLine.value("y2").toDouble(), 1.0));
-    assert(nearlyEqual(numericLine.value("line_length").toDouble(), 1.0));
-    assert(numericLineController.updateSelectedObjectPhysicalGeometryField("line_angle_deg", 0.0));
+    EDI_CHECK(nearlyEqual(numericLine.value("x1").toDouble(), 0.1));
+    EDI_CHECK(nearlyEqual(numericLine.value("y1").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(numericLine.value("x2").toDouble(), 0.7));
+    EDI_CHECK(nearlyEqual(numericLine.value("y2").toDouble(), 1.0));
+    EDI_CHECK(nearlyEqual(numericLine.value("line_length").toDouble(), 1.0));
+    EDI_CHECK(numericLineController.updateSelectedObjectPhysicalGeometryField("line_angle_deg", 0.0));
     numericLine = numericLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(numericLine.value("x2").toDouble(), 1.1));
-    assert(nearlyEqual(numericLine.value("y2").toDouble(), 0.2));
-    assert(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 0.0));
+    EDI_CHECK(nearlyEqual(numericLine.value("x2").toDouble(), 1.1));
+    EDI_CHECK(nearlyEqual(numericLine.value("y2").toDouble(), 0.2));
+    EDI_CHECK(nearlyEqual(numericLine.value("line_angle_deg").toDouble(), 0.0));
     const int lineRevisionBeforeInvalid = numericLineController.modelDocument().value("revision").toInt();
-    assert(!numericLineController.updateSelectedObjectGeometryField("line_length", -0.1));
-    assert(!numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", -1.0));
-    assert(!numericLineController.updateSelectedObjectGeometryField("line_angle_deg", std::numeric_limits<double>::infinity()));
-    assert(numericLineController.modelDocument().value("revision").toInt() == lineRevisionBeforeInvalid);
+    EDI_CHECK(!numericLineController.updateSelectedObjectGeometryField("line_length", -0.1));
+    EDI_CHECK(!numericLineController.updateSelectedObjectPhysicalGeometryField("line_length", -1.0));
+    EDI_CHECK(!numericLineController.updateSelectedObjectGeometryField("line_angle_deg", std::numeric_limits<double>::infinity()));
+    EDI_CHECK(numericLineController.modelDocument().value("revision").toInt() == lineRevisionBeforeInvalid);
 
     DrawingDocumentController lockedLineController;
     lockedLineController.setSelectedToolId("line_tool");
     lockedLineController.clickCanvasNormalized(0.1, 0.1);
     lockedLineController.clickCanvasNormalized(0.4, 0.4);
     QVariantMap lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(!lockedLine.value("locked").toBool());
-    assert(lockedLine.value("visible").toBool());
-    assert(lockedLineController.setSelectedObjectLocked(true));
+    EDI_CHECK(!lockedLine.value("locked").toBool());
+    EDI_CHECK(lockedLine.value("visible").toBool());
+    EDI_CHECK(lockedLineController.setSelectedObjectLocked(true));
     lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(lockedLine.value("locked").toBool());
+    EDI_CHECK(lockedLine.value("locked").toBool());
     const int lockedRevision = lockedLineController.modelDocument().value("revision").toInt();
-    assert(!lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
-    assert(!lockedLineController.editSelectedHandleNormalized("line_end", 0.8, 0.8));
-    assert(!lockedLineController.moveSelectionNormalized(0.1, 0.0));
-    assert(!lockedLineController.offsetSelectedObject("left"));
-    assert(!lockedLineController.mirrorSelectedObject("vertical"));
-    assert(!lockedLineController.repeatSelectedObject("x"));
-    assert(lockedLineController.modelDocument().value("revision").toInt() == lockedRevision);
-    assert(lockedLineController.setSelectedObjectLocked(false));
-    assert(lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
+    EDI_CHECK(!lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
+    EDI_CHECK(!lockedLineController.editSelectedHandleNormalized("line_end", 0.8, 0.8));
+    EDI_CHECK(!lockedLineController.moveSelectionNormalized(0.1, 0.0));
+    EDI_CHECK(!lockedLineController.offsetSelectedObject("left"));
+    EDI_CHECK(!lockedLineController.mirrorSelectedObject("vertical"));
+    EDI_CHECK(!lockedLineController.repeatSelectedObject("x"));
+    EDI_CHECK(lockedLineController.modelDocument().value("revision").toInt() == lockedRevision);
+    EDI_CHECK(lockedLineController.setSelectedObjectLocked(false));
+    EDI_CHECK(lockedLineController.updateSelectedObjectGeometryField("x2", 0.8));
     lockedLine = lockedLineController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(lockedLine.value("x2").toDouble(), 0.8));
+    EDI_CHECK(nearlyEqual(lockedLine.value("x2").toDouble(), 0.8));
 
     DrawingDocumentController noSelectionEditController;
-    assert(!noSelectionEditController.updateSelectedObjectGeometryField("x", 0.2));
-    assert(!noSelectionEditController.setSelectedObjectLocked(true));
-    assert(!noSelectionEditController.setSelectedObjectVisible(false));
-    assert(!noSelectionEditController.nudgeSelection("right", "grid"));
+    EDI_CHECK(!noSelectionEditController.updateSelectedObjectGeometryField("x", 0.2));
+    EDI_CHECK(!noSelectionEditController.setSelectedObjectLocked(true));
+    EDI_CHECK(!noSelectionEditController.setSelectedObjectVisible(false));
+    EDI_CHECK(!noSelectionEditController.nudgeSelection("right", "grid"));
 
     DrawingDocumentController nudgeController;
     nudgeController.setSelectedToolId("point_tool");
     nudgeController.clickCanvasNormalized(0.5, 0.5);
-    assert(nudgeController.nudgeSelection("right", "grid"));
-    assert(nudgeController.nudgeSelection("up", "fine"));
+    EDI_CHECK(nudgeController.nudgeSelection("right", "grid"));
+    EDI_CHECK(nudgeController.nudgeSelection("up", "fine"));
     QVariantMap nudgedPoint = nudgeController.modelDocument().value("drawing_objects").toList().front().toMap();
-    assert(nearlyEqual(nudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
-    assert(nearlyEqual(nudgedPoint.value("y").toDouble(), 0.5 - squareQuarterInchStep * 0.25));
-    assert(!nudgeController.nudgeSelection("diagonal", "grid"));
+    EDI_CHECK(nearlyEqual(nudgedPoint.value("x").toDouble(), 0.5 + squareQuarterInchStep));
+    EDI_CHECK(nearlyEqual(nudgedPoint.value("y").toDouble(), 0.5 - squareQuarterInchStep * 0.25));
+    EDI_CHECK(!nudgeController.nudgeSelection("diagonal", "grid"));
 
     DrawingDocumentController selectionIsolationController;
     selectionIsolationController.setSelectedToolId("point_tool");
@@ -2618,17 +2618,17 @@ int main(int argc, char **argv)
     selectionIsolationController.setSelectedToolId("line_tool");
     selectionIsolationController.clickCanvasNormalized(0.4, 0.4);
     selectionIsolationController.updateCreationPreviewNormalized(0.8, 0.8);
-    assert(selectionIsolationController.modelDocument().contains("preview_object"));
-    assert(selectionIsolationController.selectedObjectId() == selectedBeforePreview);
+    EDI_CHECK(selectionIsolationController.modelDocument().contains("preview_object"));
+    EDI_CHECK(selectionIsolationController.selectedObjectId() == selectedBeforePreview);
     selectionIsolationController.setSelectedToolId("select_move");
     selectionIsolationController.clickCanvasNormalized(0.8, 0.8);
-    assert(selectionIsolationController.selectedObjectId().isEmpty());
+    EDI_CHECK(selectionIsolationController.selectedObjectId().isEmpty());
 
     // Save/open round-trip: a document written to disk and reopened projects
     // to the same model, and the reopened controller keeps minting fresh ids.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("roundtrip.edidraw")));
 
         DrawingDocumentController saveController;
@@ -2639,27 +2639,27 @@ int main(int argc, char **argv)
         saveController.clickCanvasNormalized(0.4, 0.4);
         saveController.clickCanvasNormalized(0.6, 0.4);
         const QVariantList savedObjects = saveController.modelDocument().value("drawing_objects").toList();
-        assert(savedObjects.size() == 2);
+        EDI_CHECK(savedObjects.size() == 2);
         const QString savedSelected = saveController.selectedObjectId();
 
-        assert(saveController.saveDocument(url));
+        EDI_CHECK(saveController.saveDocument(url));
 
         // A second controller, mutated differently, then opens the saved file.
         DrawingDocumentController openController;
         openController.setSelectedToolId("point_tool");
         openController.clickCanvasNormalized(0.5, 0.5);
-        assert(openController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(openController.modelDocument().value("drawing_objects").toList().size() == 1);
 
-        assert(openController.openDocument(url));
+        EDI_CHECK(openController.openDocument(url));
         const QVariantList openedObjects = openController.modelDocument().value("drawing_objects").toList();
-        assert(openedObjects.size() == 2);
-        assert(openController.selectedObjectId() == savedSelected);
+        EDI_CHECK(openedObjects.size() == 2);
+        EDI_CHECK(openController.selectedObjectId() == savedSelected);
         // Preview/pending state is cleared by open.
-        assert(!openController.modelDocument().contains("preview_object"));
+        EDI_CHECK(!openController.modelDocument().contains("preview_object"));
 
         // Object ids match the saved document positionally.
         for (int i = 0; i < savedObjects.size(); ++i) {
-            assert(openedObjects[i].toMap().value("id").toString()
+            EDI_CHECK(openedObjects[i].toMap().value("id").toString()
                    == savedObjects[i].toMap().value("id").toString());
         }
 
@@ -2670,76 +2670,76 @@ int main(int argc, char **argv)
         for (const QVariant &existing : openedObjects) {
             highestLoadedSerial = std::max(highestLoadedSerial, trailingSerial(existing.toMap().value("id").toString()));
         }
-        assert(highestLoadedSerial >= 2);
+        EDI_CHECK(highestLoadedSerial >= 2);
         openController.setSelectedToolId("point_tool");
         openController.clickCanvasNormalized(0.3, 0.3);
         const QVariantList grownObjects = openController.modelDocument().value("drawing_objects").toList();
-        assert(grownObjects.size() == 3);
+        EDI_CHECK(grownObjects.size() == 3);
         const QString newId = grownObjects.back().toMap().value("id").toString();
         for (const QVariant &existing : openedObjects) {
-            assert(existing.toMap().value("id").toString() != newId);
+            EDI_CHECK(existing.toMap().value("id").toString() != newId);
         }
-        assert(trailingSerial(newId) > highestLoadedSerial);
+        EDI_CHECK(trailingSerial(newId) > highestLoadedSerial);
 
         // Opening a missing file fails without disturbing the document.
         const QUrl missing = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("nope.edidraw")));
-        assert(!openController.openDocument(missing));
-        assert(openController.modelDocument().value("drawing_objects").toList().size() == 3);
+        EDI_CHECK(!openController.openDocument(missing));
+        EDI_CHECK(openController.modelDocument().value("drawing_objects").toList().size() == 3);
     }
 
     // SVG / HPGL export write files whose contents start with the right markers.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         DrawingDocumentController exportController;
         exportController.setSelectedToolId("line_tool");
         exportController.clickCanvasNormalized(0.1, 0.1);
         exportController.clickCanvasNormalized(0.9, 0.9);
 
         const QString svgPath = tempDir.filePath(QStringLiteral("out.svg"));
-        assert(exportController.exportSvgDocument(QUrl::fromLocalFile(svgPath)));
+        EDI_CHECK(exportController.exportSvgDocument(QUrl::fromLocalFile(svgPath)));
         QFile svgFile(svgPath);
-        assert(svgFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        EDI_CHECK(svgFile.open(QIODevice::ReadOnly | QIODevice::Text));
         const QString svg = QString::fromUtf8(svgFile.readAll());
-        assert(svg.startsWith(QStringLiteral("<svg")));
-        assert(svg.contains(QStringLiteral("<path")));
+        EDI_CHECK(svg.startsWith(QStringLiteral("<svg")));
+        EDI_CHECK(svg.contains(QStringLiteral("<path")));
 
         const QString hpglPath = tempDir.filePath(QStringLiteral("out.hpgl"));
-        assert(exportController.exportHpglDocument(QUrl::fromLocalFile(hpglPath)));
+        EDI_CHECK(exportController.exportHpglDocument(QUrl::fromLocalFile(hpglPath)));
         QFile hpglFile(hpglPath);
-        assert(hpglFile.open(QIODevice::ReadOnly | QIODevice::Text));
+        EDI_CHECK(hpglFile.open(QIODevice::ReadOnly | QIODevice::Text));
         const QString hpgl = QString::fromUtf8(hpglFile.readAll());
-        assert(hpgl.startsWith(QStringLiteral("IN;")));
-        assert(hpgl.contains(QStringLiteral("PD")));
+        EDI_CHECK(hpgl.startsWith(QStringLiteral("IN;")));
+        EDI_CHECK(hpgl.contains(QStringLiteral("PD")));
     }
 
     // Dirty tracking is content-based: selecting an object after a save does NOT
     // mark the document dirty (selection is excluded, like undo).
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("dirty.edidraw")));
 
         DrawingDocumentController dirtyController;
-        assert(!dirtyController.isDocumentDirty()); // fresh document is clean
+        EDI_CHECK(!dirtyController.isDocumentDirty()); // fresh document is clean
         dirtyController.setSelectedToolId("point_tool");
         dirtyController.clickCanvasNormalized(0.2, 0.2);
         dirtyController.clickCanvasNormalized(0.8, 0.8);
-        assert(dirtyController.isDocumentDirty()); // created objects -> dirty
-        assert(dirtyController.saveDocument(url));
-        assert(!dirtyController.isDocumentDirty()); // saved -> clean
+        EDI_CHECK(dirtyController.isDocumentDirty()); // created objects -> dirty
+        EDI_CHECK(dirtyController.saveDocument(url));
+        EDI_CHECK(!dirtyController.isDocumentDirty()); // saved -> clean
 
         // Select / deselect after save: selection-only, must stay clean.
         dirtyController.setSelectedToolId("select_move");
         dirtyController.clickCanvasNormalized(0.2, 0.2);
-        assert(!dirtyController.isDocumentDirty());
+        EDI_CHECK(!dirtyController.isDocumentDirty());
         dirtyController.clickCanvasNormalized(0.45, 0.05); // empty space: clears selection
-        assert(!dirtyController.isDocumentDirty());
+        EDI_CHECK(!dirtyController.isDocumentDirty());
 
         // A real geometry change marks dirty again.
         dirtyController.clickCanvasNormalized(0.8, 0.8); // select an object
-        assert(dirtyController.nudgeSelection("right", "grid"));
-        assert(dirtyController.isDocumentDirty());
+        EDI_CHECK(dirtyController.nudgeSelection("right", "grid"));
+        EDI_CHECK(dirtyController.isDocumentDirty());
     }
 
     // Dirty tracking is epoch-based, immune to revision aliasing across undo.
@@ -2748,19 +2748,19 @@ int main(int argc, char **argv)
     // shortcut reported false-clean here and silently lost changes on close.
     {
         QTemporaryDir tempDir;
-        assert(tempDir.isValid());
+        EDI_CHECK(tempDir.isValid());
         const QUrl url = QUrl::fromLocalFile(tempDir.filePath(QStringLiteral("alias.edidraw")));
 
         DrawingDocumentController c;
         c.setSelectedToolId("point_tool");
         c.clickCanvasNormalized(0.2, 0.2); // object A (revision 1)
         c.clickCanvasNormalized(0.8, 0.8); // object B (revision 2)
-        assert(c.saveDocument(url));
-        assert(!c.isDocumentDirty());      // saved at revision 2 -> clean
-        assert(c.undo());                  // back to {A} (revision 1)
-        assert(c.isDocumentDirty());       // diverged from the saved state -> dirty
+        EDI_CHECK(c.saveDocument(url));
+        EDI_CHECK(!c.isDocumentDirty());      // saved at revision 2 -> clean
+        EDI_CHECK(c.undo());                  // back to {A} (revision 1)
+        EDI_CHECK(c.isDocumentDirty());       // diverged from the saved state -> dirty
         c.clickCanvasNormalized(0.5, 0.5); // object C: revision aliases back to 2
-        assert(c.isDocumentDirty());       // content differs from saved {A,B} -> dirty
+        EDI_CHECK(c.isDocumentDirty());       // content differs from saved {A,B} -> dirty
     }
 
     // Undo/redo.
@@ -2771,63 +2771,63 @@ int main(int argc, char **argv)
 
         // create -> undo -> empty -> redo -> restored.
         DrawingDocumentController undoController;
-        assert(!undoController.canUndo());
-        assert(!undoController.canRedo());
-        assert(!undoController.undo()); // nothing to undo
+        EDI_CHECK(!undoController.canUndo());
+        EDI_CHECK(!undoController.canRedo());
+        EDI_CHECK(!undoController.undo()); // nothing to undo
         undoController.setSelectedToolId("point_tool");
         undoController.clickCanvasNormalized(0.3, 0.4);
-        assert(objectCount(undoController) == 1);
-        assert(undoController.canUndo());
+        EDI_CHECK(objectCount(undoController) == 1);
+        EDI_CHECK(undoController.canUndo());
         const QString createdId = undoController.selectedObjectId();
-        assert(undoController.undo());
-        assert(objectCount(undoController) == 0);
-        assert(!undoController.canUndo());
-        assert(undoController.canRedo());
-        assert(undoController.redo());
-        assert(objectCount(undoController) == 1);
-        assert(undoController.modelDocument().value("drawing_objects").toList().front().toMap().value("id").toString() == createdId);
-        assert(!undoController.canRedo());
+        EDI_CHECK(undoController.undo());
+        EDI_CHECK(objectCount(undoController) == 0);
+        EDI_CHECK(!undoController.canUndo());
+        EDI_CHECK(undoController.canRedo());
+        EDI_CHECK(undoController.redo());
+        EDI_CHECK(objectCount(undoController) == 1);
+        EDI_CHECK(undoController.modelDocument().value("drawing_objects").toList().front().toMap().value("id").toString() == createdId);
+        EDI_CHECK(!undoController.canRedo());
 
         // nudge twice -> undo once -> one nudge remains (each nudge is one step).
         DrawingDocumentController nudgeUndoController;
         nudgeUndoController.setSelectedToolId("point_tool");
         nudgeUndoController.clickCanvasNormalized(0.5, 0.5);
         const double startY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
-        assert(nudgeUndoController.nudgeSelection("up", "grid"));
-        assert(nudgeUndoController.nudgeSelection("up", "grid"));
+        EDI_CHECK(nudgeUndoController.nudgeSelection("up", "grid"));
+        EDI_CHECK(nudgeUndoController.nudgeSelection("up", "grid"));
         const double twiceY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
-        assert(!nearlyEqual(twiceY, startY));
-        assert(nudgeUndoController.undo());
+        EDI_CHECK(!nearlyEqual(twiceY, startY));
+        EDI_CHECK(nudgeUndoController.undo());
         const double onceY = nudgeUndoController.modelDocument().value("drawing_objects").toList().front().toMap().value("y").toDouble();
         // After one undo, exactly one nudge remains: halfway between start and twice.
-        assert(nearlyEqual(onceY, (startY + twiceY) / 2.0));
-        assert(nudgeUndoController.canUndo()); // create + one nudge still undoable
+        EDI_CHECK(nearlyEqual(onceY, (startY + twiceY) / 2.0));
+        EDI_CHECK(nudgeUndoController.canUndo()); // create + one nudge still undoable
 
         // A guide preset that creates several guides is a single undo step.
         DrawingDocumentController guideUndoController;
-        assert(guideUndoController.applyGuidePreset("drawable_bounds"));
+        EDI_CHECK(guideUndoController.applyGuidePreset("drawable_bounds"));
         const int guideObjects = guideUndoController.modelDocument().value("drawing_objects").toList().size();
-        assert(guideObjects >= 2); // preset adds multiple guides
-        assert(guideUndoController.canUndo());
-        assert(guideUndoController.undo());
-        assert(guideUndoController.modelDocument().value("drawing_objects").toList().isEmpty());
-        assert(!guideUndoController.canUndo()); // exactly one step for the whole preset
+        EDI_CHECK(guideObjects >= 2); // preset adds multiple guides
+        EDI_CHECK(guideUndoController.canUndo());
+        EDI_CHECK(guideUndoController.undo());
+        EDI_CHECK(guideUndoController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(!guideUndoController.canUndo()); // exactly one step for the whole preset
 
         // Pure selection changes are not undoable and do not clear redo.
         DrawingDocumentController selectionUndoController;
         selectionUndoController.setSelectedToolId("point_tool");
         selectionUndoController.clickCanvasNormalized(0.2, 0.2);
         selectionUndoController.clickCanvasNormalized(0.8, 0.8);
-        assert(objectCount(selectionUndoController) == 2);
+        EDI_CHECK(objectCount(selectionUndoController) == 2);
         selectionUndoController.undo(); // remove second point
-        assert(objectCount(selectionUndoController) == 1);
-        assert(selectionUndoController.canRedo());
+        EDI_CHECK(objectCount(selectionUndoController) == 1);
+        EDI_CHECK(selectionUndoController.canRedo());
         // Select the remaining point: selection-only, must not clear redo or add a step.
         selectionUndoController.setSelectedToolId("select_move");
         selectionUndoController.clickCanvasNormalized(0.2, 0.2);
-        assert(selectionUndoController.canRedo());
-        assert(selectionUndoController.redo());
-        assert(objectCount(selectionUndoController) == 2);
+        EDI_CHECK(selectionUndoController.canRedo());
+        EDI_CHECK(selectionUndoController.redo());
+        EDI_CHECK(objectCount(selectionUndoController) == 2);
 
         // redo is cleared by a new edit.
         DrawingDocumentController redoClearController;
@@ -2835,9 +2835,9 @@ int main(int argc, char **argv)
         redoClearController.clickCanvasNormalized(0.3, 0.3);
         redoClearController.clickCanvasNormalized(0.6, 0.6);
         redoClearController.undo();
-        assert(redoClearController.canRedo());
+        EDI_CHECK(redoClearController.canRedo());
         redoClearController.clickCanvasNormalized(0.9, 0.9); // new edit
-        assert(!redoClearController.canRedo());
+        EDI_CHECK(!redoClearController.canRedo());
 
         // 100-step cap: the oldest edits drop out of the undo history.
         DrawingDocumentController capController;
@@ -2845,13 +2845,13 @@ int main(int argc, char **argv)
         for (int i = 0; i < 102; ++i) {
             capController.clickCanvasNormalized(0.1 + 0.001 * i, 0.1);
         }
-        assert(capController.modelDocument().value("drawing_objects").toList().size() == 102);
+        EDI_CHECK(capController.modelDocument().value("drawing_objects").toList().size() == 102);
         int undone = 0;
         while (capController.undo()) {
             ++undone;
         }
-        assert(undone == 100); // capped at 100, the first two creations are unrecoverable
-        assert(capController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(undone == 100); // capped at 100, the first two creations are unrecoverable
+        EDI_CHECK(capController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         // A drag bracket interrupted by undo must not poison later undo history.
         // Open a bracket (as a drag would), then undo mid-gesture: the bracket
@@ -2860,15 +2860,15 @@ int main(int argc, char **argv)
         leakController.setSelectedToolId("point_tool");
         leakController.clickCanvasNormalized(0.5, 0.5); // step 1: create
         leakController.beginInteractiveEdit();          // a drag starts...
-        assert(leakController.undo());                  // ...but undo fires first
-        assert(objectCount(leakController) == 0);
+        EDI_CHECK(leakController.undo());                  // ...but undo fires first
+        EDI_CHECK(objectCount(leakController) == 0);
         // The leaked bracket is gone: a fresh edit is independently undoable.
         leakController.setSelectedToolId("point_tool");
         leakController.clickCanvasNormalized(0.4, 0.4);
-        assert(objectCount(leakController) == 1);
-        assert(leakController.canUndo());
-        assert(leakController.undo());                  // the new edit undoes cleanly
-        assert(objectCount(leakController) == 0);
+        EDI_CHECK(objectCount(leakController) == 1);
+        EDI_CHECK(leakController.canUndo());
+        EDI_CHECK(leakController.undo());                  // the new edit undoes cleanly
+        EDI_CHECK(objectCount(leakController) == 0);
     }
 
     // Keyboard-action controller seams: cancel, delete, duplicate, coarse nudge.
@@ -2878,10 +2878,10 @@ int main(int argc, char **argv)
         cancelController.setSelectedToolId("line_tool");
         cancelController.clickCanvasNormalized(0.2, 0.2); // first click: pending
         cancelController.updateCreationPreviewNormalized(0.6, 0.6);
-        assert(cancelController.modelDocument().contains("preview_object"));
+        EDI_CHECK(cancelController.modelDocument().contains("preview_object"));
         cancelController.cancelPendingCreation();
-        assert(!cancelController.modelDocument().contains("preview_object"));
-        assert(cancelController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(!cancelController.modelDocument().contains("preview_object"));
+        EDI_CHECK(cancelController.modelDocument().value("drawing_objects").toList().isEmpty());
         // No-op when nothing pending.
         cancelController.cancelPendingCreation();
 
@@ -2889,47 +2889,47 @@ int main(int argc, char **argv)
         DrawingDocumentController deleteController;
         deleteController.setSelectedToolId("point_tool");
         deleteController.clickCanvasNormalized(0.4, 0.4);
-        assert(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
-        assert(deleteController.deleteSelectedObject());
-        assert(deleteController.modelDocument().value("drawing_objects").toList().isEmpty());
-        assert(deleteController.canUndo());
+        EDI_CHECK(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(deleteController.deleteSelectedObject());
+        EDI_CHECK(deleteController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(deleteController.canUndo());
         deleteController.undo();
-        assert(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(deleteController.modelDocument().value("drawing_objects").toList().size() == 1);
         // Delete with nothing selected fails.
         DrawingDocumentController emptyDeleteController;
-        assert(!emptyDeleteController.deleteSelectedObject());
+        EDI_CHECK(!emptyDeleteController.deleteSelectedObject());
 
         // duplicateSelectedObject clones the active object at a small offset.
         DrawingDocumentController dupController;
         dupController.setSelectedToolId("point_tool");
         dupController.clickCanvasNormalized(0.3, 0.3);
         const QVariantMap original = dupController.modelDocument().value("drawing_objects").toList().front().toMap();
-        assert(dupController.duplicateSelectedObject());
+        EDI_CHECK(dupController.duplicateSelectedObject());
         const QVariantList afterDup = dupController.modelDocument().value("drawing_objects").toList();
-        assert(afterDup.size() == 2);
+        EDI_CHECK(afterDup.size() == 2);
         const QVariantMap copy = afterDup.back().toMap();
-        assert(copy.value("id").toString() != original.value("id").toString());
-        assert(nearlyEqual(copy.value("x").toDouble(), original.value("x").toDouble() + 0.02));
-        assert(nearlyEqual(copy.value("y").toDouble(), original.value("y").toDouble() + 0.02));
+        EDI_CHECK(copy.value("id").toString() != original.value("id").toString());
+        EDI_CHECK(nearlyEqual(copy.value("x").toDouble(), original.value("x").toDouble() + 0.02));
+        EDI_CHECK(nearlyEqual(copy.value("y").toDouble(), original.value("y").toDouble() + 0.02));
         // The duplicate is selected and the action is a single undo step.
-        assert(dupController.selectedObjectId() == copy.value("id").toString());
+        EDI_CHECK(dupController.selectedObjectId() == copy.value("id").toString());
         dupController.undo();
-        assert(dupController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(dupController.modelDocument().value("drawing_objects").toList().size() == 1);
         DrawingDocumentController emptyDupController;
-        assert(!emptyDupController.duplicateSelectedObject());
+        EDI_CHECK(!emptyDupController.duplicateSelectedObject());
 
         // Shift-nudge maps to the "coarse" step (4x the grid step).
         DrawingDocumentController coarseController;
         coarseController.setSelectedToolId("point_tool");
         coarseController.clickCanvasNormalized(0.5, 0.5);
         const double baseX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
-        assert(coarseController.nudgeSelection("right", "grid"));
+        EDI_CHECK(coarseController.nudgeSelection("right", "grid"));
         const double gridX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
         coarseController.undo();
-        assert(coarseController.nudgeSelection("right", "coarse"));
+        EDI_CHECK(coarseController.nudgeSelection("right", "coarse"));
         const double coarseX = coarseController.modelDocument().value("drawing_objects").toList().front().toMap().value("x").toDouble();
         // coarse step is 4x the grid step.
-        assert(nearlyEqual(coarseX - baseX, (gridX - baseX) * 4.0));
+        EDI_CHECK(nearlyEqual(coarseX - baseX, (gridX - baseX) * 4.0));
     }
 
     // Polyline: the first multi-click tool. Clicks anchor vertices into the
@@ -2939,45 +2939,45 @@ int main(int argc, char **argv)
         polyController.setSelectedToolId("polyline_tool");
         polyController.clickCanvasNormalized(0.2, 0.2);
         polyController.clickCanvasNormalized(0.5, 0.3);
-        assert(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
 
         // The pointer previews as a provisional last vertex.
         polyController.updateCreationPreviewNormalized(0.6, 0.6);
-        assert(polyController.modelDocument().contains("preview_object"));
+        EDI_CHECK(polyController.modelDocument().contains("preview_object"));
 
         polyController.clickCanvasNormalized(0.6, 0.6);
-        assert(polyController.finishPendingMultiClick());
+        EDI_CHECK(polyController.finishPendingMultiClick());
         const QVariantList objects = polyController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 1);
+        EDI_CHECK(objects.size() == 1);
         const QVariantMap polyline = objects.front().toMap();
-        assert(polyline.value("kind").toString() == QStringLiteral("polyline"));
-        assert(polyController.selectedObjectId() == polyline.value("id").toString());
+        EDI_CHECK(polyline.value("kind").toString() == QStringLiteral("polyline"));
+        EDI_CHECK(polyController.selectedObjectId() == polyline.value("id").toString());
 
         // The whole gesture is ONE undo step, not one per click.
-        assert(polyController.canUndo());
+        EDI_CHECK(polyController.canUndo());
         polyController.undo();
-        assert(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(polyController.modelDocument().value("drawing_objects").toList().isEmpty());
         polyController.redo();
-        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Finishing with nothing pending refuses; a one-vertex trail
         // dissolves silently (same as Escape).
-        assert(!polyController.finishPendingMultiClick());
+        EDI_CHECK(!polyController.finishPendingMultiClick());
         polyController.clickCanvasNormalized(0.8, 0.8);
-        assert(!polyController.finishPendingMultiClick());
-        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!polyController.finishPendingMultiClick());
+        EDI_CHECK(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Escape drops an in-flight trail without touching the document.
         polyController.clickCanvasNormalized(0.1, 0.8);
         polyController.clickCanvasNormalized(0.3, 0.9);
         polyController.cancelPendingCreation();
-        assert(!polyController.finishPendingMultiClick());
-        assert(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!polyController.finishPendingMultiClick());
+        EDI_CHECK(polyController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // A finished polyline is selectable by clicking near a segment.
         polyController.setSelectedToolId("select_move");
         polyController.clickCanvasNormalized(0.35, 0.25);
-        assert(polyController.selectedObjectId() == polyline.value("id").toString());
+        EDI_CHECK(polyController.selectedObjectId() == polyline.value("id").toString());
     }
 
     // Spline: the SECOND multi-click tool. It rides the exact same gesture as
@@ -2990,27 +2990,27 @@ int main(int argc, char **argv)
         splineController.clickCanvasNormalized(0.4, 0.5);
         splineController.clickCanvasNormalized(0.7, 0.3);
         // Nothing reaches the document until the finish verb.
-        assert(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
 
-        assert(splineController.finishPendingMultiClick());
+        EDI_CHECK(splineController.finishPendingMultiClick());
         const QVariantList objects = splineController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 1);
+        EDI_CHECK(objects.size() == 1);
         const QVariantMap spline = objects.front().toMap();
-        assert(spline.value("kind").toString() == QStringLiteral("spline"));
+        EDI_CHECK(spline.value("kind").toString() == QStringLiteral("spline"));
         // The projection flattened the sampled curve into drawable points.
-        assert(!spline.value("points").toList().isEmpty());
+        EDI_CHECK(!spline.value("points").toList().isEmpty());
 
         // The whole gesture is ONE undo step; redo restores it whole.
-        assert(splineController.canUndo());
+        EDI_CHECK(splineController.canUndo());
         splineController.undo();
-        assert(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
+        EDI_CHECK(splineController.modelDocument().value("drawing_objects").toList().isEmpty());
         splineController.redo();
-        assert(splineController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(splineController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // A finished spline is selectable by clicking near the curve.
         splineController.setSelectedToolId("select_move");
         splineController.clickCanvasNormalized(0.4, 0.5); // a control point lies on the curve
-        assert(splineController.selectedObjectId() == spline.value("id").toString());
+        EDI_CHECK(splineController.selectedObjectId() == spline.value("id").toString());
     }
 
     // N1 copy/cut/paste.
@@ -3023,23 +3023,23 @@ int main(int argc, char **argv)
         clip.setSelectedToolId("point_tool");
         clip.clickCanvasNormalized(0.3, 0.3);
         clip.clickCanvasNormalized(0.6, 0.6);
-        assert(objectCount(clip) == 2);
+        EDI_CHECK(objectCount(clip) == 2);
 
         // Copy with nothing selected is a no-op (clear the click selection
         // with an empty marquee first).
         clip.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
-        assert(!clip.copySelection());
-        assert(!clip.canPaste());
+        EDI_CHECK(!clip.copySelection());
+        EDI_CHECK(!clip.canPaste());
 
         // Marquee-select both points, copy, paste: two fresh objects appear,
         // the originals stay, and the pasted pair is what's now selected.
         clip.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(clip.copySelection());
-        assert(clip.canPaste());
+        EDI_CHECK(clip.copySelection());
+        EDI_CHECK(clip.canPaste());
         const int beforePaste = objectCount(clip);
-        assert(clip.paste());
-        assert(objectCount(clip) == beforePaste + 2);
-        assert(clip.modelDocument().value("selected_object_ids").toList().size() == 2);
+        EDI_CHECK(clip.paste());
+        EDI_CHECK(objectCount(clip) == beforePaste + 2);
+        EDI_CHECK(clip.modelDocument().value("selected_object_ids").toList().size() == 2);
 
         // Every object id in the document is unique after the paste.
         {
@@ -3048,41 +3048,41 @@ int main(int argc, char **argv)
             for (const QVariant &value : objects) {
                 ids.insert(value.toMap().value("id").toString());
             }
-            assert(ids.size() == objects.size());
+            EDI_CHECK(ids.size() == objects.size());
         }
 
         // Paste is exactly one undo step (not one per pasted object).
         clip.undo();
-        assert(objectCount(clip) == beforePaste);
+        EDI_CHECK(objectCount(clip) == beforePaste);
         clip.redo();
-        assert(objectCount(clip) == beforePaste + 2);
+        EDI_CHECK(objectCount(clip) == beforePaste + 2);
 
         // The clipboard survives selection changes: clear the selection, paste
         // again — still pastes BOTH copied points.
         clip.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
         const int beforeSecond = objectCount(clip);
-        assert(clip.paste());
-        assert(objectCount(clip) == beforeSecond + 2);
+        EDI_CHECK(clip.paste());
+        EDI_CHECK(objectCount(clip) == beforeSecond + 2);
 
         // Cut: copies then removes the selection as one undo step.
         DrawingDocumentController cutter;
         cutter.setSelectedToolId("point_tool");
         cutter.clickCanvasNormalized(0.4, 0.4);
         cutter.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(cutter.cutSelection());
-        assert(objectCount(cutter) == 0); // cut removed it
-        assert(cutter.canPaste());
+        EDI_CHECK(cutter.cutSelection());
+        EDI_CHECK(objectCount(cutter) == 0); // cut removed it
+        EDI_CHECK(cutter.canPaste());
         cutter.undo();                    // the cut's delete is one undo step
-        assert(objectCount(cutter) == 1);
+        EDI_CHECK(objectCount(cutter) == 1);
         cutter.redo();
-        assert(objectCount(cutter) == 0);
-        assert(cutter.paste());           // the cut clipboard still pastes
-        assert(objectCount(cutter) == 1);
+        EDI_CHECK(objectCount(cutter) == 0);
+        EDI_CHECK(cutter.paste());           // the cut clipboard still pastes
+        EDI_CHECK(objectCount(cutter) == 1);
 
         // Empty clipboard pastes nothing.
         DrawingDocumentController fresh;
-        assert(!fresh.canPaste());
-        assert(!fresh.paste());
+        EDI_CHECK(!fresh.canPaste());
+        EDI_CHECK(!fresh.paste());
 
         // Paste is ATOMIC (user decision 2026-06-11). The DISCRIMINATING
         // setup is a clipboard spanning two layers with only one locked:
@@ -3092,33 +3092,33 @@ int main(int argc, char **argv)
         DrawingDocumentController atomicPaste;
         atomicPaste.setSelectedToolId("point_tool");
         atomicPaste.clickCanvasNormalized(0.3, 0.3); // point on the default layer (serial 1)
-        assert(atomicPaste.createLayer());           // second layer becomes active
+        EDI_CHECK(atomicPaste.createLayer());           // second layer becomes active
         atomicPaste.clickCanvasNormalized(0.6, 0.6); // point on the second layer (serial 2)
         atomicPaste.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(atomicPaste.copySelection());            // clipboard spans both layers
-        assert(atomicPaste.setActiveLayerLocked(true)); // lock ONLY the second layer
+        EDI_CHECK(atomicPaste.copySelection());            // clipboard spans both layers
+        EDI_CHECK(atomicPaste.setActiveLayerLocked(true)); // lock ONLY the second layer
         const int beforeLockedPaste = objectCount(atomicPaste);
-        assert(!atomicPaste.paste());
-        assert(objectCount(atomicPaste) == beforeLockedPaste);
+        EDI_CHECK(!atomicPaste.paste());
+        EDI_CHECK(objectCount(atomicPaste) == beforeLockedPaste);
         // The failure preserves the selection (the old loop cleared it via
         // SelectObjectsCommand{empty}) and reports through edit_status.
-        assert(atomicPaste.modelDocument().value("selected_object_ids").toList().size() == 2);
+        EDI_CHECK(atomicPaste.modelDocument().value("selected_object_ids").toList().size() == 2);
         QVariantMap pasteStatus = atomicPaste.modelDocument().value("edit_status").toMap();
-        assert(pasteStatus.value("ok").toBool() == false);
-        assert(pasteStatus.value("mode").toString() == "paste");
+        EDI_CHECK(pasteStatus.value("ok").toBool() == false);
+        EDI_CHECK(pasteStatus.value("mode").toString() == "paste");
         // Unlock: the same clipboard pastes whole.
-        assert(atomicPaste.setActiveLayerLocked(false));
-        assert(atomicPaste.paste());
-        assert(objectCount(atomicPaste) == beforeLockedPaste + 2);
+        EDI_CHECK(atomicPaste.setActiveLayerLocked(false));
+        EDI_CHECK(atomicPaste.paste());
+        EDI_CHECK(objectCount(atomicPaste) == beforeLockedPaste + 2);
         // Pins the serial reclaim: points minted serials 1-2, the FAILED
         // paste minted 3-4 then restored, so this paste re-mints 3-4 —
         // without the restore in paste() these would be 5-6.
         QVariantList pastedSelection = atomicPaste.modelDocument().value("selected_object_ids").toList();
-        assert(pastedSelection.size() == 2);
-        assert(trailingSerial(pastedSelection.first().toString()) == 3);
-        assert(trailingSerial(pastedSelection.last().toString()) == 4);
+        EDI_CHECK(pastedSelection.size() == 2);
+        EDI_CHECK(trailingSerial(pastedSelection.first().toString()) == 3);
+        EDI_CHECK(trailingSerial(pastedSelection.last().toString()) == 4);
         // A clean paste leaves no stale rejection behind.
-        assert(atomicPaste.modelDocument().value("edit_status").toMap().isEmpty());
+        EDI_CHECK(atomicPaste.modelDocument().value("edit_status").toMap().isEmpty());
     }
 
     // N3 object metadata: role / material / export_group / tags, editable
@@ -3139,29 +3139,29 @@ int main(int argc, char **argv)
             return QVariantMap{};
         };
 
-        assert(meta.setSelectedObjectRole("cutout"));
-        assert(meta.setSelectedObjectMaterial("oak"));
-        assert(meta.setSelectedObjectExportGroup("frame"));
-        assert(meta.setSelectedObjectTags({QStringLiteral("load-bearing"), QStringLiteral(" visible "),
+        EDI_CHECK(meta.setSelectedObjectRole("cutout"));
+        EDI_CHECK(meta.setSelectedObjectMaterial("oak"));
+        EDI_CHECK(meta.setSelectedObjectExportGroup("frame"));
+        EDI_CHECK(meta.setSelectedObjectTags({QStringLiteral("load-bearing"), QStringLiteral(" visible "),
                                             QStringLiteral("")})); // blanks dropped, others trimmed
         const QVariantMap projected = activeObj();
-        assert(projected.value("role").toString() == "cutout");
-        assert(projected.value("material").toString() == "oak");
-        assert(projected.value("export_group").toString() == "frame");
-        assert(projected.value("tags").toString() == "load-bearing, visible");
+        EDI_CHECK(projected.value("role").toString() == "cutout");
+        EDI_CHECK(projected.value("material").toString() == "oak");
+        EDI_CHECK(projected.value("export_group").toString() == "frame");
+        EDI_CHECK(projected.value("tags").toString() == "load-bearing, visible");
 
         // Each edit is undoable; undoing the tags edit restores the prior tags.
         meta.undo();
-        assert(activeObj().value("tags").toString().isEmpty());
+        EDI_CHECK(activeObj().value("tags").toString().isEmpty());
 
         // An unknown role name falls back to none rather than erroring.
-        assert(meta.setSelectedObjectRole("not_a_role"));
-        assert(activeObj().value("role").toString() == "none");
+        EDI_CHECK(meta.setSelectedObjectRole("not_a_role"));
+        EDI_CHECK(activeObj().value("role").toString() == "none");
 
         // No selection: setters refuse.
         DrawingDocumentController noSel;
-        assert(!noSel.setSelectedObjectRole("wall"));
-        assert(!noSel.setSelectedObjectMaterial("steel"));
+        EDI_CHECK(!noSel.setSelectedObjectRole("wall"));
+        EDI_CHECK(!noSel.setSelectedObjectMaterial("steel"));
     }
 
     // N4 rectangle variants + aspect-lock through the controller.
@@ -3185,13 +3185,13 @@ int main(int argc, char **argv)
         rectCtl.clickCanvasNormalized(0.2, 0.2);
         rectCtl.clickCanvasNormalized(0.6, 0.5);
         const QVariantMap madeRect = activeRect(rectCtl);
-        assert(madeRect.value("kind").toString() == "rectangle");
-        assert(nearlyEqual(madeRect.value("corner_radius").toDouble(), 0.05));
-        assert(nearlyEqual(madeRect.value("inset").toDouble(), 0.02));
+        EDI_CHECK(madeRect.value("kind").toString() == "rectangle");
+        EDI_CHECK(nearlyEqual(madeRect.value("corner_radius").toDouble(), 0.05));
+        EDI_CHECK(nearlyEqual(madeRect.value("inset").toDouble(), 0.02));
 
         // Negative/non-finite options normalize to a plain box.
         rectCtl.setRectCornerRadius(-1.0);
-        assert(rectCtl.rectCornerRadius() == 0.0);
+        EDI_CHECK(rectCtl.rectCornerRadius() == 0.0);
 
         // Aspect-lock: a fresh square, then a corner drag with the lock on
         // preserves the 1:1 ratio even though the cursor demands a rectangle.
@@ -3202,22 +3202,22 @@ int main(int argc, char **argv)
         const QVariantMap square = activeRect(lockCtl);
         const double w0 = square.value("bounds").toMap().value("width").toDouble();
         const double h0 = square.value("bounds").toMap().value("height").toDouble();
-        assert(nearlyEqual(w0, h0));
+        EDI_CHECK(nearlyEqual(w0, h0));
 
         lockCtl.setAspectLockEnabled(true);
-        assert(lockCtl.aspectLockEnabled());
+        EDI_CHECK(lockCtl.aspectLockEnabled());
         // Drag the SE corner far off-square; the lock keeps width==height.
         lockCtl.editSelectedHandleNormalized("rect_se", 0.9, 0.5);
         const QVariantMap locked = activeRect(lockCtl);
         const double wL = locked.value("bounds").toMap().value("width").toDouble();
         const double hL = locked.value("bounds").toMap().value("height").toDouble();
-        assert(nearlyEqual(wL, hL));
+        EDI_CHECK(nearlyEqual(wL, hL));
 
         // With the lock off, the same kind of drag frees the ratio.
         lockCtl.setAspectLockEnabled(false);
         lockCtl.editSelectedHandleNormalized("rect_se", 0.95, 0.45);
         const QVariantMap freed = activeRect(lockCtl);
-        assert(!nearlyEqual(freed.value("bounds").toMap().value("width").toDouble(),
+        EDI_CHECK(!nearlyEqual(freed.value("bounds").toMap().value("width").toDouble(),
                             freed.value("bounds").toMap().value("height").toDouble()));
     }
 
@@ -3243,48 +3243,48 @@ int main(int argc, char **argv)
         };
 
         const QString layerColor = activeProjection().value(QStringLiteral("effective_stroke_color")).toString();
-        assert(!layerColor.isEmpty());
+        EDI_CHECK(!layerColor.isEmpty());
 
-        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff6600")));
-        assert(styleController.setSelectedObjectStrokeWidth(4.5));
-        assert(styleController.setSelectedObjectLineStyle(QStringLiteral("dash")));
+        EDI_CHECK(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff6600")));
+        EDI_CHECK(styleController.setSelectedObjectStrokeWidth(4.5));
+        EDI_CHECK(styleController.setSelectedObjectLineStyle(QStringLiteral("dash")));
         QVariantMap styled = activeProjection();
-        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == QStringLiteral("#ff6600"));
-        assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
-        assert(styled.value(QStringLiteral("effective_line_style")).toString() == QStringLiteral("dash"));
+        EDI_CHECK(styled.value(QStringLiteral("effective_stroke_color")).toString() == QStringLiteral("#ff6600"));
+        EDI_CHECK(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
+        EDI_CHECK(styled.value(QStringLiteral("effective_line_style")).toString() == QStringLiteral("dash"));
         // An art color keeps the layer's physical pen (no preset match).
-        assert(styled.value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_black"));
+        EDI_CHECK(styled.value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_black"));
         // A preset color SELECTS its pen.
-        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#75c7ff")));
-        assert(activeProjection().value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_blue"));
+        EDI_CHECK(styleController.setSelectedObjectStrokeColor(QStringLiteral("#75c7ff")));
+        EDI_CHECK(activeProjection().value(QStringLiteral("effective_pen_id")).toString() == QStringLiteral("pen_blue"));
 
         // Inherit sentinels hand control back to the layer.
-        assert(styleController.setSelectedObjectStrokeColor(QString()));
-        assert(styleController.setSelectedObjectStrokeWidth(0.0));
+        EDI_CHECK(styleController.setSelectedObjectStrokeColor(QString()));
+        EDI_CHECK(styleController.setSelectedObjectStrokeWidth(0.0));
         styled = activeProjection();
-        assert(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor);
+        EDI_CHECK(styled.value(QStringLiteral("effective_stroke_color")).toString() == layerColor);
 
         // Undo walks the style edits back one command at a time: undoing
         // the width-0 (inherit) command restores the explicit 4.5 — an
         // assertion that FAILS if undo restores nothing (the first draft
         // checked a value that held either way; the review caught it).
-        assert(styleController.undo());
+        EDI_CHECK(styleController.undo());
         styled = activeProjection();
-        assert(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
+        EDI_CHECK(styled.value(QStringLiteral("effective_stroke_width")).toDouble() == 4.5);
 
         // Opacity: per-object only (no layer fallback), clamped to [0, 1],
         // surfaced through BOTH projection keys, one undo step per edit.
-        assert(styleController.setSelectedObjectStrokeOpacity(0.4));
+        EDI_CHECK(styleController.setSelectedObjectStrokeOpacity(0.4));
         styled = activeProjection();
-        assert(styled.value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.4);
-        assert(styled.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.4);
-        assert(styleController.setSelectedObjectStrokeOpacity(5.0)); // clamps high
-        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
-        assert(styleController.setSelectedObjectStrokeOpacity(-1.0)); // clamps to transparent
-        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.0);
-        assert(!styleController.setSelectedObjectStrokeOpacity(std::numeric_limits<double>::quiet_NaN()));
-        assert(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
-        assert(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
+        EDI_CHECK(styled.value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.4);
+        EDI_CHECK(styled.value(QStringLiteral("own_stroke_opacity")).toDouble() == 0.4);
+        EDI_CHECK(styleController.setSelectedObjectStrokeOpacity(5.0)); // clamps high
+        EDI_CHECK(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
+        EDI_CHECK(styleController.setSelectedObjectStrokeOpacity(-1.0)); // clamps to transparent
+        EDI_CHECK(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 0.0);
+        EDI_CHECK(!styleController.setSelectedObjectStrokeOpacity(std::numeric_limits<double>::quiet_NaN()));
+        EDI_CHECK(styleController.undo()); // undoing the 0.0 edit restores the clamp-high 1.0
+        EDI_CHECK(activeProjection().value(QStringLiteral("effective_stroke_opacity")).toDouble() == 1.0);
 
         // Fill: gated by kind — only Rectangle/Circle/Ellipse/Polygon carry a fill
         // that the painter/SVG actually renders.  Open kinds (Line, Arc, …) are
@@ -3294,34 +3294,34 @@ int main(int argc, char **argv)
         styleController.clickCanvasNormalized(0.5, 0.1); // center
         styleController.clickCanvasNormalized(0.7, 0.1); // edge → radius 0.2
         // circle_tool auto-selects the new object
-        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.0);
-        assert(styleController.setSelectedObjectFillColor(QStringLiteral("#2244aa")));
-        assert(styleController.setSelectedObjectFillOpacity(0.6));
+        EDI_CHECK(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.0);
+        EDI_CHECK(styleController.setSelectedObjectFillColor(QStringLiteral("#2244aa")));
+        EDI_CHECK(styleController.setSelectedObjectFillOpacity(0.6));
         styled = activeProjection();
-        assert(styled.value(QStringLiteral("own_fill_color")).toString() == QStringLiteral("#2244aa"));
-        assert(styled.value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
-        assert(styleController.setSelectedObjectFillOpacity(5.0)); // clamps high
-        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 1.0);
-        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected
-        assert(!styleController.setSelectedObjectFillOpacity(std::numeric_limits<double>::quiet_NaN())); // non-finite rejected
+        EDI_CHECK(styled.value(QStringLiteral("own_fill_color")).toString() == QStringLiteral("#2244aa"));
+        EDI_CHECK(styled.value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
+        EDI_CHECK(styleController.setSelectedObjectFillOpacity(5.0)); // clamps high
+        EDI_CHECK(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 1.0);
+        EDI_CHECK(!styleController.setSelectedObjectFillColor(QStringLiteral("not-a-color"))); // junk rejected
+        EDI_CHECK(!styleController.setSelectedObjectFillOpacity(std::numeric_limits<double>::quiet_NaN())); // non-finite rejected
         // No-op guard: re-setting the value already in place must NOT push an undo step —
         // so the undo below restores 0.6, not 1.0.
-        assert(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp
-        assert(styleController.undo());
-        assert(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
+        EDI_CHECK(styleController.setSelectedObjectFillOpacity(1.0)); // already 1.0 after the clamp
+        EDI_CHECK(styleController.undo());
+        EDI_CHECK(activeProjection().value(QStringLiteral("own_fill_opacity")).toDouble() == 0.6);
 
         // DR-15: fill setters on an open kind (Line) return false; object.fill unchanged.
         // Re-select the diagonal line created at the top of this block.
         styleController.setSelectedToolId(QStringLiteral("select_move"));
         styleController.clickCanvasNormalized(0.3, 0.3); // midpoint of the (0.2,0.2)→(0.8,0.8) line
         const QVariantMap lineBeforeFill = activeProjection();
-        assert(!styleController.setSelectedObjectFillColor(QStringLiteral("#aabbcc")));
-        assert(!styleController.setSelectedObjectFillOpacity(0.7));
+        EDI_CHECK(!styleController.setSelectedObjectFillColor(QStringLiteral("#aabbcc")));
+        EDI_CHECK(!styleController.setSelectedObjectFillOpacity(0.7));
         const QVariantMap lineAfterFill = activeProjection();
         // fill state must be byte-identical after the rejected calls
-        assert(lineAfterFill.value(QStringLiteral("own_fill_color"))
+        EDI_CHECK(lineAfterFill.value(QStringLiteral("own_fill_color"))
             == lineBeforeFill.value(QStringLiteral("own_fill_color")));
-        assert(lineAfterFill.value(QStringLiteral("own_fill_opacity"))
+        EDI_CHECK(lineAfterFill.value(QStringLiteral("own_fill_opacity"))
             == lineBeforeFill.value(QStringLiteral("own_fill_opacity")));
     }
 
@@ -3331,39 +3331,39 @@ int main(int argc, char **argv)
         DrawingDocumentController arrayController;
         // Option setters normalize garbage instead of failing later actions.
         arrayController.setArrayCount(0);
-        assert(arrayController.arrayCount() == 1);
+        EDI_CHECK(arrayController.arrayCount() == 1);
         arrayController.setArrayCount(500);
-        assert(arrayController.arrayCount() == 99);
+        EDI_CHECK(arrayController.arrayCount() == 99);
         arrayController.setArraySpacingX(std::numeric_limits<double>::infinity());
-        assert(arrayController.arraySpacingX() == 0.0);
+        EDI_CHECK(arrayController.arraySpacingX() == 0.0);
         arrayController.setArraySpacingY(-0.25); // negative = march up/left, legal
-        assert(arrayController.arraySpacingY() == -0.25);
+        EDI_CHECK(arrayController.arraySpacingY() == -0.25);
         arrayController.setFixedRadius(-2.0);
-        assert(arrayController.fixedRadius() == 0.0);
+        EDI_CHECK(arrayController.fixedRadius() == 0.0);
         // Magnitudes clamp to the unit document space — stored state always
         // matches what the spins can show and what the build stamps.
         arrayController.setArraySpacingX(5.0);
-        assert(arrayController.arraySpacingX() == 1.0);
+        EDI_CHECK(arrayController.arraySpacingX() == 1.0);
         arrayController.setArraySpacingY(-5.0);
-        assert(arrayController.arraySpacingY() == -1.0);
+        EDI_CHECK(arrayController.arraySpacingY() == -1.0);
         arrayController.setFixedRadius(5.0);
-        assert(arrayController.fixedRadius() == 1.0);
+        EDI_CHECK(arrayController.fixedRadius() == 1.0);
         arrayController.setFixedRadius(0.0);
 
         arrayController.setSelectedToolId("line_tool");
         arrayController.clickCanvasNormalized(0.2, 0.3);
         arrayController.clickCanvasNormalized(0.3, 0.3);
-        assert(arrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(arrayController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         arrayController.setArrayCount(2);
         arrayController.setArraySpacingX(0.2);
-        assert(arrayController.repeatSelectedObject("x"));
+        EDI_CHECK(arrayController.repeatSelectedObject("x"));
         QVariantList arrayObjects = arrayController.modelDocument().value("drawing_objects").toList();
-        assert(arrayObjects.size() == 3);
+        EDI_CHECK(arrayObjects.size() == 3);
         QVariantMap secondCopy = arrayObjects[2].toMap();
-        assert(nearlyEqual(secondCopy.value("x1").toDouble(), 0.6));
-        assert(nearlyEqual(secondCopy.value("y1").toDouble(), 0.3));
-        assert(arrayController.modelDocument().value("selected_object_ids").toList().size() == 2);
+        EDI_CHECK(nearlyEqual(secondCopy.value("x1").toDouble(), 0.6));
+        EDI_CHECK(nearlyEqual(secondCopy.value("y1").toDouble(), 0.3));
+        EDI_CHECK(arrayController.modelDocument().value("selected_object_ids").toList().size() == 2);
     }
 
     // Grid array: count x count cells from one count spin, both spacings.
@@ -3375,28 +3375,28 @@ int main(int argc, char **argv)
 
         // A 1x1 grid has nothing to create.
         gridArrayController.setArrayCount(1);
-        assert(!gridArrayController.gridArraySelectedObject());
+        EDI_CHECK(!gridArrayController.gridArraySelectedObject());
 
         gridArrayController.setArrayCount(2);
         gridArrayController.setArraySpacingX(0.2);
         gridArrayController.setArraySpacingY(0.3);
-        assert(gridArrayController.gridArraySelectedObject());
+        EDI_CHECK(gridArrayController.gridArraySelectedObject());
         QVariantList gridObjects = gridArrayController.modelDocument().value("drawing_objects").toList();
-        assert(gridObjects.size() == 4); // source + 3 copies
+        EDI_CHECK(gridObjects.size() == 4); // source + 3 copies
         QVariantMap rightCopy = gridObjects[1].toMap();    // cell (1,0)
         QVariantMap downCopy = gridObjects[2].toMap();     // cell (0,1)
         QVariantMap diagonalCopy = gridObjects[3].toMap(); // cell (1,1)
-        assert(nearlyEqual(rightCopy.value("x1").toDouble(), 0.3));
-        assert(nearlyEqual(rightCopy.value("y1").toDouble(), 0.1));
-        assert(nearlyEqual(downCopy.value("x1").toDouble(), 0.1));
-        assert(nearlyEqual(downCopy.value("y1").toDouble(), 0.4));
-        assert(nearlyEqual(diagonalCopy.value("x1").toDouble(), 0.3));
-        assert(nearlyEqual(diagonalCopy.value("y1").toDouble(), 0.4));
-        assert(gridArrayController.modelDocument().value("selected_object_ids").toList().size() == 3);
+        EDI_CHECK(nearlyEqual(rightCopy.value("x1").toDouble(), 0.3));
+        EDI_CHECK(nearlyEqual(rightCopy.value("y1").toDouble(), 0.1));
+        EDI_CHECK(nearlyEqual(downCopy.value("x1").toDouble(), 0.1));
+        EDI_CHECK(nearlyEqual(downCopy.value("y1").toDouble(), 0.4));
+        EDI_CHECK(nearlyEqual(diagonalCopy.value("x1").toDouble(), 0.3));
+        EDI_CHECK(nearlyEqual(diagonalCopy.value("y1").toDouble(), 0.4));
+        EDI_CHECK(gridArrayController.modelDocument().value("selected_object_ids").toList().size() == 3);
 
         // One undo step removes the whole grid.
-        assert(gridArrayController.undo());
-        assert(gridArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(gridArrayController.undo());
+        EDI_CHECK(gridArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
     // Radial array now PICKS its centre: arm the capture, then a canvas click
@@ -3413,54 +3413,54 @@ int main(int argc, char **argv)
         radialController.clickCanvasNormalized(centerX - 0.2, centerY);
         radialController.clickCanvasNormalized(centerX - 0.2, centerY); // fixed radius: a same-point click still sizes
         QVariantList seeded = radialController.modelDocument().value("drawing_objects").toList();
-        assert(seeded.size() == 1);
-        assert(nearlyEqual(seeded[0].toMap().value("radius").toDouble(), 0.02));
+        EDI_CHECK(seeded.size() == 1);
+        EDI_CHECK(nearlyEqual(seeded[0].toMap().value("radius").toDouble(), 0.02));
 
         radialController.setArrayCount(3);
         // Arming requires a usable source and exposes the prompt; the click
         // that follows is consumed as the centre, NOT as a new selection.
-        assert(radialController.beginRadialArrayCenterPick());
-        assert(radialController.isAwaitingPointCapture());
-        assert(radialController.modelDocument().value("awaiting_point_capture").toBool());
-        assert(!radialController.modelDocument().value("point_capture_prompt").toString().isEmpty());
+        EDI_CHECK(radialController.beginRadialArrayCenterPick());
+        EDI_CHECK(radialController.isAwaitingPointCapture());
+        EDI_CHECK(radialController.modelDocument().value("awaiting_point_capture").toBool());
+        EDI_CHECK(!radialController.modelDocument().value("point_capture_prompt").toString().isEmpty());
 
         radialController.clickCanvasNormalized(centerX, centerY); // sets the ring centre
-        assert(!radialController.isAwaitingPointCapture());       // capture consumed
-        assert(!radialController.modelDocument().contains("awaiting_point_capture"));
+        EDI_CHECK(!radialController.isAwaitingPointCapture());       // capture consumed
+        EDI_CHECK(!radialController.modelDocument().contains("awaiting_point_capture"));
         QVariantList ringObjects = radialController.modelDocument().value("drawing_objects").toList();
-        assert(ringObjects.size() == 4);
+        EDI_CHECK(ringObjects.size() == 4);
         // Slots = 4 -> copies at 90/180/270 degrees, all at ring radius 0.2.
         for (int i = 1; i < ringObjects.size(); ++i) {
             QVariantMap copy = ringObjects[i].toMap();
             const double dx = copy.value("cx").toDouble() - centerX;
             const double dy = copy.value("cy").toDouble() - centerY;
-            assert(nearlyEqual(std::hypot(dx, dy), 0.2));
-            assert(nearlyEqual(copy.value("radius").toDouble(), 0.02));
+            EDI_CHECK(nearlyEqual(std::hypot(dx, dy), 0.2));
+            EDI_CHECK(nearlyEqual(copy.value("radius").toDouble(), 0.02));
         }
 
         // The capture click did not change selection — the source is still
         // active (so a second array would work), and the array is ONE undo step.
-        assert(radialController.canUndo());
+        EDI_CHECK(radialController.canUndo());
         radialController.undo();
-        assert(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Arming with NOTHING selected refuses and arms nothing.
         DrawingDocumentController emptyController;
-        assert(!emptyController.beginRadialArrayCenterPick());
-        assert(!emptyController.isAwaitingPointCapture());
+        EDI_CHECK(!emptyController.beginRadialArrayCenterPick());
+        EDI_CHECK(!emptyController.isAwaitingPointCapture());
 
         // Escape (cancelPendingCreation) drops an armed capture without arraying.
         radialController.setSelectedToolId("select_move");
         radialController.clickCanvasNormalized(centerX - 0.2, centerY); // reselect the source circle
-        assert(radialController.beginRadialArrayCenterPick());
+        EDI_CHECK(radialController.beginRadialArrayCenterPick());
         radialController.cancelPendingCreation();
-        assert(!radialController.isAwaitingPointCapture());
-        assert(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!radialController.isAwaitingPointCapture());
+        EDI_CHECK(radialController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Switching tools also cancels an armed capture.
-        assert(radialController.beginRadialArrayCenterPick());
+        EDI_CHECK(radialController.beginRadialArrayCenterPick());
         radialController.setSelectedToolId("line_tool");
-        assert(!radialController.isAwaitingPointCapture());
+        EDI_CHECK(!radialController.isAwaitingPointCapture());
 
         // A source sitting ON the picked centre has a zero arm: the planner
         // rejects, the document is untouched, and the capture still clears.
@@ -3469,10 +3469,10 @@ int main(int argc, char **argv)
         degenerateController.setFixedRadius(0.05);
         degenerateController.clickCanvasNormalized(0.5, 0.5);
         degenerateController.clickCanvasNormalized(0.5, 0.5);
-        assert(degenerateController.beginRadialArrayCenterPick());
+        EDI_CHECK(degenerateController.beginRadialArrayCenterPick());
         degenerateController.clickCanvasNormalized(0.5, 0.5); // centre == source centre -> zero arm
-        assert(!degenerateController.isAwaitingPointCapture());
-        assert(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!degenerateController.isAwaitingPointCapture());
+        EDI_CHECK(degenerateController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
     // Rotate-copies rosette: the rotating sibling intent. Arming + the captured
@@ -3486,47 +3486,47 @@ int main(int argc, char **argv)
         rosette.setFixedRadius(0.02);
         rosette.clickCanvasNormalized(centerX - 0.2, centerY);
         rosette.clickCanvasNormalized(centerX - 0.2, centerY); // fixed radius: sizes on a same-point click
-        assert(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
 
         rosette.setSelectedToolId("select_move");
         rosette.clickCanvasNormalized(centerX - 0.2, centerY); // reselect the source
         rosette.setArrayCount(3);
         rosette.setRotateCopiesTotalAngle(360.0);
-        assert(nearlyEqual(rosette.rotateCopiesTotalAngle(), 360.0));
-        assert(rosette.beginRotateCopiesCenterPick());
-        assert(rosette.isAwaitingPointCapture());
+        EDI_CHECK(nearlyEqual(rosette.rotateCopiesTotalAngle(), 360.0));
+        EDI_CHECK(rosette.beginRotateCopiesCenterPick());
+        EDI_CHECK(rosette.isAwaitingPointCapture());
         rosette.clickCanvasNormalized(centerX, centerY); // sets the rosette centre
-        assert(!rosette.isAwaitingPointCapture());
+        EDI_CHECK(!rosette.isAwaitingPointCapture());
 
         QVariantList objs = rosette.modelDocument().value("drawing_objects").toList();
-        assert(objs.size() == 4); // source + 3 rotated copies
+        EDI_CHECK(objs.size() == 4); // source + 3 rotated copies
         for (int i = 1; i < objs.size(); ++i) {
             QVariantMap copy = objs[i].toMap();
             const double dx = copy.value("cx").toDouble() - centerX;
             const double dy = copy.value("cy").toDouble() - centerY;
-            assert(nearlyEqual(std::hypot(dx, dy), 0.2)); // each copy orbits the ring
+            EDI_CHECK(nearlyEqual(std::hypot(dx, dy), 0.2)); // each copy orbits the ring
         }
         // ONE undo step removes all copies.
-        assert(rosette.canUndo());
+        EDI_CHECK(rosette.canUndo());
         rosette.undo();
-        assert(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(rosette.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Refuses to arm with nothing selected.
         DrawingDocumentController emptyRosette;
-        assert(!emptyRosette.beginRotateCopiesCenterPick());
-        assert(!emptyRosette.isAwaitingPointCapture());
+        EDI_CHECK(!emptyRosette.beginRotateCopiesCenterPick());
+        EDI_CHECK(!emptyRosette.isAwaitingPointCapture());
 
         // Setter must store faithfully — no silent swallow of small values.
         // Before the fix, |angle| < 1.0 was ignored and the spin diverged from
         // the stored value.
         DrawingDocumentController setterCheck;
         setterCheck.setRotateCopiesTotalAngle(0.0);
-        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.0));
+        EDI_CHECK(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.0));
         setterCheck.setRotateCopiesTotalAngle(0.5);
-        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
+        EDI_CHECK(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
         // Non-finite must still be ignored (prior value preserved).
         setterCheck.setRotateCopiesTotalAngle(std::numeric_limits<double>::quiet_NaN());
-        assert(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
+        EDI_CHECK(nearlyEqual(setterCheck.rotateCopiesTotalAngle(), 0.5));
     }
 
     // Kaleidoscope: arming + the captured centre reflects the source across
@@ -3537,28 +3537,28 @@ int main(int argc, char **argv)
         kaleido.setSelectedToolId("line_tool");
         kaleido.clickCanvasNormalized(0.6, 0.55);
         kaleido.clickCanvasNormalized(0.7, 0.6); // a line (a mirrorable kind)
-        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
 
         kaleido.setSelectedToolId("select_move");
         kaleido.clickCanvasNormalized(0.65, 0.575); // select the line
-        assert(!kaleido.selectedObjectId().isEmpty());
+        EDI_CHECK(!kaleido.selectedObjectId().isEmpty());
         kaleido.setArrayCount(3); // 3 axes -> 3 reflected copies
 
-        assert(kaleido.beginKaleidoscopeCenterPick());
-        assert(kaleido.isAwaitingPointCapture());
+        EDI_CHECK(kaleido.beginKaleidoscopeCenterPick());
+        EDI_CHECK(kaleido.isAwaitingPointCapture());
         kaleido.clickCanvasNormalized(0.5, 0.5); // sets the kaleidoscope centre
-        assert(!kaleido.isAwaitingPointCapture());
-        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 4); // source + 3
+        EDI_CHECK(!kaleido.isAwaitingPointCapture());
+        EDI_CHECK(kaleido.modelDocument().value("drawing_objects").toList().size() == 4); // source + 3
 
         // ONE undo step removes all reflected copies.
-        assert(kaleido.canUndo());
+        EDI_CHECK(kaleido.canUndo());
         kaleido.undo();
-        assert(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(kaleido.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Refuses to arm with nothing selected.
         DrawingDocumentController emptyKaleido;
-        assert(!emptyKaleido.beginKaleidoscopeCenterPick());
-        assert(!emptyKaleido.isAwaitingPointCapture());
+        EDI_CHECK(!emptyKaleido.beginKaleidoscopeCenterPick());
+        EDI_CHECK(!emptyKaleido.isAwaitingPointCapture());
     }
 
     // Trim verb: a line trimmed back to where another line crosses it, the
@@ -3572,23 +3572,23 @@ int main(int argc, char **argv)
         trimController.clickCanvasNormalized(0.8, 0.5);
         trimController.clickCanvasNormalized(0.5, 0.2);
         trimController.clickCanvasNormalized(0.5, 0.8);
-        assert(trimController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(trimController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         // Select the horizontal target (click on it, away from the crossing).
         trimController.setSelectedToolId("select_move");
         trimController.clickCanvasNormalized(0.3, 0.5);
         const QString targetId = trimController.selectedObjectId();
-        assert(!targetId.isEmpty());
+        EDI_CHECK(!targetId.isEmpty());
 
         // Arm trim, then click the RIGHT stub: the b end trims to the crossing.
-        assert(trimController.beginTrimSelectedLine());
-        assert(trimController.isAwaitingPointCapture());
+        EDI_CHECK(trimController.beginTrimSelectedLine());
+        EDI_CHECK(trimController.isAwaitingPointCapture());
         trimController.clickCanvasNormalized(0.72, 0.5);
-        assert(!trimController.isAwaitingPointCapture());
+        EDI_CHECK(!trimController.isAwaitingPointCapture());
 
         // The target now runs (0.2,0.5)..(0.5,0.5); trim mutates, never adds.
         QVariantList objects = trimController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 2);
+        EDI_CHECK(objects.size() == 2);
         auto findById = [](const QVariantList &list, const QString &id) {
             QVariantMap found;
             for (const QVariant &v : list) {
@@ -3597,17 +3597,17 @@ int main(int argc, char **argv)
             return found;
         };
         const QVariantMap trimmed = findById(objects, targetId);
-        assert(!trimmed.isEmpty());
-        assert(nearlyEqual(trimmed.value("x1").toDouble(), 0.2));
-        assert(nearlyEqual(trimmed.value("x2").toDouble(), 0.5)); // b pulled to the cut
-        assert(nearlyEqual(trimmed.value("y2").toDouble(), 0.5));
+        EDI_CHECK(!trimmed.isEmpty());
+        EDI_CHECK(nearlyEqual(trimmed.value("x1").toDouble(), 0.2));
+        EDI_CHECK(nearlyEqual(trimmed.value("x2").toDouble(), 0.5)); // b pulled to the cut
+        EDI_CHECK(nearlyEqual(trimmed.value("y2").toDouble(), 0.5));
 
         // One undo step restores the full line.
-        assert(trimController.canUndo());
+        EDI_CHECK(trimController.canUndo());
         trimController.undo();
         const QVariantMap restored = findById(
             trimController.modelDocument().value("drawing_objects").toList(), targetId);
-        assert(nearlyEqual(restored.value("x2").toDouble(), 0.8));
+        EDI_CHECK(nearlyEqual(restored.value("x2").toDouble(), 0.8));
 
         // Trim with no crossing boundary surfaces a status and changes nothing.
         DrawingDocumentController lonelyController;
@@ -3616,21 +3616,21 @@ int main(int argc, char **argv)
         lonelyController.clickCanvasNormalized(0.8, 0.3);
         lonelyController.setSelectedToolId("select_move");
         lonelyController.clickCanvasNormalized(0.5, 0.3);
-        assert(lonelyController.beginTrimSelectedLine());
+        EDI_CHECK(lonelyController.beginTrimSelectedLine());
         lonelyController.clickCanvasNormalized(0.7, 0.3);
-        assert(!lonelyController.isAwaitingPointCapture());
-        assert(lonelyController.modelDocument().contains("edit_status"));
+        EDI_CHECK(!lonelyController.isAwaitingPointCapture());
+        EDI_CHECK(lonelyController.modelDocument().contains("edit_status"));
         const QVariantList lonelyObjects = lonelyController.modelDocument().value("drawing_objects").toList();
-        assert(lonelyObjects.size() == 1);
-        assert(nearlyEqual(lonelyObjects.front().toMap().value("x2").toDouble(), 0.8)); // unchanged
+        EDI_CHECK(lonelyObjects.size() == 1);
+        EDI_CHECK(nearlyEqual(lonelyObjects.front().toMap().value("x2").toDouble(), 0.8)); // unchanged
 
         // Trim refuses to arm when the selection is not a line.
         DrawingDocumentController nonLineController;
         nonLineController.setSelectedToolId("circle_tool");
         nonLineController.clickCanvasNormalized(0.5, 0.5);
         nonLineController.clickCanvasNormalized(0.6, 0.5);
-        assert(!nonLineController.beginTrimSelectedLine());
-        assert(!nonLineController.isAwaitingPointCapture());
+        EDI_CHECK(!nonLineController.beginTrimSelectedLine());
+        EDI_CHECK(!nonLineController.isAwaitingPointCapture());
     }
 
     // Fillet verb: select a line, pick the other line + corner; BOTH lines trim
@@ -3644,45 +3644,45 @@ int main(int argc, char **argv)
         filletController.clickCanvasNormalized(0.8, 0.3); // horizontal arm
         filletController.clickCanvasNormalized(0.3, 0.3);
         filletController.clickCanvasNormalized(0.3, 0.8); // vertical arm
-        assert(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         // Select the horizontal line as the fillet target.
         filletController.setSelectedToolId("select_move");
         filletController.clickCanvasNormalized(0.55, 0.3);
         const QString targetId = filletController.selectedObjectId();
-        assert(!targetId.isEmpty());
+        EDI_CHECK(!targetId.isEmpty());
 
         filletController.setFilletRadius(0.1);
-        assert(nearlyEqual(filletController.filletRadius(), 0.1));
-        assert(filletController.beginFilletSelectedLine());
-        assert(filletController.isAwaitingPointCapture());
+        EDI_CHECK(nearlyEqual(filletController.filletRadius(), 0.1));
+        EDI_CHECK(filletController.beginFilletSelectedLine());
+        EDI_CHECK(filletController.isAwaitingPointCapture());
         // Pick near the vertical line, inside the corner.
         filletController.clickCanvasNormalized(0.33, 0.5);
-        assert(!filletController.isAwaitingPointCapture());
+        EDI_CHECK(!filletController.isAwaitingPointCapture());
 
         // Two trimmed lines + one new arc = 3 objects.
         const QVariantList objects = filletController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 3);
+        EDI_CHECK(objects.size() == 3);
         int arcCount = 0;
         for (const QVariant &v : objects) {
             if (v.toMap().value("kind").toString() == QStringLiteral("arc")) {
                 ++arcCount;
             }
         }
-        assert(arcCount == 1);
+        EDI_CHECK(arcCount == 1);
 
         // The whole fillet (two trims + the arc) is ONE undo step.
-        assert(filletController.canUndo());
+        EDI_CHECK(filletController.canUndo());
         filletController.undo();
-        assert(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(filletController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         // Fillet refuses to arm when the selection is not a line.
         DrawingDocumentController nonLine;
         nonLine.setSelectedToolId("circle_tool");
         nonLine.clickCanvasNormalized(0.5, 0.5);
         nonLine.clickCanvasNormalized(0.6, 0.5);
-        assert(!nonLine.beginFilletSelectedLine());
-        assert(!nonLine.isAwaitingPointCapture());
+        EDI_CHECK(!nonLine.beginFilletSelectedLine());
+        EDI_CHECK(!nonLine.isAwaitingPointCapture());
     }
 
     // Chamfer verb: the angular sibling of fillet — select a line, pick the other
@@ -3695,35 +3695,35 @@ int main(int argc, char **argv)
         chamferController.clickCanvasNormalized(0.8, 0.3); // horizontal arm
         chamferController.clickCanvasNormalized(0.3, 0.3);
         chamferController.clickCanvasNormalized(0.3, 0.8); // vertical arm
-        assert(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         chamferController.setSelectedToolId("select_move");
         chamferController.clickCanvasNormalized(0.55, 0.3);
         const QString targetId = chamferController.selectedObjectId();
-        assert(!targetId.isEmpty());
+        EDI_CHECK(!targetId.isEmpty());
 
         chamferController.setChamferSetback(0.1);
-        assert(nearlyEqual(chamferController.chamferSetback(), 0.1));
-        assert(chamferController.beginChamferSelectedLine());
-        assert(chamferController.isAwaitingPointCapture());
+        EDI_CHECK(nearlyEqual(chamferController.chamferSetback(), 0.1));
+        EDI_CHECK(chamferController.beginChamferSelectedLine());
+        EDI_CHECK(chamferController.isAwaitingPointCapture());
         chamferController.clickCanvasNormalized(0.33, 0.5); // near the vertical line, in the corner
-        assert(!chamferController.isAwaitingPointCapture());
+        EDI_CHECK(!chamferController.isAwaitingPointCapture());
 
         // Two set-back lines + one new bevel = 3 objects, and the bevel is a LINE.
         const QVariantList objects = chamferController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 3);
+        EDI_CHECK(objects.size() == 3);
         int lineCount = 0;
         for (const QVariant &v : objects) {
             if (v.toMap().value("kind").toString() == QStringLiteral("line")) {
                 ++lineCount;
             }
         }
-        assert(lineCount == 3); // both arms + the bevel are all lines
+        EDI_CHECK(lineCount == 3); // both arms + the bevel are all lines
 
         // The whole chamfer (two trims + the bevel) is ONE undo step.
-        assert(chamferController.canUndo());
+        EDI_CHECK(chamferController.canUndo());
         chamferController.undo();
-        assert(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(chamferController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         // A rejection (no second line) surfaces via edit_status, not a silent no-op.
         DrawingDocumentController loneLine;
@@ -3732,21 +3732,21 @@ int main(int argc, char **argv)
         loneLine.clickCanvasNormalized(0.8, 0.2);
         loneLine.setSelectedToolId("select_move");
         loneLine.clickCanvasNormalized(0.5, 0.2);
-        assert(loneLine.beginChamferSelectedLine());
+        EDI_CHECK(loneLine.beginChamferSelectedLine());
         loneLine.clickCanvasNormalized(0.5, 0.5);
-        assert(!loneLine.isAwaitingPointCapture());
+        EDI_CHECK(!loneLine.isAwaitingPointCapture());
         const QVariantMap status = loneLine.modelDocument().value("edit_status").toMap();
-        assert(status.value("ok").toBool() == false);
-        assert(status.value("mode").toString() == "chamfer");
-        assert(!status.value("message").toString().isEmpty());
+        EDI_CHECK(status.value("ok").toBool() == false);
+        EDI_CHECK(status.value("mode").toString() == "chamfer");
+        EDI_CHECK(!status.value("message").toString().isEmpty());
 
         // Chamfer refuses to arm when the selection is not a line.
         DrawingDocumentController nonLineChamfer;
         nonLineChamfer.setSelectedToolId("circle_tool");
         nonLineChamfer.clickCanvasNormalized(0.5, 0.5);
         nonLineChamfer.clickCanvasNormalized(0.6, 0.5);
-        assert(!nonLineChamfer.beginChamferSelectedLine());
-        assert(!nonLineChamfer.isAwaitingPointCapture());
+        EDI_CHECK(!nonLineChamfer.beginChamferSelectedLine());
+        EDI_CHECK(!nonLineChamfer.isAwaitingPointCapture());
     }
 
     // Extend verb: the mirror of trim — select a line, pick the end to lengthen;
@@ -3759,38 +3759,38 @@ int main(int argc, char **argv)
         extendController.clickCanvasNormalized(0.5, 0.5); // short horizontal target
         extendController.clickCanvasNormalized(0.8, 0.2);
         extendController.clickCanvasNormalized(0.8, 0.8); // vertical boundary at x=0.8
-        assert(extendController.modelDocument().value("drawing_objects").toList().size() == 2);
+        EDI_CHECK(extendController.modelDocument().value("drawing_objects").toList().size() == 2);
 
         extendController.setSelectedToolId("select_move");
         extendController.clickCanvasNormalized(0.4, 0.5); // select the horizontal line
         const QString targetId = extendController.selectedObjectId();
-        assert(!targetId.isEmpty());
+        EDI_CHECK(!targetId.isEmpty());
 
-        assert(extendController.beginExtendSelectedLine());
-        assert(extendController.isAwaitingPointCapture());
+        EDI_CHECK(extendController.beginExtendSelectedLine());
+        EDI_CHECK(extendController.isAwaitingPointCapture());
         extendController.clickCanvasNormalized(0.55, 0.5); // pick near the b-end → extend it
-        assert(!extendController.isAwaitingPointCapture());
+        EDI_CHECK(!extendController.isAwaitingPointCapture());
 
         // Still 2 objects (extend updates, never creates); the b-end reached x=0.8.
         QVariantList objects = extendController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 2);
+        EDI_CHECK(objects.size() == 2);
         QVariantMap extended;
         for (const QVariant &v : objects) {
             if (v.toMap().value("id").toString() == targetId) {
                 extended = v.toMap();
             }
         }
-        assert(!extended.isEmpty());
-        assert(nearlyEqual(extended.value("x2").toDouble(), 0.8));
-        assert(nearlyEqual(extended.value("y2").toDouble(), 0.5));
-        assert(nearlyEqual(extended.value("x1").toDouble(), 0.3)); // anchor end unchanged
+        EDI_CHECK(!extended.isEmpty());
+        EDI_CHECK(nearlyEqual(extended.value("x2").toDouble(), 0.8));
+        EDI_CHECK(nearlyEqual(extended.value("y2").toDouble(), 0.5));
+        EDI_CHECK(nearlyEqual(extended.value("x1").toDouble(), 0.3)); // anchor end unchanged
 
         // ONE undo step restores the original short line.
-        assert(extendController.canUndo());
+        EDI_CHECK(extendController.canUndo());
         extendController.undo();
         for (const QVariant &v : extendController.modelDocument().value("drawing_objects").toList()) {
             if (v.toMap().value("id").toString() == targetId) {
-                assert(nearlyEqual(v.toMap().value("x2").toDouble(), 0.5));
+                EDI_CHECK(nearlyEqual(v.toMap().value("x2").toDouble(), 0.5));
             }
         }
 
@@ -3801,21 +3801,21 @@ int main(int argc, char **argv)
         loneExtend.clickCanvasNormalized(0.5, 0.5);
         loneExtend.setSelectedToolId("select_move");
         loneExtend.clickCanvasNormalized(0.4, 0.5);
-        assert(loneExtend.beginExtendSelectedLine());
+        EDI_CHECK(loneExtend.beginExtendSelectedLine());
         loneExtend.clickCanvasNormalized(0.55, 0.5);
-        assert(!loneExtend.isAwaitingPointCapture());
+        EDI_CHECK(!loneExtend.isAwaitingPointCapture());
         const QVariantMap status = loneExtend.modelDocument().value("edit_status").toMap();
-        assert(status.value("ok").toBool() == false);
-        assert(status.value("mode").toString() == "extend");
-        assert(!status.value("message").toString().isEmpty());
+        EDI_CHECK(status.value("ok").toBool() == false);
+        EDI_CHECK(status.value("mode").toString() == "extend");
+        EDI_CHECK(!status.value("message").toString().isEmpty());
 
         // Extend refuses to arm when the selection is not a line.
         DrawingDocumentController nonLineExtend;
         nonLineExtend.setSelectedToolId("circle_tool");
         nonLineExtend.clickCanvasNormalized(0.5, 0.5);
         nonLineExtend.clickCanvasNormalized(0.6, 0.5);
-        assert(!nonLineExtend.beginExtendSelectedLine());
-        assert(!nonLineExtend.isAwaitingPointCapture());
+        EDI_CHECK(!nonLineExtend.beginExtendSelectedLine());
+        EDI_CHECK(!nonLineExtend.isAwaitingPointCapture());
     }
 
     // Break verb: split a line at the picked point into TWO independent objects
@@ -3826,42 +3826,42 @@ int main(int argc, char **argv)
         breakController.setSelectedToolId("line_tool");
         breakController.clickCanvasNormalized(0.2, 0.5);
         breakController.clickCanvasNormalized(0.8, 0.5); // one horizontal line
-        assert(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         breakController.setSelectedToolId("select_move");
         breakController.clickCanvasNormalized(0.5, 0.5); // select the line
         const QString targetId = breakController.selectedObjectId();
-        assert(!targetId.isEmpty());
+        EDI_CHECK(!targetId.isEmpty());
 
-        assert(breakController.beginBreakSelectedObject());
-        assert(breakController.isAwaitingPointCapture());
+        EDI_CHECK(breakController.beginBreakSelectedObject());
+        EDI_CHECK(breakController.isAwaitingPointCapture());
         breakController.clickCanvasNormalized(0.5, 0.5); // break at the midpoint
-        assert(!breakController.isAwaitingPointCapture());
+        EDI_CHECK(!breakController.isAwaitingPointCapture());
 
         // Two lines now: the original shortened + the new piece.
         QVariantList objects = breakController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 2);
+        EDI_CHECK(objects.size() == 2);
         QVariantMap original;
         QVariantMap piece;
         for (const QVariant &v : objects) {
             const QVariantMap m = v.toMap();
-            assert(m.value("kind").toString() == QStringLiteral("line"));
+            EDI_CHECK(m.value("kind").toString() == QStringLiteral("line"));
             if (m.value("id").toString() == targetId) {
                 original = m;
             } else {
                 piece = m;
             }
         }
-        assert(!original.isEmpty() && !piece.isEmpty());
-        assert(nearlyEqual(original.value("x1").toDouble(), 0.2) && nearlyEqual(original.value("x2").toDouble(), 0.5));
-        assert(nearlyEqual(piece.value("x1").toDouble(), 0.5) && nearlyEqual(piece.value("x2").toDouble(), 0.8));
+        EDI_CHECK(!original.isEmpty() && !piece.isEmpty());
+        EDI_CHECK(nearlyEqual(original.value("x1").toDouble(), 0.2) && nearlyEqual(original.value("x2").toDouble(), 0.5));
+        EDI_CHECK(nearlyEqual(piece.value("x1").toDouble(), 0.5) && nearlyEqual(piece.value("x2").toDouble(), 0.8));
         // The original (first piece) stays selected.
-        assert(breakController.selectedObjectId() == targetId);
+        EDI_CHECK(breakController.selectedObjectId() == targetId);
 
         // ONE undo step restores the single original line.
-        assert(breakController.canUndo());
+        EDI_CHECK(breakController.canUndo());
         breakController.undo();
-        assert(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(breakController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // A dead break (exactly at an endpoint) surfaces via edit_status, not silent.
         DrawingDocumentController deadBreak;
@@ -3870,22 +3870,22 @@ int main(int argc, char **argv)
         deadBreak.clickCanvasNormalized(0.8, 0.5);
         deadBreak.setSelectedToolId("select_move");
         deadBreak.clickCanvasNormalized(0.5, 0.5);
-        assert(deadBreak.beginBreakSelectedObject());
+        EDI_CHECK(deadBreak.beginBreakSelectedObject());
         deadBreak.clickCanvasNormalized(0.2, 0.5); // exactly the a endpoint
-        assert(!deadBreak.isAwaitingPointCapture());
+        EDI_CHECK(!deadBreak.isAwaitingPointCapture());
         const QVariantMap status = deadBreak.modelDocument().value("edit_status").toMap();
-        assert(status.value("ok").toBool() == false);
-        assert(status.value("mode").toString() == "break");
-        assert(!status.value("message").toString().isEmpty());
-        assert(deadBreak.modelDocument().value("drawing_objects").toList().size() == 1); // unchanged
+        EDI_CHECK(status.value("ok").toBool() == false);
+        EDI_CHECK(status.value("mode").toString() == "break");
+        EDI_CHECK(!status.value("message").toString().isEmpty());
+        EDI_CHECK(deadBreak.modelDocument().value("drawing_objects").toList().size() == 1); // unchanged
 
         // Break refuses to arm when the selection is neither line nor polyline.
         DrawingDocumentController nonBreakable;
         nonBreakable.setSelectedToolId("circle_tool");
         nonBreakable.clickCanvasNormalized(0.5, 0.5);
         nonBreakable.clickCanvasNormalized(0.6, 0.5);
-        assert(!nonBreakable.beginBreakSelectedObject());
-        assert(!nonBreakable.isAwaitingPointCapture());
+        EDI_CHECK(!nonBreakable.beginBreakSelectedObject());
+        EDI_CHECK(!nonBreakable.isAwaitingPointCapture());
     }
 
     // Array failure paths: a user-reachable rejection (zero spacing) must
@@ -3900,28 +3900,28 @@ int main(int argc, char **argv)
 
         failureController.setArrayCount(2);
         failureController.setArraySpacingX(0.0);
-        assert(!failureController.repeatSelectedObject("x"));
+        EDI_CHECK(!failureController.repeatSelectedObject("x"));
         QVariantMap arrayStatus = failureController.modelDocument().value("edit_status").toMap();
-        assert(arrayStatus.value("ok").toBool() == false);
-        assert(arrayStatus.value("mode").toString() == "array");
-        assert(!arrayStatus.value("message").toString().isEmpty());
-        assert(failureController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(arrayStatus.value("ok").toBool() == false);
+        EDI_CHECK(arrayStatus.value("mode").toString() == "array");
+        EDI_CHECK(!arrayStatus.value("message").toString().isEmpty());
+        EDI_CHECK(failureController.modelDocument().value("drawing_objects").toList().size() == 1);
 
         // Guides reject grid arrays at the planner; the controller surfaces
         // it the same way and creates nothing.
         // (Covered here at the planner seam; the guide tool path is separate.)
 
         failureController.setArraySpacingX(-0.1);
-        assert(failureController.repeatSelectedObject("x"));
+        EDI_CHECK(failureController.repeatSelectedObject("x"));
         QVariantList marched = failureController.modelDocument().value("drawing_objects").toList();
-        assert(marched.size() == 3);
+        EDI_CHECK(marched.size() == 3);
         // The failed attempt reclaimed serials 2-3, so the first successful
         // copy is repeat_2, not repeat_4.
-        assert(trailingSerial(marched[1].toMap().value("id").toString()) == 2);
+        EDI_CHECK(trailingSerial(marched[1].toMap().value("id").toString()) == 2);
         // Negative spacing marches left: 0.5 + 2 * -0.1 = 0.3.
-        assert(nearlyEqual(marched[2].toMap().value("x1").toDouble(), 0.3));
+        EDI_CHECK(nearlyEqual(marched[2].toMap().value("x1").toDouble(), 0.3));
         // Success cleared the stale rejection.
-        assert(failureController.modelDocument().value("edit_status").toMap().isEmpty());
+        EDI_CHECK(failureController.modelDocument().value("edit_status").toMap().isEmpty());
     }
 
     // Guides cannot grid/radial-array (single-axis translation would stack
@@ -3930,19 +3930,19 @@ int main(int argc, char **argv)
         DrawingDocumentController guideArrayController;
         guideArrayController.setSelectedToolId("horizontal_guide_tool");
         guideArrayController.clickCanvasNormalized(0.5, 0.62);
-        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
         guideArrayController.setArrayCount(2);
         guideArrayController.setArraySpacingX(0.1);
         guideArrayController.setArraySpacingY(0.1);
-        assert(!guideArrayController.gridArraySelectedObject());
-        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!guideArrayController.gridArraySelectedObject());
+        EDI_CHECK(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
         // Radial arming succeeds (a guide IS an editable object), but the array
         // planner rejects a guide source when the centre click runs it — so the
         // rejection now lands at the pick click, and the document is untouched.
-        assert(guideArrayController.beginRadialArrayCenterPick());
+        EDI_CHECK(guideArrayController.beginRadialArrayCenterPick());
         guideArrayController.clickCanvasNormalized(0.3, 0.3);
-        assert(!guideArrayController.isAwaitingPointCapture());
-        assert(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
+        EDI_CHECK(!guideArrayController.isAwaitingPointCapture());
+        EDI_CHECK(guideArrayController.modelDocument().value("drawing_objects").toList().size() == 1);
     }
 
     // fixedRadius rides into creation for the radius-from-gesture tools;
@@ -3954,13 +3954,13 @@ int main(int argc, char **argv)
         fixedRadiusController.clickCanvasNormalized(0.5, 0.5);
         fixedRadiusController.clickCanvasNormalized(0.9, 0.5); // gesture says 0.4
         QVariantList fixedObjects = fixedRadiusController.modelDocument().value("drawing_objects").toList();
-        assert(nearlyEqual(fixedObjects[0].toMap().value("radius").toDouble(), 0.1));
+        EDI_CHECK(nearlyEqual(fixedObjects[0].toMap().value("radius").toDouble(), 0.1));
 
         fixedRadiusController.setFixedRadius(0.0);
         fixedRadiusController.clickCanvasNormalized(0.5, 0.5);
         fixedRadiusController.clickCanvasNormalized(0.8, 0.5);
         fixedObjects = fixedRadiusController.modelDocument().value("drawing_objects").toList();
-        assert(nearlyEqual(fixedObjects[1].toMap().value("radius").toDouble(), 0.3));
+        EDI_CHECK(nearlyEqual(fixedObjects[1].toMap().value("radius").toDouble(), 0.3));
     }
 
     // The Seam-A authoring path: a whole room from one neutral spec. The
@@ -3978,22 +3978,22 @@ int main(int argc, char **argv)
             {edi::drafting::RoomEdge::East, 0.30, 0.04, "secret"},
             {edi::drafting::RoomEdge::South, 0.30, 0.05, "door"},
         };
-        assert(roomController.createRoomFromSpec(spec));
+        EDI_CHECK(roomController.createRoomFromSpec(spec));
         const QVariantList objects = roomController.modelDocument().value("drawing_objects").toList();
-        assert(objects.size() == 7); // 2 + 2 + 2 (opened edges) + 1 (solid W)
+        EDI_CHECK(objects.size() == 7); // 2 + 2 + 2 (opened edges) + 1 (solid W)
         for (const QVariant &value : objects) {
-            assert(value.toMap().value("kind").toString() == "wall");
+            EDI_CHECK(value.toMap().value("kind").toString() == "wall");
         }
         // One undo removes the whole room (atomic batch, not 7 separate creates).
-        assert(roomController.undo());
-        assert(roomController.modelDocument().value("drawing_objects").toList().empty());
+        EDI_CHECK(roomController.undo());
+        EDI_CHECK(roomController.modelDocument().value("drawing_objects").toList().empty());
 
         // A degenerate spec is refused without touching the document.
         edi::drafting::RoomSpec bad;
         bad.width = 0.0;
         bad.height = 0.3;
-        assert(!roomController.createRoomFromSpec(bad));
-        assert(roomController.modelDocument().value("drawing_objects").toList().empty());
+        EDI_CHECK(!roomController.createRoomFromSpec(bad));
+        EDI_CHECK(roomController.modelDocument().value("drawing_objects").toList().empty());
     }
 
     // S5: authored plugs land end to end — each plug's Point marker becomes an
@@ -4009,24 +4009,24 @@ int main(int argc, char **argv)
             {edi::drafting::RoomEdge::North, 0.2, "north_door", "door"},
             {edi::drafting::RoomEdge::East, 0.1, "east_portal", "portal"},
         };
-        assert(plugController.createRoomFromSpec(spec));
+        EDI_CHECK(plugController.createRoomFromSpec(spec));
 
         const edi::drafting::DraftingDocument &doc = plugController.draftingDocument();
-        assert(doc.plugs.size() == 2);
-        assert(doc.objects.size() == 6); // 4 solid walls + 2 plug markers
+        EDI_CHECK(doc.plugs.size() == 2);
+        EDI_CHECK(doc.objects.size() == 6); // 4 solid walls + 2 plug markers
 
         const edi::drafting::DraftingPlug &north = doc.plugs.front();
-        assert(north.name == "north_door" && north.type == "door");
+        EDI_CHECK(north.name == "north_door" && north.type == "door");
         // Each plug anchors to a real Point marker in the SAME document.
         const edi::drafting::DraftingObject *marker = edi::drafting::findObject(doc, north.anchorObjectId);
-        assert(marker != nullptr);
-        assert(marker->kind == edi::drafting::DraftingShapeKind::Point);
-        assert(marker->metadata.toolProvenance == "plug");
+        EDI_CHECK(marker != nullptr);
+        EDI_CHECK(marker->kind == edi::drafting::DraftingShapeKind::Point);
+        EDI_CHECK(marker->metadata.toolProvenance == "plug");
 
         // The whole room — walls, markers, AND plugs — collapses in one undo.
-        assert(plugController.undo());
-        assert(plugController.draftingDocument().plugs.empty());
-        assert(plugController.draftingDocument().objects.empty());
+        EDI_CHECK(plugController.undo());
+        EDI_CHECK(plugController.draftingDocument().plugs.empty());
+        EDI_CHECK(plugController.draftingDocument().objects.empty());
     }
 
     // S6: an authored connection between two plugs lands as a DraftingDeclaredConnection
@@ -4043,20 +4043,20 @@ int main(int argc, char **argv)
             {edi::drafting::RoomEdge::South, 0.2, "south_door", "door"},
         };
         spec.connections = {{"north_door", "south_door", "corridor"}};
-        assert(connController.createRoomFromSpec(spec));
+        EDI_CHECK(connController.createRoomFromSpec(spec));
 
         const edi::drafting::DraftingDocument &doc = connController.draftingDocument();
-        assert(doc.plugs.size() == 2);
-        assert(doc.connections.size() == 1);
+        EDI_CHECK(doc.plugs.size() == 2);
+        EDI_CHECK(doc.connections.size() == 1);
         const edi::drafting::DraftingDeclaredConnection &edge = doc.connections.front();
-        assert(edge.type == "corridor");
+        EDI_CHECK(edge.type == "corridor");
         // The edge references the two plugs by the ids the controller minted.
-        assert(edge.plugA == doc.plugs[0].id && edge.plugB == doc.plugs[1].id);
+        EDI_CHECK(edge.plugA == doc.plugs[0].id && edge.plugB == doc.plugs[1].id);
 
         // One undo removes walls, markers, plugs, AND the connection together.
-        assert(connController.undo());
-        assert(connController.draftingDocument().connections.empty());
-        assert(connController.draftingDocument().plugs.empty());
+        EDI_CHECK(connController.undo());
+        EDI_CHECK(connController.draftingDocument().connections.empty());
+        EDI_CHECK(connController.draftingDocument().plugs.empty());
     }
 
     // Multi-room: createMapFromSpec builds many rooms + cross-room connections,
@@ -4086,10 +4086,10 @@ int main(int argc, char **argv)
         map.connections = {corridor};
 
         DrawingDocumentController mapController;
-        assert(mapController.createMapFromSpec(map));
+        EDI_CHECK(mapController.createMapFromSpec(map));
         const edi::drafting::DraftingDocument &doc = mapController.draftingDocument();
-        assert(doc.plugs.size() == 2);
-        assert(doc.connections.size() == 1);
+        EDI_CHECK(doc.plugs.size() == 2);
+        EDI_CHECK(doc.connections.size() == 1);
         // Each plug's exported name is namespaced room.plug, so the two "door"
         // plugs are distinguishable in the graph.
         bool foundA = false;
@@ -4098,11 +4098,11 @@ int main(int argc, char **argv)
             foundA = foundA || p.name == "a.door";
             foundB = foundB || p.name == "b.door";
         }
-        assert(foundA && foundB);
+        EDI_CHECK(foundA && foundB);
         // The connection joins the two distinct plug ids.
         const edi::drafting::DraftingDeclaredConnection &edge = doc.connections.front();
-        assert(edge.plugA != edge.plugB);
-        assert(edge.type == "corridor");
+        EDI_CHECK(edge.plugA != edge.plugB);
+        EDI_CHECK(edge.type == "corridor");
 
         // The connection also drew a corridor: wall objects tagged provenance
         // "corridor" exist (the two aligned E/W doors give a straight corridor).
@@ -4116,22 +4116,22 @@ int main(int argc, char **argv)
                 ++doorLeaves;
             }
         }
-        assert(corridorWalls >= 2);
+        EDI_CHECK(corridorWalls >= 2);
         // A door leaf per connected plug (both ends of the one connection), rendered
         // as a Door-type wall band.
-        assert(doorLeaves == 2);
+        EDI_CHECK(doorLeaves == 2);
         for (const edi::drafting::DraftingObject &o : doc.objects) {
             if (o.metadata.toolProvenance == "door") {
-                assert(o.metadata.wallVisual.type == edi::drafting::WallType::Door);
+                EDI_CHECK(o.metadata.wallVisual.type == edi::drafting::WallType::Door);
             }
         }
 
         // One undo collapses the entire map — every room's walls, every plug,
         // every connection, AND the corridors — together.
-        assert(mapController.undo());
-        assert(mapController.draftingDocument().objects.empty());
-        assert(mapController.draftingDocument().plugs.empty());
-        assert(mapController.draftingDocument().connections.empty());
+        EDI_CHECK(mapController.undo());
+        EDI_CHECK(mapController.draftingDocument().objects.empty());
+        EDI_CHECK(mapController.draftingDocument().plugs.empty());
+        EDI_CHECK(mapController.draftingDocument().connections.empty());
     }
 
     // 044 PROPORTIONALITY (hub SCALE-POLICY invariant): createMapFromSpec DERIVES its
@@ -4173,24 +4173,24 @@ int main(int argc, char **argv)
                     continue;
                 }
                 const auto *wall = std::get_if<edi::drafting::WallGeometry>(&o.geometry);
-                assert(wall != nullptr);
+                EDI_CHECK(wall != nullptr);
                 return wall->thickness;
             }
-            assert(false && "expected a door leaf");
+            EDI_CHECK(false && "expected a door leaf");
             return 0.0;
         };
 
         DrawingDocumentController baseCtl;
-        assert(baseCtl.createMapFromSpec(buildTwoRoomMap(1.0)));
+        EDI_CHECK(baseCtl.createMapFromSpec(buildTwoRoomMap(1.0)));
         const double baseThickness = doorLeafThickness(baseCtl);
 
         DrawingDocumentController doubledCtl;
-        assert(doubledCtl.createMapFromSpec(buildTwoRoomMap(2.0)));
+        EDI_CHECK(doubledCtl.createMapFromSpec(buildTwoRoomMap(2.0)));
         const double doubledThickness = doorLeafThickness(doubledCtl);
 
         // Doubling every room origin + size doubles the derived door/corridor width.
-        assert(baseThickness > 0.0);
-        assert(nearlyEqual(doubledThickness, 2.0 * baseThickness));
+        EDI_CHECK(baseThickness > 0.0);
+        EDI_CHECK(nearlyEqual(doubledThickness, 2.0 * baseThickness));
     }
 
     // DM-03: interior features realize as ordinary tagged Point objects. The
@@ -4212,7 +4212,7 @@ int main(int argc, char **argv)
 
         DrawingDocumentController featureController;
         const double scale = 0.02; // canvas per authored foot
-        assert(featureController.createMapFromSpec(map, scale));
+        EDI_CHECK(featureController.createMapFromSpec(map, scale));
         const edi::drafting::DraftingDocument &doc = featureController.draftingDocument();
 
         int featureCount = 0;
@@ -4223,31 +4223,31 @@ int main(int argc, char **argv)
                 continue;
             }
             ++featureCount;
-            assert(o.kind == edi::drafting::DraftingShapeKind::Point);
+            EDI_CHECK(o.kind == edi::drafting::DraftingShapeKind::Point);
             const auto tagHas = [&o](const std::string &t) {
                 return std::find(o.metadata.tags.begin(), o.metadata.tags.end(), t) != o.metadata.tags.end();
             };
             const auto point = std::get<edi::drafting::PointGeometry>(o.geometry).point;
             if (tagHas("feature:rubble")) {
                 sawRubble = true;
-                assert(tagHas("name:cave_in"));     // named -> name:<name> tag
-                assert(nearlyEqual(point.x, 1.0 + 3.0 * scale)); // 1.06
-                assert(nearlyEqual(point.y, 2.0 + 4.0 * scale)); // 2.08
+                EDI_CHECK(tagHas("name:cave_in"));     // named -> name:<name> tag
+                EDI_CHECK(nearlyEqual(point.x, 1.0 + 3.0 * scale)); // 1.06
+                EDI_CHECK(nearlyEqual(point.y, 2.0 + 4.0 * scale)); // 2.08
             } else if (tagHas("feature:statue")) {
                 sawStatue = true;
                 // No name -> no name: tag, only the feature: tag.
-                assert(o.metadata.tags.size() == 1);
-                assert(nearlyEqual(point.x, 1.0 + 5.0 * scale)); // 1.10
-                assert(nearlyEqual(point.y, 2.0));               // y offset 0
+                EDI_CHECK(o.metadata.tags.size() == 1);
+                EDI_CHECK(nearlyEqual(point.x, 1.0 + 5.0 * scale)); // 1.10
+                EDI_CHECK(nearlyEqual(point.y, 2.0));               // y offset 0
             }
             // Neutral law: a feature carries NO ObjectRole.
-            assert(o.metadata.role == edi::drafting::ObjectRole::None);
+            EDI_CHECK(o.metadata.role == edi::drafting::ObjectRole::None);
         }
-        assert(featureCount == 2 && sawRubble && sawStatue);
+        EDI_CHECK(featureCount == 2 && sawRubble && sawStatue);
 
         // Undo collapses the features with the rest of the map.
-        assert(featureController.undo());
-        assert(featureController.draftingDocument().objects.empty());
+        EDI_CHECK(featureController.undo());
+        EDI_CHECK(featureController.draftingDocument().objects.empty());
     }
 
     // 041: MapSpec-level prop instances (MapBlockSpec) realize as definition-less
@@ -4272,7 +4272,7 @@ int main(int argc, char **argv)
 
         DrawingDocumentController blockController;
         const double scale = 0.02; // canvas per authored foot (non-1.0 proves scaling)
-        assert(blockController.createMapFromSpec(map, scale));
+        EDI_CHECK(blockController.createMapFromSpec(map, scale));
         const edi::drafting::DraftingDocument &doc = blockController.draftingDocument();
 
         int blockCount = 0;
@@ -4283,32 +4283,32 @@ int main(int argc, char **argv)
                 continue;
             }
             ++blockCount;
-            assert(o.kind == edi::drafting::DraftingShapeKind::Point);
-            assert(o.metadata.toolProvenance == "block");
-            assert(o.metadata.blockPlacement.blockId.empty()); // no definition: pure asset ref
+            EDI_CHECK(o.kind == edi::drafting::DraftingShapeKind::Point);
+            EDI_CHECK(o.metadata.toolProvenance == "block");
+            EDI_CHECK(o.metadata.blockPlacement.blockId.empty()); // no definition: pure asset ref
             const auto tagHas = [&o](const std::string &t) {
                 return std::find(o.metadata.tags.begin(), o.metadata.tags.end(), t) != o.metadata.tags.end();
             };
             const auto point = std::get<edi::drafting::PointGeometry>(o.geometry).point;
             if (o.metadata.blockPlacement.assetRef == "crypt.sarcophagus") {
                 sarcophagusInstance = o.metadata.blockPlacement.instanceId;
-                assert(nearlyEqual(point.x, 3.0 * scale)); // no room origin added
-                assert(nearlyEqual(point.y, 4.0 * scale));
-                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
-                assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
-                assert(tagHas("name:lord_tomb")); // named -> name:<name> tag
+                EDI_CHECK(nearlyEqual(point.x, 3.0 * scale)); // no room origin added
+                EDI_CHECK(nearlyEqual(point.y, 4.0 * scale));
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+                EDI_CHECK(tagHas("name:lord_tomb")); // named -> name:<name> tag
             } else if (o.metadata.blockPlacement.assetRef == "crypt.brazier") {
                 brazierInstance = o.metadata.blockPlacement.instanceId;
-                assert(nearlyEqual(point.x, 5.0 * scale));
-                assert(nearlyEqual(point.y, 1.0 * scale));
-                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0)); // identity
-                assert(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
-                assert(o.metadata.tags.empty()); // no name -> no name: tag
+                EDI_CHECK(nearlyEqual(point.x, 5.0 * scale));
+                EDI_CHECK(nearlyEqual(point.y, 1.0 * scale));
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0)); // identity
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
+                EDI_CHECK(o.metadata.tags.empty()); // no name -> no name: tag
             }
         }
-        assert(blockCount == 2);
-        assert(!sarcophagusInstance.empty() && !brazierInstance.empty());
-        assert(sarcophagusInstance != brazierInstance); // minted off the one serial
+        EDI_CHECK(blockCount == 2);
+        EDI_CHECK(!sarcophagusInstance.empty() && !brazierInstance.empty());
+        EDI_CHECK(sarcophagusInstance != brazierInstance); // minted off the one serial
 
         // ROUND-TRIP: the stamped placement survives encode/decode (block_placement
         // already serializes when instance_id is non-empty — this confirms the data,
@@ -4316,27 +4316,27 @@ int main(int argc, char **argv)
         const edi::formats::ByteBuffer bytes =
             edi::drafting::encodeDraftingDocument(doc);
         const auto reloaded = edi::drafting::decodeDraftingDocument(bytes, "blockroundtrip");
-        assert(reloaded.ok && reloaded.value);
+        EDI_CHECK(reloaded.ok && reloaded.value);
         int reloadedBlocks = 0;
         for (const edi::drafting::DraftingObject &o : reloaded.value->objects) {
             if (o.metadata.blockPlacement.instanceId.empty()) {
                 continue;
             }
             ++reloadedBlocks;
-            assert(o.metadata.blockPlacement.blockId.empty());
+            EDI_CHECK(o.metadata.blockPlacement.blockId.empty());
             if (o.metadata.blockPlacement.assetRef == "crypt.sarcophagus") {
-                assert(o.metadata.blockPlacement.instanceId == sarcophagusInstance);
-                assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
-                assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+                EDI_CHECK(o.metadata.blockPlacement.instanceId == sarcophagusInstance);
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
             } else if (o.metadata.blockPlacement.assetRef == "crypt.brazier") {
-                assert(o.metadata.blockPlacement.instanceId == brazierInstance);
+                EDI_CHECK(o.metadata.blockPlacement.instanceId == brazierInstance);
             }
         }
-        assert(reloadedBlocks == 2);
+        EDI_CHECK(reloadedBlocks == 2);
 
         // Undo collapses the props with the rest of the map.
-        assert(blockController.undo());
-        assert(blockController.draftingDocument().objects.empty());
+        EDI_CHECK(blockController.undo());
+        EDI_CHECK(blockController.draftingDocument().objects.empty());
     }
 
     // 041: a map with NO blocks adds no block markers (additive, behavior unchanged).
@@ -4351,14 +4351,14 @@ int main(int argc, char **argv)
         map.rooms = {a};
 
         DrawingDocumentController plainBlockController;
-        assert(plainBlockController.createMapFromSpec(map));
+        EDI_CHECK(plainBlockController.createMapFromSpec(map));
         int blockCount = 0;
         for (const edi::drafting::DraftingObject &o : plainBlockController.draftingDocument().objects) {
             if (!o.metadata.blockPlacement.instanceId.empty()) {
                 ++blockCount;
             }
         }
-        assert(blockCount == 0); // no blocks authored -> no block markers
+        EDI_CHECK(blockCount == 0); // no blocks authored -> no block markers
     }
 
     // DM-03: a room with NO features adds no extra objects (behavior unchanged).
@@ -4373,14 +4373,14 @@ int main(int argc, char **argv)
         map.rooms = {a};
 
         DrawingDocumentController plainController;
-        assert(plainController.createMapFromSpec(map));
+        EDI_CHECK(plainController.createMapFromSpec(map));
         int featureCount = 0;
         for (const edi::drafting::DraftingObject &o : plainController.draftingDocument().objects) {
             if (o.metadata.toolProvenance == "feature") {
                 ++featureCount;
             }
         }
-        assert(featureCount == 0); // no features authored -> no feature markers
+        EDI_CHECK(featureCount == 0); // no features authored -> no feature markers
     }
 
     // The wall tool's thickness option rides into the freshly drawn wall; an
@@ -4392,14 +4392,14 @@ int main(int argc, char **argv)
         wallThicknessController.clickCanvasNormalized(0.2, 0.5);
         wallThicknessController.clickCanvasNormalized(0.8, 0.5);
         QVariantList walls = wallThicknessController.modelDocument().value("drawing_objects").toList();
-        assert(nearlyEqual(walls[0].toMap().value("thickness").toDouble(), 0.25));
+        EDI_CHECK(nearlyEqual(walls[0].toMap().value("thickness").toDouble(), 0.25));
 
         wallThicknessController.setWallThickness(0.0); // invalid -> 0.1 default
-        assert(nearlyEqual(wallThicknessController.wallThickness(), 0.1));
+        EDI_CHECK(nearlyEqual(wallThicknessController.wallThickness(), 0.1));
         wallThicknessController.clickCanvasNormalized(0.2, 0.6);
         wallThicknessController.clickCanvasNormalized(0.8, 0.6);
         walls = wallThicknessController.modelDocument().value("drawing_objects").toList();
-        assert(nearlyEqual(walls[1].toMap().value("thickness").toDouble(), 0.1));
+        EDI_CHECK(nearlyEqual(walls[1].toMap().value("thickness").toDouble(), 0.1));
     }
 
     // Phase C block library — define a block from a selection, then stamp a
@@ -4414,48 +4414,48 @@ int main(int argc, char **argv)
         blockCtl.setSelectedToolId("point_tool");
         blockCtl.clickCanvasNormalized(0.3, 0.3);
         blockCtl.clickCanvasNormalized(0.6, 0.6);
-        assert(objectCount(blockCtl) == 2);
+        EDI_CHECK(objectCount(blockCtl) == 2);
 
         // Define with nothing selected is refused (a dead button must say so).
         blockCtl.selectObjectsInBoundsNormalized(0.9, 0.9, 0.95, 0.95);
-        assert(!blockCtl.defineBlockFromSelection("table"));
-        assert(blockCtl.draftingDocument().blocks.empty());
+        EDI_CHECK(!blockCtl.defineBlockFromSelection("table"));
+        EDI_CHECK(blockCtl.draftingDocument().blocks.empty());
 
         // Marquee-select both points and save them as a named block. The
         // definition lands in one undo step; its members are normalized to the
         // origin (lower-left at 0,0), extent = the selection's union span.
         blockCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(blockCtl.defineBlockFromSelection("table", "recipe.tavern_table"));
-        assert(blockCtl.draftingDocument().blocks.size() == 1);
+        EDI_CHECK(blockCtl.defineBlockFromSelection("table", "recipe.tavern_table"));
+        EDI_CHECK(blockCtl.draftingDocument().blocks.size() == 1);
         const edi::drafting::DraftingBlock &def = blockCtl.draftingDocument().blocks.front();
         const QString blockId = QString::fromStdString(def.id);
-        assert(blockId.startsWith("block_"));
-        assert(def.name == "table");
-        assert(def.assetRef == "recipe.tavern_table"); // Seam B: linked at define time
-        assert(def.objects.size() == 2);
-        assert(nearlyEqual(def.bounds.x, 0.0) && nearlyEqual(def.bounds.y, 0.0));
-        assert(nearlyEqual(def.bounds.width, 0.3) && nearlyEqual(def.bounds.height, 0.3));
+        EDI_CHECK(blockId.startsWith("block_"));
+        EDI_CHECK(def.name == "table");
+        EDI_CHECK(def.assetRef == "recipe.tavern_table"); // Seam B: linked at define time
+        EDI_CHECK(def.objects.size() == 2);
+        EDI_CHECK(nearlyEqual(def.bounds.x, 0.0) && nearlyEqual(def.bounds.y, 0.0));
+        EDI_CHECK(nearlyEqual(def.bounds.width, 0.3) && nearlyEqual(def.bounds.height, 0.3));
         // Capture the normalized definition to prove independence after placement.
         const auto defPointA = std::get<edi::drafting::PointGeometry>(def.objects[0].geometry).point;
-        assert(nearlyEqual(defPointA.x, 0.0) && nearlyEqual(defPointA.y, 0.0));
+        EDI_CHECK(nearlyEqual(defPointA.x, 0.0) && nearlyEqual(defPointA.y, 0.0));
 
         // Defining is one undo step (the document objects are untouched by it).
         blockCtl.undo();
-        assert(blockCtl.draftingDocument().blocks.empty());
-        assert(objectCount(blockCtl) == 2);
+        EDI_CHECK(blockCtl.draftingDocument().blocks.empty());
+        EDI_CHECK(objectCount(blockCtl) == 2);
         blockCtl.redo();
-        assert(blockCtl.draftingDocument().blocks.size() == 1);
+        EDI_CHECK(blockCtl.draftingDocument().blocks.size() == 1);
 
         // Stamping an unknown block is a no-op.
-        assert(!blockCtl.placeBlockInstance("block_9999", 0.5, 0.5));
-        assert(objectCount(blockCtl) == 2);
+        EDI_CHECK(!blockCtl.placeBlockInstance("block_9999", 0.5, 0.5));
+        EDI_CHECK(objectCount(blockCtl) == 2);
 
         // Stamp the block centred on (0.5,0.5): two fresh "instance_" objects
         // appear (centre 0.15,0.15 -> offset 0.35,0.35), selected as one unit.
         const int beforeStamp = objectCount(blockCtl);
-        assert(blockCtl.placeBlockInstance(blockId, 0.5, 0.5));
-        assert(objectCount(blockCtl) == beforeStamp + 2);
-        assert(blockCtl.modelDocument().value("selected_object_ids").toList().size() == 2);
+        EDI_CHECK(blockCtl.placeBlockInstance(blockId, 0.5, 0.5));
+        EDI_CHECK(objectCount(blockCtl) == beforeStamp + 2);
+        EDI_CHECK(blockCtl.modelDocument().value("selected_object_ids").toList().size() == 2);
 
         // The placed objects are independent shapes carrying the centred geometry,
         // and every id in the document stays unique.
@@ -4471,12 +4471,12 @@ int main(int argc, char **argv)
                     const double px = obj.value("x").toDouble();
                     const double py = obj.value("y").toDouble();
                     // A maps to (0.35,0.35), B to (0.65,0.65).
-                    assert((nearlyEqual(px, 0.35) && nearlyEqual(py, 0.35))
+                    EDI_CHECK((nearlyEqual(px, 0.35) && nearlyEqual(py, 0.35))
                            || (nearlyEqual(px, 0.65) && nearlyEqual(py, 0.65)));
                 }
             }
-            assert(instanceCount == 2);
-            assert(ids.size() == objects.size());
+            EDI_CHECK(instanceCount == 2);
+            EDI_CHECK(ids.size() == objects.size());
         }
 
         // Seam B provenance: every placed object is traceable to its block + asset,
@@ -4493,28 +4493,28 @@ int main(int argc, char **argv)
                 // `blockId` is a stable VALUE captured before the undo/redo above
                 // (which repopulated draftingDocument().blocks, so the `def`
                 // reference is stale here — read the value, not the reference).
-                assert(bp.blockId == blockId.toStdString());
-                assert(bp.assetRef == "recipe.tavern_table");
+                EDI_CHECK(bp.blockId == blockId.toStdString());
+                EDI_CHECK(bp.assetRef == "recipe.tavern_table");
                 if (sharedInstanceId.isEmpty()) {
                     sharedInstanceId = QString::fromStdString(bp.instanceId);
                 } else {
-                    assert(QString::fromStdString(bp.instanceId) == sharedInstanceId); // one placement
+                    EDI_CHECK(QString::fromStdString(bp.instanceId) == sharedInstanceId); // one placement
                 }
             }
-            assert(stamped == 2);
-            assert(sharedInstanceId.startsWith("blockinst_"));
+            EDI_CHECK(stamped == 2);
+            EDI_CHECK(sharedInstanceId.startsWith("blockinst_"));
         }
 
         // Independence (FLATTEN): the definition is byte-unchanged by placement,
         // and stamping is exactly one undo step.
         const auto defPointAfter = std::get<edi::drafting::PointGeometry>(
             blockCtl.draftingDocument().blocks.front().objects[0].geometry).point;
-        assert(nearlyEqual(defPointAfter.x, 0.0) && nearlyEqual(defPointAfter.y, 0.0));
+        EDI_CHECK(nearlyEqual(defPointAfter.x, 0.0) && nearlyEqual(defPointAfter.y, 0.0));
         blockCtl.undo();
-        assert(objectCount(blockCtl) == beforeStamp);
-        assert(blockCtl.draftingDocument().blocks.size() == 1); // definition survives
+        EDI_CHECK(objectCount(blockCtl) == beforeStamp);
+        EDI_CHECK(blockCtl.draftingDocument().blocks.size() == 1); // definition survives
         blockCtl.redo();
-        assert(objectCount(blockCtl) == beforeStamp + 2);
+        EDI_CHECK(objectCount(blockCtl) == beforeStamp + 2);
     }
 
     // DM-14: place a rotated/scaled block. A block of a rectangle (a faithfully-
@@ -4529,7 +4529,7 @@ int main(int argc, char **argv)
                     return std::get<edi::drafting::RectangleGeometry>(o.geometry);
                 }
             }
-            assert(false && "no placed rectangle");
+            EDI_CHECK(false && "no placed rectangle");
             return {};
         };
 
@@ -4538,29 +4538,29 @@ int main(int argc, char **argv)
         ctl.clickCanvasNormalized(0.3, 0.3);
         ctl.clickCanvasNormalized(0.5, 0.5); // 0.2 x 0.2 rectangle
         ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(ctl.defineBlockFromSelection("box"));
+        EDI_CHECK(ctl.defineBlockFromSelection("box"));
         const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
 
         // Setter guards: a non-finite/non-positive value is rejected (state kept).
         ctl.setBlockPlacementScale(2.0);
         ctl.setBlockPlacementScale(0.0);   // invalid -> stays 2.0
         ctl.setBlockPlacementScale(-1.0);  // invalid -> stays 2.0
-        assert(nearlyEqual(ctl.blockPlacementScale(), 2.0));
+        EDI_CHECK(nearlyEqual(ctl.blockPlacementScale(), 2.0));
         ctl.setBlockPlacementRotation(90.0);
-        assert(nearlyEqual(ctl.blockPlacementRotation(), 90.0));
+        EDI_CHECK(nearlyEqual(ctl.blockPlacementRotation(), 90.0));
 
         // IDENTITY placement (0deg / 1.0) is byte-identical to the pre-DM-14 stamp: the
         // rectangle keeps its 0.2 footprint and identity placement metadata.
         ctl.setBlockPlacementRotation(0.0);
         ctl.setBlockPlacementScale(1.0);
-        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        EDI_CHECK(ctl.placeBlockInstance(blockId, 0.6, 0.6));
         {
             const edi::drafting::RectangleGeometry r = placedRect(ctl);
-            assert(nearlyEqual(r.width, 0.2) && nearlyEqual(r.height, 0.2)); // NOT scaled
+            EDI_CHECK(nearlyEqual(r.width, 0.2) && nearlyEqual(r.height, 0.2)); // NOT scaled
             for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
                 if (!o.metadata.blockPlacement.instanceId.empty()) {
-                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0));
-                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 0.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 1.0));
                 }
             }
         }
@@ -4570,14 +4570,14 @@ int main(int argc, char **argv)
         // records the transform.
         ctl.setBlockPlacementRotation(90.0);
         ctl.setBlockPlacementScale(2.0);
-        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        EDI_CHECK(ctl.placeBlockInstance(blockId, 0.6, 0.6));
         {
             const edi::drafting::RectangleGeometry r = placedRect(ctl);
-            assert(nearlyEqual(r.width, 0.4) && nearlyEqual(r.height, 0.4)); // scaled x2
+            EDI_CHECK(nearlyEqual(r.width, 0.4) && nearlyEqual(r.height, 0.4)); // scaled x2
             for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
                 if (!o.metadata.blockPlacement.instanceId.empty()) {
-                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
-                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 90.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 2.0));
                 }
             }
         }
@@ -4593,7 +4593,7 @@ int main(int argc, char **argv)
                     return std::get<edi::drafting::RectangleGeometry>(o.geometry);
                 }
             }
-            assert(false && "no placed rectangle");
+            EDI_CHECK(false && "no placed rectangle");
             return {};
         };
 
@@ -4602,44 +4602,44 @@ int main(int argc, char **argv)
         ctl.clickCanvasNormalized(0.3, 0.3);
         ctl.clickCanvasNormalized(0.5, 0.5);
         ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(ctl.defineBlockFromSelection("box"));
+        EDI_CHECK(ctl.defineBlockFromSelection("box"));
         const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
 
         // Place a 90deg / x2 instance (rectangle now 0.4) and capture its instance id.
         ctl.setBlockPlacementRotation(90.0);
         ctl.setBlockPlacementScale(2.0);
-        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        EDI_CHECK(ctl.placeBlockInstance(blockId, 0.6, 0.6));
         std::string instanceId;
         for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
             if (!o.metadata.blockPlacement.instanceId.empty()) {
                 instanceId = o.metadata.blockPlacement.instanceId;
             }
         }
-        assert(!instanceId.empty());
+        EDI_CHECK(!instanceId.empty());
 
         // A bad instance id refuses with no change.
         const std::uint64_t revBefore = ctl.draftingDocument().revision;
-        assert(!ctl.transformBlockInstance(QStringLiteral("blockinst_nope"), 45.0, 1.5));
-        assert(ctl.draftingDocument().revision == revBefore);
+        EDI_CHECK(!ctl.transformBlockInstance(QStringLiteral("blockinst_nope"), 45.0, 1.5));
+        EDI_CHECK(ctl.draftingDocument().revision == revBefore);
         // A non-positive scale factor refuses too (NaN/range guard).
-        assert(!ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 0.0));
+        EDI_CHECK(!ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 0.0));
 
         // Transform by (+45deg, x1.5): geometry scales again (0.4 -> 0.6) and the
         // metadata ACCUMULATES (90+45=135, 2*1.5=3.0) in one undo step.
-        assert(ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 1.5));
+        EDI_CHECK(ctl.transformBlockInstance(QString::fromStdString(instanceId), 45.0, 1.5));
         {
             const edi::drafting::RectangleGeometry r = placedRect(ctl);
-            assert(nearlyEqual(r.width, 0.6) && nearlyEqual(r.height, 0.6)); // 0.4 x 1.5
+            EDI_CHECK(nearlyEqual(r.width, 0.6) && nearlyEqual(r.height, 0.6)); // 0.4 x 1.5
             for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
                 if (o.metadata.blockPlacement.instanceId == instanceId) {
-                    assert(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 135.0));
-                    assert(nearlyEqual(o.metadata.blockPlacement.scale, 3.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.rotationDeg, 135.0));
+                    EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 3.0));
                 }
             }
         }
         // One undo reverts the whole group transform (back to 0.4).
-        assert(ctl.undo());
-        assert(nearlyEqual(placedRect(ctl).width, 0.4));
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(nearlyEqual(placedRect(ctl).width, 0.4));
     }
 
     // DM-15 hardening: a pathological-but-finite scale sequence must not compose to a
@@ -4654,7 +4654,7 @@ int main(int argc, char **argv)
                     return std::get<edi::drafting::RectangleGeometry>(o.geometry);
                 }
             }
-            assert(false && "no placed rectangle");
+            EDI_CHECK(false && "no placed rectangle");
             return {};
         };
 
@@ -4663,32 +4663,32 @@ int main(int argc, char **argv)
         ctl.clickCanvasNormalized(0.3, 0.3);
         ctl.clickCanvasNormalized(0.5, 0.5);
         ctl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(ctl.defineBlockFromSelection("box"));
+        EDI_CHECK(ctl.defineBlockFromSelection("box"));
         const QString blockId = QString::fromStdString(ctl.draftingDocument().blocks.front().id);
 
         // A huge-but-finite placement scale is accepted (finite, > 0).
         ctl.setBlockPlacementScale(1e200);
-        assert(nearlyEqual(ctl.blockPlacementScale(), 1e200));
-        assert(ctl.placeBlockInstance(blockId, 0.6, 0.6));
+        EDI_CHECK(nearlyEqual(ctl.blockPlacementScale(), 1e200));
+        EDI_CHECK(ctl.placeBlockInstance(blockId, 0.6, 0.6));
         std::string instanceId;
         for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
             if (!o.metadata.blockPlacement.instanceId.empty()) {
                 instanceId = o.metadata.blockPlacement.instanceId;
             }
         }
-        assert(!instanceId.empty());
-        assert(std::isfinite(ctl.draftingDocument().objects.back().metadata.blockPlacement.scale));
+        EDI_CHECK(!instanceId.empty());
+        EDI_CHECK(std::isfinite(ctl.draftingDocument().objects.back().metadata.blockPlacement.scale));
 
         // 1e200 * 1e200 -> inf: the member is refused, leaving scale finite (1e200).
         ctl.transformBlockInstance(QString::fromStdString(instanceId), 0.0, 1e200);
         for (const edi::drafting::DraftingObject &o : ctl.draftingDocument().objects) {
             if (o.metadata.blockPlacement.instanceId == instanceId) {
-                assert(std::isfinite(o.metadata.blockPlacement.scale)); // never inf
-                assert(nearlyEqual(o.metadata.blockPlacement.scale, 1e200)); // unchanged
+                EDI_CHECK(std::isfinite(o.metadata.blockPlacement.scale)); // never inf
+                EDI_CHECK(nearlyEqual(o.metadata.blockPlacement.scale, 1e200)); // unchanged
             }
         }
         // The geometry stayed finite too (no inf coords written).
-        assert(std::isfinite(placedRect(ctl).width));
+        EDI_CHECK(std::isfinite(placedRect(ctl).width));
     }
 
     // Seam C: createMapFromSpec records its rooms on the document (name + authored
@@ -4711,20 +4711,20 @@ int main(int argc, char **argv)
         spec.rooms.push_back(b);
 
         DrawingDocumentController mapCtl;
-        assert(mapCtl.createMapFromSpec(spec, 0.02)); // authored at 0.02 canvas/ft
-        assert(nearlyEqual(mapCtl.draftingDocument().canvasPerAuthoredUnit, 0.02)); // scale recorded
-        assert(mapCtl.draftingDocument().rooms.size() == 2);
+        EDI_CHECK(mapCtl.createMapFromSpec(spec, 0.02)); // authored at 0.02 canvas/ft
+        EDI_CHECK(nearlyEqual(mapCtl.draftingDocument().canvasPerAuthoredUnit, 0.02)); // scale recorded
+        EDI_CHECK(mapCtl.draftingDocument().rooms.size() == 2);
         const edi::drafting::DraftingMapRoom &ra = mapCtl.draftingDocument().rooms[0];
-        assert(ra.name == "a" && ra.material == "stone");
-        assert(nearlyEqual(ra.origin.x, 0.1) && nearlyEqual(ra.origin.y, 0.1));
-        assert(nearlyEqual(ra.width, 0.2) && nearlyEqual(ra.height, 0.15));
-        assert(mapCtl.draftingDocument().rooms[1].name == "b");
+        EDI_CHECK(ra.name == "a" && ra.material == "stone");
+        EDI_CHECK(nearlyEqual(ra.origin.x, 0.1) && nearlyEqual(ra.origin.y, 0.1));
+        EDI_CHECK(nearlyEqual(ra.width, 0.2) && nearlyEqual(ra.height, 0.15));
+        EDI_CHECK(mapCtl.draftingDocument().rooms[1].name == "b");
 
         // Atomic with the map create: one undo clears the rooms (and the walls).
         mapCtl.undo();
-        assert(mapCtl.draftingDocument().rooms.empty());
+        EDI_CHECK(mapCtl.draftingDocument().rooms.empty());
         mapCtl.redo();
-        assert(mapCtl.draftingDocument().rooms.size() == 2);
+        EDI_CHECK(mapCtl.draftingDocument().rooms.size() == 2);
 
         // DM-07/08 PERSISTENCE LEG: an EDITED document survives .edidraw save/reload
         // with its rooms intact — the proof that Seam C reads rooms FROM the document
@@ -4734,17 +4734,17 @@ int main(int argc, char **argv)
         const edi::formats::ByteBuffer bytes =
             edi::drafting::encodeDraftingDocument(mapCtl.draftingDocument());
         const auto reloaded = edi::drafting::decodeDraftingDocument(bytes, "roundtrip");
-        assert(reloaded.ok && reloaded.value);
+        EDI_CHECK(reloaded.ok && reloaded.value);
         const auto &saved = mapCtl.draftingDocument().rooms;
         const auto &back = reloaded.value->rooms;
-        assert(back.size() == saved.size() && back.size() == 2);
+        EDI_CHECK(back.size() == saved.size() && back.size() == 2);
         for (std::size_t i = 0; i < saved.size(); ++i) {
-            assert(back[i].name == saved[i].name);
-            assert(back[i].material == saved[i].material);
-            assert(nearlyEqual(back[i].origin.x, saved[i].origin.x));
-            assert(nearlyEqual(back[i].origin.y, saved[i].origin.y));
-            assert(nearlyEqual(back[i].width, saved[i].width));
-            assert(nearlyEqual(back[i].height, saved[i].height));
+            EDI_CHECK(back[i].name == saved[i].name);
+            EDI_CHECK(back[i].material == saved[i].material);
+            EDI_CHECK(nearlyEqual(back[i].origin.x, saved[i].origin.x));
+            EDI_CHECK(nearlyEqual(back[i].origin.y, saved[i].origin.y));
+            EDI_CHECK(nearlyEqual(back[i].width, saved[i].width));
+            EDI_CHECK(nearlyEqual(back[i].height, saved[i].height));
         }
     }
 
@@ -4761,52 +4761,52 @@ int main(int argc, char **argv)
         spec.rooms.push_back(a);
 
         DrawingDocumentController fillCtl;
-        assert(fillCtl.createMapFromSpec(spec, 0.02));
+        EDI_CHECK(fillCtl.createMapFromSpec(spec, 0.02));
         const int objectsAfterMap = static_cast<int>(fillCtl.draftingDocument().objects.size());
         const std::uint64_t revAfterMap = fillCtl.draftingDocument().revision;
 
         // Arming on a doc WITH rooms returns true, exposes the prompt, and does NOT
         // touch the document (revision unchanged).
-        assert(fillCtl.beginRegionFillPick());
-        assert(fillCtl.isAwaitingPointCapture());
-        assert(fillCtl.pointCapturePrompt() == QStringLiteral("Click inside a room to fill"));
-        assert(fillCtl.draftingDocument().revision == revAfterMap);
+        EDI_CHECK(fillCtl.beginRegionFillPick());
+        EDI_CHECK(fillCtl.isAwaitingPointCapture());
+        EDI_CHECK(fillCtl.pointCapturePrompt() == QStringLiteral("Click inside a room to fill"));
+        EDI_CHECK(fillCtl.draftingDocument().revision == revAfterMap);
 
         // A click INSIDE the room footprint mints exactly one Polygon, filled
         // (opacity > 0), auto-selected as the active object, revision bumped once,
         // capture cleared.
         fillCtl.clickCanvasNormalized(0.25, 0.25);
-        assert(!fillCtl.isAwaitingPointCapture()); // capture consumed
+        EDI_CHECK(!fillCtl.isAwaitingPointCapture()); // capture consumed
         const auto &objs = fillCtl.draftingDocument().objects;
-        assert(static_cast<int>(objs.size()) == objectsAfterMap + 1);
+        EDI_CHECK(static_cast<int>(objs.size()) == objectsAfterMap + 1);
         const edi::drafting::DraftingObject &poly = objs.back();
-        assert(poly.kind == edi::drafting::DraftingShapeKind::Polygon);
-        assert(poly.fill.opacity > 0.0);
-        assert(fillCtl.draftingDocument().activeObjectId.has_value()
+        EDI_CHECK(poly.kind == edi::drafting::DraftingShapeKind::Polygon);
+        EDI_CHECK(poly.fill.opacity > 0.0);
+        EDI_CHECK(fillCtl.draftingDocument().activeObjectId.has_value()
                && *fillCtl.draftingDocument().activeObjectId == poly.id);
         // The fill bumped the revision (it is one ATOMIC edit — createObjectsAndSelect
         // brackets the create+select in a single beginEdit/commitEdit, so it collapses
         // to ONE undo step, asserted below; the raw counter bumps per command).
-        assert(fillCtl.draftingDocument().revision > revAfterMap);
+        EDI_CHECK(fillCtl.draftingDocument().revision > revAfterMap);
         // Neutral: the fill carries NO ObjectRole (presentation only).
-        assert(poly.metadata.role == edi::drafting::ObjectRole::None);
+        EDI_CHECK(poly.metadata.role == edi::drafting::ObjectRole::None);
 
         // One undo removes the whole fill (the atomicity proof).
-        assert(fillCtl.undo());
-        assert(static_cast<int>(fillCtl.draftingDocument().objects.size()) == objectsAfterMap);
+        EDI_CHECK(fillCtl.undo());
+        EDI_CHECK(static_cast<int>(fillCtl.draftingDocument().objects.size()) == objectsAfterMap);
 
         // Armed → click in OPEN SPACE → no object created, capture cleared, refusal
         // surfaced (the document gains nothing).
-        assert(fillCtl.beginRegionFillPick());
+        EDI_CHECK(fillCtl.beginRegionFillPick());
         const int before = static_cast<int>(fillCtl.draftingDocument().objects.size());
         fillCtl.clickCanvasNormalized(0.9, 0.9); // outside the only room
-        assert(!fillCtl.isAwaitingPointCapture());
-        assert(static_cast<int>(fillCtl.draftingDocument().objects.size()) == before);
+        EDI_CHECK(!fillCtl.isAwaitingPointCapture());
+        EDI_CHECK(static_cast<int>(fillCtl.draftingDocument().objects.size()) == before);
 
         // Arming on an EMPTY-rooms document refuses (no dead prompt).
         DrawingDocumentController emptyCtl;
-        assert(!emptyCtl.beginRegionFillPick());
-        assert(!emptyCtl.isAwaitingPointCapture());
+        EDI_CHECK(!emptyCtl.beginRegionFillPick());
+        EDI_CHECK(!emptyCtl.isAwaitingPointCapture());
     }
 
     // B2-1: interactive plug-placement tool.
@@ -4817,41 +4817,41 @@ int main(int argc, char **argv)
 
         // Arming: prompt set, document untouched — same up-front test as other
         // pick tools (region fill, block instance).
-        assert(plugCtl.beginPlugPick());
-        assert(plugCtl.isAwaitingPointCapture());
-        assert(plugCtl.pointCapturePrompt() == QStringLiteral("Click a wall to place a plug"));
+        EDI_CHECK(plugCtl.beginPlugPick());
+        EDI_CHECK(plugCtl.isAwaitingPointCapture());
+        EDI_CHECK(plugCtl.pointCapturePrompt() == QStringLiteral("Click a wall to place a plug"));
         const std::uint64_t revBefore = plugCtl.draftingDocument().revision;
-        assert(plugCtl.draftingDocument().plugs.empty());
-        assert(plugCtl.draftingDocument().objects.empty());
+        EDI_CHECK(plugCtl.draftingDocument().plugs.empty());
+        EDI_CHECK(plugCtl.draftingDocument().objects.empty());
 
         // A click at (0.5, 0.5): capture consumed, one marker + one plug created,
         // revision bumped. objectSnapEnabled is false on a fresh controller, so the
         // click lands at the raw canvas coordinate with no snap interference.
         plugCtl.clickCanvasNormalized(0.5, 0.5);
-        assert(!plugCtl.isAwaitingPointCapture()); // capture consumed
+        EDI_CHECK(!plugCtl.isAwaitingPointCapture()); // capture consumed
         {
             const edi::drafting::DraftingDocument &doc = plugCtl.draftingDocument();
-            assert(doc.plugs.size() == 1);
-            assert(doc.objects.size() == 1); // the anchor Point marker
-            assert(doc.revision > revBefore);
+            EDI_CHECK(doc.plugs.size() == 1);
+            EDI_CHECK(doc.objects.size() == 1); // the anchor Point marker
+            EDI_CHECK(doc.revision > revBefore);
 
             const edi::drafting::DraftingPlug &plug = doc.plugs.front();
-            assert(plug.type == "door"); // default neutral type — no game rule
+            EDI_CHECK(plug.type == "door"); // default neutral type — no game rule
             // anchor cache matches the click position (no snap offset).
-            assert(nearlyEqual(plug.anchor.x, 0.5) && nearlyEqual(plug.anchor.y, 0.5));
+            EDI_CHECK(nearlyEqual(plug.anchor.x, 0.5) && nearlyEqual(plug.anchor.y, 0.5));
 
             // The plug anchors to the minted Point marker.
             const edi::drafting::DraftingObject *marker =
                 edi::drafting::findObject(doc, plug.anchorObjectId);
-            assert(marker != nullptr);
-            assert(marker->kind == edi::drafting::DraftingShapeKind::Point);
-            assert(marker->metadata.toolProvenance == "plug");
+            EDI_CHECK(marker != nullptr);
+            EDI_CHECK(marker->kind == edi::drafting::DraftingShapeKind::Point);
+            EDI_CHECK(marker->metadata.toolProvenance == "plug");
         }
 
         // One undo removes BOTH marker and plug — they are in one undo step.
-        assert(plugCtl.undo());
-        assert(plugCtl.draftingDocument().plugs.empty());
-        assert(plugCtl.draftingDocument().objects.empty());
+        EDI_CHECK(plugCtl.undo());
+        EDI_CHECK(plugCtl.draftingDocument().plugs.empty());
+        EDI_CHECK(plugCtl.draftingDocument().objects.empty());
     }
 
     // B2-2: interactive connection tool — two-click capture + on-demand corridor.
@@ -4871,44 +4871,44 @@ int main(int argc, char **argv)
 
         {
             const edi::drafting::DraftingDocument &doc = connCtl.draftingDocument();
-            assert(doc.plugs.size() == 2);
+            EDI_CHECK(doc.plugs.size() == 2);
         }
         const std::uint64_t revAfterPlugs   = connCtl.draftingDocument().revision;
         const int           markersAfterPlug = static_cast<int>(connCtl.draftingDocument().objects.size()); // 2
 
         // Arm the connection tool.
-        assert(connCtl.beginConnectionPick());
-        assert(connCtl.isAwaitingPointCapture());
-        assert(connCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
+        EDI_CHECK(connCtl.beginConnectionPick());
+        EDI_CHECK(connCtl.isAwaitingPointCapture());
+        EDI_CHECK(connCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
         // Arming must NOT touch the document.
-        assert(connCtl.draftingDocument().revision == revAfterPlugs);
+        EDI_CHECK(connCtl.draftingDocument().revision == revAfterPlugs);
 
         // First click on plug A's marker — prompt advances, no connection yet.
         connCtl.clickCanvasNormalized(0.3, 0.3);
-        assert(connCtl.isAwaitingPointCapture()); // still armed for second click
-        assert(connCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
-        assert(connCtl.draftingDocument().connections.empty()); // not yet connected
+        EDI_CHECK(connCtl.isAwaitingPointCapture()); // still armed for second click
+        EDI_CHECK(connCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
+        EDI_CHECK(connCtl.draftingDocument().connections.empty()); // not yet connected
 
         // Second click on SAME plug A — refuse, tool disarms, no change.
         connCtl.clickCanvasNormalized(0.3, 0.3);
-        assert(!connCtl.isAwaitingPointCapture()); // tool disarmed on refusal
-        assert(connCtl.draftingDocument().connections.empty()); // still no connection
+        EDI_CHECK(!connCtl.isAwaitingPointCapture()); // tool disarmed on refusal
+        EDI_CHECK(connCtl.draftingDocument().connections.empty()); // still no connection
         // Document content must be unchanged (refusal = edit-status only, no object change).
-        assert(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
+        EDI_CHECK(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
 
         // Re-arm and complete the full two-click flow.
-        assert(connCtl.beginConnectionPick());
+        EDI_CHECK(connCtl.beginConnectionPick());
         connCtl.clickCanvasNormalized(0.3, 0.3); // first click → plug A stored
         connCtl.clickCanvasNormalized(0.7, 0.7); // second click → plug B → connect!
 
-        assert(!connCtl.isAwaitingPointCapture()); // capture consumed
+        EDI_CHECK(!connCtl.isAwaitingPointCapture()); // capture consumed
         {
             const edi::drafting::DraftingDocument &doc = connCtl.draftingDocument();
-            assert(doc.connections.size() == 1); // one connection declared
+            EDI_CHECK(doc.connections.size() == 1); // one connection declared
 
             const edi::drafting::DraftingDeclaredConnection &conn = doc.connections.front();
             // The connection references the two minted plug ids.
-            assert(conn.plugA == doc.plugs[0].id && conn.plugB == doc.plugs[1].id);
+            EDI_CHECK(conn.plugA == doc.plugs[0].id && conn.plugB == doc.plugs[1].id);
 
             // Every emitted corridor wall carries tag "connection:<connId>". The tag is
             // the neutral open-vocabulary breadcrumb (like "feature:<type>") — no new
@@ -4925,14 +4925,14 @@ int main(int argc, char **argv)
             }
             // corridorWalls() produces 2*segments walls; for two distinct door points
             // the minimum centerline has >=2 segments → >=4 tagged walls.
-            assert(taggedWallCount > 0);
+            EDI_CHECK(taggedWallCount > 0);
         }
 
         // One undo removes the connection AND all corridor objects in one step,
         // leaving only the two plug markers (the atomicity proof).
-        assert(connCtl.undo());
-        assert(connCtl.draftingDocument().connections.empty());
-        assert(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
+        EDI_CHECK(connCtl.undo());
+        EDI_CHECK(connCtl.draftingDocument().connections.empty());
+        EDI_CHECK(static_cast<int>(connCtl.draftingDocument().objects.size()) == markersAfterPlug);
     }
 
     // DM-15 block-instance projection keys (brief 021).
@@ -4955,10 +4955,10 @@ int main(int argc, char **argv)
         const std::string ordinaryId = projCtl.draftingDocument().objects.back().id;
 
         projCtl.selectObjectsInBoundsNormalized(0.05, 0.05, 0.15, 0.15);
-        assert(projCtl.defineBlockFromSelection("dot"));
+        EDI_CHECK(projCtl.defineBlockFromSelection("dot"));
         const QString blkId = QString::fromStdString(projCtl.draftingDocument().blocks.front().id);
 
-        assert(projCtl.placeBlockInstance(blkId, 0.7, 0.7));
+        EDI_CHECK(projCtl.placeBlockInstance(blkId, 0.7, 0.7));
 
         // Capture the shared instance id from the document.
         std::string placedInstanceId;
@@ -4968,35 +4968,35 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        assert(!placedInstanceId.empty());
+        EDI_CHECK(!placedInstanceId.empty());
 
         // Case A: the active object IS a block-instance placement → keys are
         // true and the instance id.  placeBlockInstance auto-selects the stamped
         // objects, so one of them is already active.
         {
             const QVariantMap model = projCtl.modelDocument();
-            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == true);
-            assert(model.value(QStringLiteral("instance_id")).toString()
+            EDI_CHECK(model.value(QStringLiteral("has_block_instance_selection")).toBool() == true);
+            EDI_CHECK(model.value(QStringLiteral("instance_id")).toString()
                    == QString::fromStdString(placedInstanceId));
         }
 
         // Case B: select the ordinary point (non-placement) → keys revert to
         // false / "".
-        assert(projCtl.selectObjectById(QString::fromStdString(ordinaryId)));
+        EDI_CHECK(projCtl.selectObjectById(QString::fromStdString(ordinaryId)));
         {
             const QVariantMap model = projCtl.modelDocument();
-            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
-            assert(model.value(QStringLiteral("instance_id")).toString().isEmpty());
+            EDI_CHECK(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
+            EDI_CHECK(model.value(QStringLiteral("instance_id")).toString().isEmpty());
         }
 
         // Case C: deselect everything (empty selection, no active object) →
         // keys are false / "".
         projCtl.selectObjectsInBoundsNormalized(0.99, 0.99, 1.0, 1.0); // empty region
-        assert(projCtl.draftingDocument().selectedObjectIds.empty());
+        EDI_CHECK(projCtl.draftingDocument().selectedObjectIds.empty());
         {
             const QVariantMap model = projCtl.modelDocument();
-            assert(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
-            assert(model.value(QStringLiteral("instance_id")).toString().isEmpty());
+            EDI_CHECK(model.value(QStringLiteral("has_block_instance_selection")).toBool() == false);
+            EDI_CHECK(model.value(QStringLiteral("instance_id")).toString().isEmpty());
         }
     }
 
@@ -5021,40 +5021,40 @@ int main(int argc, char **argv)
         clCtl.clickCanvasNormalized(0.6, 0.5); // vertical ConstructionLine
 
         const QVariantList before = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
-        assert(before.size() == 4);
+        EDI_CHECK(before.size() == 4);
 
         // Capture the ids and kinds of the two non-construction objects.
         const QString lineId   = before[0].toMap().value(QStringLiteral("id")).toString();
         const QString circleId = before[1].toMap().value(QStringLiteral("id")).toString();
-        assert(before[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-        assert(before[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
-        assert(before[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
-        assert(before[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        EDI_CHECK(before[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        EDI_CHECK(before[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+        EDI_CHECK(before[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        EDI_CHECK(before[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
 
         // Delete all construction lines.
-        assert(clCtl.deleteAllConstructionLines());
+        EDI_CHECK(clCtl.deleteAllConstructionLines());
 
         const QVariantList after = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
-        assert(after.size() == 2); // only the Line and Circle remain
+        EDI_CHECK(after.size() == 2); // only the Line and Circle remain
 
         // Remaining objects are byte-identical (same ids, same kinds).
-        assert(after[0].toMap().value(QStringLiteral("id")).toString() == lineId);
-        assert(after[1].toMap().value(QStringLiteral("id")).toString() == circleId);
-        assert(after[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-        assert(after[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
+        EDI_CHECK(after[0].toMap().value(QStringLiteral("id")).toString() == lineId);
+        EDI_CHECK(after[1].toMap().value(QStringLiteral("id")).toString() == circleId);
+        EDI_CHECK(after[0].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        EDI_CHECK(after[1].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("circle"));
 
         // One undo step restores all four objects.
-        assert(clCtl.undo());
+        EDI_CHECK(clCtl.undo());
         const QVariantList restored = clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
-        assert(restored.size() == 4);
-        assert(restored[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
-        assert(restored[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        EDI_CHECK(restored.size() == 4);
+        EDI_CHECK(restored[2].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
+        EDI_CHECK(restored[3].toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("construction_line"));
 
         // Calling deleteAllConstructionLines on a doc with NO construction lines
         // is a no-op: does not crash, object count unchanged.
-        assert(clCtl.deleteAllConstructionLines()); // undone — all 4 back, then delete again
-        assert(clCtl.deleteAllConstructionLines()); // doc now has no CL — second call is a no-op
-        assert(clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
+        EDI_CHECK(clCtl.deleteAllConstructionLines()); // undone — all 4 back, then delete again
+        EDI_CHECK(clCtl.deleteAllConstructionLines()); // doc now has no CL — second call is a no-op
+        EDI_CHECK(clCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
     }
 
     // M8-S2: motif capture (defineMotifFromSelection) + FLATTEN placement
@@ -5070,40 +5070,40 @@ int main(int argc, char **argv)
         motifCtl.setSelectedToolId(QStringLiteral("point_tool"));
         motifCtl.clickCanvasNormalized(0.1, 0.2);
         motifCtl.clickCanvasNormalized(0.4, 0.5);
-        assert(objectCount(motifCtl) == 2);
+        EDI_CHECK(objectCount(motifCtl) == 2);
 
         // beginMotifPlacement on a missing name → false (no capture armed).
-        assert(!motifCtl.beginMotifPlacement(QStringLiteral("nosuchname")));
-        assert(motifCtl.pointCapturePrompt().isEmpty());
+        EDI_CHECK(!motifCtl.beginMotifPlacement(QStringLiteral("nosuchname")));
+        EDI_CHECK(motifCtl.pointCapturePrompt().isEmpty());
 
         // Marquee-select both points and define a motif.
         motifCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
-        assert(motifCtl.draftingDocument().motifs.size() == 1);
-        assert(motifCtl.draftingDocument().motifs[0].name == "dot_pair");
-        assert(motifCtl.draftingDocument().motifs[0].objects.size() == 2);
+        EDI_CHECK(motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
+        EDI_CHECK(motifCtl.draftingDocument().motifs.size() == 1);
+        EDI_CHECK(motifCtl.draftingDocument().motifs[0].name == "dot_pair");
+        EDI_CHECK(motifCtl.draftingDocument().motifs[0].objects.size() == 2);
 
         // Define is one undo step; undoing removes the motif.
         motifCtl.undo();
-        assert(motifCtl.draftingDocument().motifs.empty());
+        EDI_CHECK(motifCtl.draftingDocument().motifs.empty());
         motifCtl.redo();
-        assert(motifCtl.draftingDocument().motifs.size() == 1);
+        EDI_CHECK(motifCtl.draftingDocument().motifs.size() == 1);
 
         // Define a second motif (same selection) with duplicate name → rejected.
         motifCtl.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
-        assert(!motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
+        EDI_CHECK(!motifCtl.defineMotifFromSelection(QStringLiteral("dot_pair")));
 
         // beginMotifPlacement with the correct name → arms a capture.
-        assert(motifCtl.beginMotifPlacement(QStringLiteral("dot_pair")));
-        assert(!motifCtl.pointCapturePrompt().isEmpty());
+        EDI_CHECK(motifCtl.beginMotifPlacement(QStringLiteral("dot_pair")));
+        EDI_CHECK(!motifCtl.pointCapturePrompt().isEmpty());
 
         // Canvas click → FLATTEN-drop: two fresh "motif_" objects appear.
         const int beforePlace = objectCount(motifCtl);
         motifCtl.clickCanvasNormalized(0.7, 0.8);
-        assert(objectCount(motifCtl) == beforePlace + 2);
+        EDI_CHECK(objectCount(motifCtl) == beforePlace + 2);
 
         // Confirm auto-selection of the placed batch.
-        assert(motifCtl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
+        EDI_CHECK(motifCtl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
 
         // The placed objects have "motif_" ids and are ordinary first-class objects.
         const QVariantList objs = motifCtl.modelDocument().value(QStringLiteral("drawing_objects")).toList();
@@ -5115,11 +5115,11 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        assert(foundMotifId);
+        EDI_CHECK(foundMotifId);
 
         // The whole placement is ONE undo step (beforePlace + 2 → beforePlace on undo).
-        assert(motifCtl.undo());
-        assert(objectCount(motifCtl) == beforePlace);
+        EDI_CHECK(motifCtl.undo());
+        EDI_CHECK(objectCount(motifCtl) == beforePlace);
     }
 
     // M2-S2: dropIntersectionPoints — materialise segment crossings as Point objects.
@@ -5145,30 +5145,30 @@ int main(int argc, char **argv)
             ctl.clickCanvasNormalized(0.8, 0.5); // horizontal y=0.5
             ctl.clickCanvasNormalized(0.5, 0.2);
             ctl.clickCanvasNormalized(0.5, 0.8); // vertical x=0.5
-            assert(objectCount(ctl) == 2);
+            EDI_CHECK(objectCount(ctl) == 2);
 
             // The line_tool auto-selects the last-created line, so we clear the
             // selection before calling dropIntersectionPoints — this tests the
             // whole-document path (no selection → full visible scan).
             ctl.setSelectedToolId("select_move");
             ctl.clickCanvasNormalized(0.99, 0.99); // empty space → clears selection
-            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+            EDI_CHECK(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().isEmpty());
 
             const bool dropped = ctl.dropIntersectionPoints();
-            assert(dropped);
-            assert(objectCount(ctl) == 3);
-            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+            EDI_CHECK(dropped);
+            EDI_CHECK(objectCount(ctl) == 3);
+            EDI_CHECK(kindCount(ctl, QStringLiteral("point")) == 1);
 
             // The created Point is auto-selected.
             const QVariantList selIds =
                 ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList();
-            assert(selIds.size() == 1);
-            assert(selIds[0].toString().startsWith(QStringLiteral("isect_")));
+            EDI_CHECK(selIds.size() == 1);
+            EDI_CHECK(selIds[0].toString().startsWith(QStringLiteral("isect_")));
 
             // The whole operation is ONE undo step.
-            assert(ctl.canUndo());
+            EDI_CHECK(ctl.canUndo());
             ctl.undo();
-            assert(objectCount(ctl) == 2);
+            EDI_CHECK(objectCount(ctl) == 2);
         }
 
         // Idempotent: calling again after the first drop creates 0 new Points.
@@ -5183,17 +5183,17 @@ int main(int argc, char **argv)
             ctl.setSelectedToolId("select_move");
             ctl.clickCanvasNormalized(0.99, 0.99);
 
-            assert(ctl.dropIntersectionPoints()); // first drop: creates 1 Point
+            EDI_CHECK(ctl.dropIntersectionPoints()); // first drop: creates 1 Point
             const int after1 = objectCount(ctl);
-            assert(after1 == 3);
+            EDI_CHECK(after1 == 3);
 
             // The first drop auto-selects the new Point — clear selection again
             // so the second call also uses the whole-document path.
             ctl.clickCanvasNormalized(0.99, 0.99); // select_move still active → clears selection
 
             const bool second = ctl.dropIntersectionPoints(); // second drop: 0 new
-            assert(!second);
-            assert(objectCount(ctl) == after1); // nothing added
+            EDI_CHECK(!second);
+            EDI_CHECK(objectCount(ctl) == after1); // nothing added
         }
 
         // Selection-scoped: 3 lines, only 2 selected → only their crossing drops.
@@ -5216,18 +5216,18 @@ int main(int argc, char **argv)
             ctl.clickCanvasNormalized(0.4, 0.7); // l2: vertical x=0.4
             ctl.clickCanvasNormalized(0.6, 0.3);
             ctl.clickCanvasNormalized(0.6, 0.7); // l3: vertical x=0.6
-            assert(objectCount(ctl) == 3);
+            EDI_CHECK(objectCount(ctl) == 3);
 
             // Arm the marquee so l1+l2 are selected but l3 is excluded.
             ctl.selectObjectsInBoundsNormalized(0.0, 0.25, 0.55, 0.75);
             // Confirm exactly 2 objects are selected (l1 and l2).
-            assert(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
+            EDI_CHECK(ctl.modelDocument().value(QStringLiteral("selected_object_ids")).toList().size() == 2);
 
             // Selection-scoped drop: only l1∩l2=(0.4,0.5) lands.
             const bool dropped = ctl.dropIntersectionPoints();
-            assert(dropped);
-            assert(objectCount(ctl) == 4); // 3 lines + 1 Point
-            assert(kindCount(ctl, QStringLiteral("point")) == 1);
+            EDI_CHECK(dropped);
+            EDI_CHECK(objectCount(ctl) == 4); // 3 lines + 1 Point
+            EDI_CHECK(kindCount(ctl, QStringLiteral("point")) == 1);
         }
     }
 
@@ -5249,22 +5249,22 @@ int main(int argc, char **argv)
             // Vertical line from (0.4,0.2) to (0.4,0.7).
             angCtl.clickCanvasNormalized(0.4, 0.2);
             angCtl.clickCanvasNormalized(0.4, 0.7);
-            assert(objectCount(angCtl) == 2);
+            EDI_CHECK(objectCount(angCtl) == 2);
 
             const int before = objectCount(angCtl);
             angCtl.setSelectedToolId("angular_dimension_tool");
 
             // First click: hit horizontal line midpoint → arms capture.
             angCtl.clickCanvasNormalized(0.45, 0.4);
-            assert(angCtl.isAwaitingPointCapture());
-            assert(!angCtl.pointCapturePrompt().isEmpty());
+            EDI_CHECK(angCtl.isAwaitingPointCapture());
+            EDI_CHECK(!angCtl.pointCapturePrompt().isEmpty());
             // No object created by the first click.
-            assert(objectCount(angCtl) == before);
+            EDI_CHECK(objectCount(angCtl) == before);
 
             // Second click: hit vertical line midpoint → creates Angular dimension.
             angCtl.clickCanvasNormalized(0.4, 0.45);
-            assert(!angCtl.isAwaitingPointCapture());
-            assert(objectCount(angCtl) == before + 1);
+            EDI_CHECK(!angCtl.isAwaitingPointCapture());
+            EDI_CHECK(objectCount(angCtl) == before + 1);
 
             // Confirm the new object is a dimension.
             const QVariantList objs =
@@ -5276,12 +5276,12 @@ int main(int argc, char **argv)
                     break;
                 }
             }
-            assert(hasDim);
+            EDI_CHECK(hasDim);
 
             // The whole operation is ONE undo step.
-            assert(angCtl.canUndo());
+            EDI_CHECK(angCtl.canUndo());
             angCtl.undo();
-            assert(objectCount(angCtl) == before);
+            EDI_CHECK(objectCount(angCtl) == before);
         }
 
         // Second-pick is not a line (empty space) → no object, capture cleared.
@@ -5290,17 +5290,17 @@ int main(int argc, char **argv)
             angCtl2.setSelectedToolId("line_tool");
             angCtl2.clickCanvasNormalized(0.1, 0.3);
             angCtl2.clickCanvasNormalized(0.6, 0.3);
-            assert(objectCount(angCtl2) == 1);
+            EDI_CHECK(objectCount(angCtl2) == 1);
 
             angCtl2.setSelectedToolId("angular_dimension_tool");
             angCtl2.clickCanvasNormalized(0.35, 0.3); // hit the line
-            assert(angCtl2.isAwaitingPointCapture());
+            EDI_CHECK(angCtl2.isAwaitingPointCapture());
 
             const int before2 = objectCount(angCtl2);
             angCtl2.clickCanvasNormalized(0.9, 0.9); // empty space — no line here
-            assert(!angCtl2.isAwaitingPointCapture());
+            EDI_CHECK(!angCtl2.isAwaitingPointCapture());
             // No new object should appear.
-            assert(objectCount(angCtl2) == before2);
+            EDI_CHECK(objectCount(angCtl2) == before2);
         }
 
         // First click is not on a line → no capture armed.
@@ -5308,7 +5308,7 @@ int main(int argc, char **argv)
             DrawingDocumentController angCtl3;
             angCtl3.setSelectedToolId("angular_dimension_tool");
             angCtl3.clickCanvasNormalized(0.5, 0.5); // nothing in document
-            assert(!angCtl3.isAwaitingPointCapture());
+            EDI_CHECK(!angCtl3.isAwaitingPointCapture());
         }
 
         // Parallel lines → planAngularDimension rejects → no object created.
@@ -5320,17 +5320,17 @@ int main(int argc, char **argv)
             angCtl4.clickCanvasNormalized(0.6, 0.3); // line1: y=0.3
             angCtl4.clickCanvasNormalized(0.1, 0.6);
             angCtl4.clickCanvasNormalized(0.6, 0.6); // line2: y=0.6
-            assert(objectCount(angCtl4) == 2);
+            EDI_CHECK(objectCount(angCtl4) == 2);
 
             angCtl4.setSelectedToolId("angular_dimension_tool");
             angCtl4.clickCanvasNormalized(0.35, 0.3); // arm on line1
-            assert(angCtl4.isAwaitingPointCapture());
+            EDI_CHECK(angCtl4.isAwaitingPointCapture());
 
             const int before4 = objectCount(angCtl4);
             angCtl4.clickCanvasNormalized(0.35, 0.6); // pick line2 (parallel)
-            assert(!angCtl4.isAwaitingPointCapture());
+            EDI_CHECK(!angCtl4.isAwaitingPointCapture());
             // planAngularDimension rejects parallel lines — no new object.
-            assert(objectCount(angCtl4) == before4);
+            EDI_CHECK(objectCount(angCtl4) == before4);
         }
     }
 
@@ -5356,24 +5356,24 @@ int main(int argc, char **argv)
         const std::string markerAId = delBetweenCtl.draftingDocument().plugs[0].anchorObjectId;
 
         // Arm the connection tool and do the first click (plug A stored).
-        assert(delBetweenCtl.beginConnectionPick());
+        EDI_CHECK(delBetweenCtl.beginConnectionPick());
         delBetweenCtl.clickCanvasNormalized(0.3, 0.3);
-        assert(delBetweenCtl.isAwaitingPointCapture()); // re-armed for second click
-        assert(delBetweenCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
+        EDI_CHECK(delBetweenCtl.isAwaitingPointCapture()); // re-armed for second click
+        EDI_CHECK(delBetweenCtl.pointCapturePrompt() == QStringLiteral("Click the second plug"));
 
         // Delete plug A's marker WHILE the connection tool is still armed.
         // selectObjectById does not cancel the pending capture — only setSelectedToolId
         // does — so the PlugConnect state survives the delete.
-        assert(delBetweenCtl.selectObjectById(QString::fromStdString(markerAId)));
-        assert(delBetweenCtl.deleteSelectedObject());
+        EDI_CHECK(delBetweenCtl.selectObjectById(QString::fromStdString(markerAId)));
+        EDI_CHECK(delBetweenCtl.deleteSelectedObject());
         // The cascade removed plug A from the graph; only plug B remains.
-        assert(delBetweenCtl.draftingDocument().plugs.size() == 1);
+        EDI_CHECK(delBetweenCtl.draftingDocument().plugs.size() == 1);
 
         // Second click on plug B — the stored plug A id now resolves to nullopt in
         // connectPlugs (apply-time re-validation); the tool refuses and clears.
         delBetweenCtl.clickCanvasNormalized(0.7, 0.7);
-        assert(!delBetweenCtl.isAwaitingPointCapture()); // disarmed
-        assert(delBetweenCtl.draftingDocument().connections.empty()); // no connection made
+        EDI_CHECK(!delBetweenCtl.isAwaitingPointCapture()); // disarmed
+        EDI_CHECK(delBetweenCtl.draftingDocument().connections.empty()); // no connection made
     }
 
     // --- 024 coverage: empty-corridor fallback (degenerate same-point plugs) --
@@ -5393,7 +5393,7 @@ int main(int argc, char **argv)
         degCtl.beginPlugPick();
         degCtl.clickCanvasNormalized(0.5, 0.5); // plug B anchor (0.5, 0.5) — same point
 
-        assert(degCtl.draftingDocument().plugs.size() == 2);
+        EDI_CHECK(degCtl.draftingDocument().plugs.size() == 2);
         const int markersCount = static_cast<int>(degCtl.draftingDocument().objects.size()); // 2
 
         const QString degPlugAId = QString::fromStdString(degCtl.draftingDocument().plugs[0].id);
@@ -5401,16 +5401,16 @@ int main(int argc, char **argv)
 
         // Call connectPlugs directly (bypassing the hit-test click path — both
         // markers are at the same pixel and hit-test would return only one of them).
-        assert(degCtl.connectPlugs(degPlugAId, degPlugBId));
+        EDI_CHECK(degCtl.connectPlugs(degPlugAId, degPlugBId));
 
         // The fallback path: one DeclaredConnection exists, NO corridor walls added.
-        assert(degCtl.draftingDocument().connections.size() == 1);
-        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+        EDI_CHECK(degCtl.draftingDocument().connections.size() == 1);
+        EDI_CHECK(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
 
         // One undo removes the connection (the fallback bracket is one undo step).
-        assert(degCtl.undo());
-        assert(degCtl.draftingDocument().connections.empty());
-        assert(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
+        EDI_CHECK(degCtl.undo());
+        EDI_CHECK(degCtl.draftingDocument().connections.empty());
+        EDI_CHECK(static_cast<int>(degCtl.draftingDocument().objects.size()) == markersCount);
     }
 
     // --- 024 coverage: stale-member cleared on tool switch (NIT fix) ----------
@@ -5429,9 +5429,9 @@ int main(int argc, char **argv)
         staleCtl.clickCanvasNormalized(0.7, 0.7); // plug B
 
         // Arm connection tool and store plug A via the first click.
-        assert(staleCtl.beginConnectionPick());
+        EDI_CHECK(staleCtl.beginConnectionPick());
         staleCtl.clickCanvasNormalized(0.3, 0.3);
-        assert(staleCtl.isAwaitingPointCapture()); // re-armed for second click
+        EDI_CHECK(staleCtl.isAwaitingPointCapture()); // re-armed for second click
 
         // Switch to a different tool — cancels the pick AND (NIT fix) clears
         // m_pendingConnectionPlugA so it cannot bleed into the next session.
@@ -5439,18 +5439,18 @@ int main(int argc, char **argv)
         // change it, so we must switch to a GENUINELY DIFFERENT tool to avoid the
         // early-return guard (if (m_selectedToolId == toolId) return;).
         staleCtl.setSelectedToolId(QStringLiteral("rectangle_tool"));
-        assert(!staleCtl.isAwaitingPointCapture()); // capture cancelled by tool switch
+        EDI_CHECK(!staleCtl.isAwaitingPointCapture()); // capture cancelled by tool switch
 
         // Re-arm the connection tool (also clears m_pendingConnectionPlugA for safety).
-        assert(staleCtl.beginConnectionPick());
-        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
+        EDI_CHECK(staleCtl.beginConnectionPick());
+        EDI_CHECK(staleCtl.pointCapturePrompt() == QStringLiteral("Click the first plug"));
 
         // Clicking plug A is now the FIRST click (plug A was NOT left stale from
         // before the tool switch). The tool re-arms for the second click.
         staleCtl.clickCanvasNormalized(0.3, 0.3);
-        assert(staleCtl.isAwaitingPointCapture()); // still armed — waiting for second plug
-        assert(staleCtl.pointCapturePrompt() == QStringLiteral("Click the second plug")); // FIRST click consumed
-        assert(staleCtl.draftingDocument().connections.empty()); // no premature connection
+        EDI_CHECK(staleCtl.isAwaitingPointCapture()); // still armed — waiting for second plug
+        EDI_CHECK(staleCtl.pointCapturePrompt() == QStringLiteral("Click the second plug")); // FIRST click consumed
+        EDI_CHECK(staleCtl.draftingDocument().connections.empty()); // no premature connection
     }
 
     // --- B2-CTX: selectConnection + projection keys ----------------------------
@@ -5469,31 +5469,31 @@ int main(int argc, char **argv)
 
         // Retrieve both plug ids from the document.
         const auto &plugs = connSelCtl.draftingDocument().plugs;
-        assert(plugs.size() == 2);
+        EDI_CHECK(plugs.size() == 2);
         const QString plugAId = QString::fromStdString(plugs[0].id);
         const QString plugBId = QString::fromStdString(plugs[1].id);
 
         // Connect them → one DeclaredConnection is minted.
-        assert(connSelCtl.connectPlugs(plugAId, plugBId));
+        EDI_CHECK(connSelCtl.connectPlugs(plugAId, plugBId));
         const auto &conns = connSelCtl.draftingDocument().connections;
-        assert(conns.size() == 1);
+        EDI_CHECK(conns.size() == 1);
         const QString connId = QString::fromStdString(conns[0].id);
 
         // Before any selectConnection call: has_connection_selection should be false.
         QVariantMap model = connSelCtl.modelDocument();
-        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
-        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
 
         // selectConnection(unknownId) → no-op: the key stays false.
         connSelCtl.selectConnection(QStringLiteral("no-such-connection-id"));
         model = connSelCtl.modelDocument();
-        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(!model.value(QStringLiteral("has_connection_selection")).toBool());
 
         // selectConnection(validId) → has_connection_selection true + id set.
         connSelCtl.selectConnection(connId);
         model = connSelCtl.modelDocument();
-        assert(model.value(QStringLiteral("has_connection_selection")).toBool());
-        assert(model.value(QStringLiteral("active_connection_id")).toString() == connId);
+        EDI_CHECK(model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(model.value(QStringLiteral("active_connection_id")).toString() == connId);
 
         // selectConnection also clears the object selection (mutual exclusion).
         // First select an object, then call selectConnection; selection must be gone.
@@ -5501,27 +5501,27 @@ int main(int argc, char **argv)
             // Pick the first plug's anchor marker as our test object.
             const QString markerId = QString::fromStdString(
                 connSelCtl.draftingDocument().objects.front().id);
-            assert(connSelCtl.selectObjectById(markerId));
+            EDI_CHECK(connSelCtl.selectObjectById(markerId));
             // Object is now selected — connection select was cleared by selectObjectById.
-            assert(!connSelCtl.modelDocument()
+            EDI_CHECK(!connSelCtl.modelDocument()
                        .value(QStringLiteral("has_connection_selection")).toBool());
 
             // Now select the connection again.
             connSelCtl.selectConnection(connId);
-            assert(connSelCtl.modelDocument()
+            EDI_CHECK(connSelCtl.modelDocument()
                        .value(QStringLiteral("has_connection_selection")).toBool());
             // The object selection must be empty (clearSelection was called inside selectConnection).
-            assert(connSelCtl.modelDocument()
+            EDI_CHECK(connSelCtl.modelDocument()
                        .value(QStringLiteral("selected_object_ids")).toList().isEmpty());
         }
 
         // Object-select after selectConnection clears m_activeConnectionId.
         const QString markerId = QString::fromStdString(
             connSelCtl.draftingDocument().objects.front().id);
-        assert(connSelCtl.selectObjectById(markerId));
+        EDI_CHECK(connSelCtl.selectObjectById(markerId));
         model = connSelCtl.modelDocument();
-        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
-        assert(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(model.value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     // active_object_is_plug: placing a plug marker and selecting it yields true.
@@ -5532,14 +5532,14 @@ int main(int argc, char **argv)
 
         // The freshly placed marker is auto-selected; it is a plug anchor.
         QVariantMap model = plugObjCtl.modelDocument();
-        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+        EDI_CHECK(model.value(QStringLiteral("active_object_is_plug")).toBool());
 
         // A plain (non-plug) object is NOT a plug anchor.
         DrawingDocumentController plainCtl;
         plainCtl.setSelectedToolId(QStringLiteral("circle_tool"));
         plainCtl.clickCanvasNormalized(0.5, 0.5); // create a circle
         model = plainCtl.modelDocument();
-        assert(!model.value(QStringLiteral("active_object_is_plug")).toBool());
+        EDI_CHECK(!model.value(QStringLiteral("active_object_is_plug")).toBool());
     }
 
     // Brief 037: active_plug_type projection key.
@@ -5556,19 +5556,19 @@ int main(int argc, char **argv)
         ctl.beginPlugPick();
         ctl.clickCanvasNormalized(0.5, 0.5); // places marker, auto-selects it
         // Grab the plug id from the document.
-        assert(ctl.draftingDocument().plugs.size() == 1);
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 1);
         const std::string plugId = ctl.draftingDocument().plugs[0].id;
 
         // setPlugType to "window" (the marker stays; a leaf is minted or replaced).
-        assert(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
+        EDI_CHECK(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
         // After setPlugType, the leaf (not the marker) may be selected. Re-select the
         // plug marker so active_object_is_plug == true and active_plug_type is visible.
         const std::string anchorObjId = ctl.draftingDocument().plugs[0].anchorObjectId;
         ctl.selectObjectById(QString::fromStdString(anchorObjId));
 
         const QVariantMap model1 = ctl.modelDocument();
-        assert(model1.value(QStringLiteral("active_object_is_plug")).toBool());
-        assert(model1.value(QStringLiteral("active_plug_type")).toString()
+        EDI_CHECK(model1.value(QStringLiteral("active_object_is_plug")).toBool());
+        EDI_CHECK(model1.value(QStringLiteral("active_plug_type")).toString()
                == QStringLiteral("window"));
 
         // Case 2: a plain (non-plug) Wall object is active → active_plug_type == "".
@@ -5577,13 +5577,13 @@ int main(int argc, char **argv)
         plainCtl2.clickCanvasNormalized(0.3, 0.3);
         plainCtl2.clickCanvasNormalized(0.7, 0.3); // create a wall
         const QVariantMap model2 = plainCtl2.modelDocument();
-        assert(!model2.value(QStringLiteral("active_object_is_plug")).toBool());
-        assert(model2.value(QStringLiteral("active_plug_type")).toString().isEmpty());
+        EDI_CHECK(!model2.value(QStringLiteral("active_object_is_plug")).toBool());
+        EDI_CHECK(model2.value(QStringLiteral("active_plug_type")).toString().isEmpty());
 
         // Case 3: no selection → active_plug_type == "".
         DrawingDocumentController emptyCtl;
         const QVariantMap model3 = emptyCtl.modelDocument();
-        assert(model3.value(QStringLiteral("active_plug_type")).toString().isEmpty());
+        EDI_CHECK(model3.value(QStringLiteral("active_plug_type")).toString().isEmpty());
     }
 
     // --- B2-4: deleteConnection + deletePlug -----------------------------------
@@ -5600,7 +5600,7 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
         const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
 
@@ -5612,12 +5612,12 @@ int main(int argc, char **argv)
                 if (tag == connTag) { ++corridorCount; break; }
             }
         }
-        assert(corridorCount > 0); // at least one corridor wall present
+        EDI_CHECK(corridorCount > 0); // at least one corridor wall present
 
-        assert(ctl.deleteConnection(cId));
+        EDI_CHECK(ctl.deleteConnection(cId));
 
         // Graph edge gone.
-        assert(ctl.draftingDocument().connections.empty());
+        EDI_CHECK(ctl.draftingDocument().connections.empty());
         // Corridor walls gone.
         int remaining = 0;
         for (const auto &obj : ctl.draftingDocument().objects) {
@@ -5625,16 +5625,16 @@ int main(int argc, char **argv)
                 if (tag == connTag) { ++remaining; break; }
             }
         }
-        assert(remaining == 0);
+        EDI_CHECK(remaining == 0);
         // Plug markers still present (both plugs + both markers).
-        assert(ctl.draftingDocument().plugs.size() == 2);
-        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 2);
+        EDI_CHECK(static_cast<int>(ctl.draftingDocument().objects.size())
                == objectsWithConn - corridorCount);
 
         // One undo restores the edge AND the corridor.
-        assert(ctl.undo());
-        assert(ctl.draftingDocument().connections.size() == 1);
-        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(ctl.draftingDocument().connections.size() == 1);
+        EDI_CHECK(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
     }
 
     // (2) deleteConnection(unknownId) → no-op (returns false).
@@ -5644,10 +5644,10 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId2 = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId2 = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId2, bId2));
+        EDI_CHECK(ctl.connectPlugs(aId2, bId2));
         const std::size_t connsBefore = ctl.draftingDocument().connections.size();
-        assert(!ctl.deleteConnection(QStringLiteral("no-such-connection")));
-        assert(ctl.draftingDocument().connections.size() == connsBefore);
+        EDI_CHECK(!ctl.deleteConnection(QStringLiteral("no-such-connection")));
+        EDI_CHECK(ctl.draftingDocument().connections.size() == connsBefore);
     }
 
     // (3) deletePlug(plugA) — plug + connection + corridor + anchor marker gone;
@@ -5658,7 +5658,7 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
         const int objectsWithConn = static_cast<int>(ctl.draftingDocument().objects.size());
         const std::size_t plugsBefore  = ctl.draftingDocument().plugs.size();       // 2
@@ -5675,30 +5675,30 @@ int main(int argc, char **argv)
         }
         doomed += 1; // + the anchor marker for plug A
 
-        assert(ctl.deletePlug(aId));
+        EDI_CHECK(ctl.deletePlug(aId));
 
         // Plug A gone; plug B still present.
-        assert(ctl.draftingDocument().plugs.size() == plugsBefore - 1);
-        assert(!edi::drafting::plugIndexById(ctl.draftingDocument(), aId.toStdString()));
-        assert( edi::drafting::plugIndexById(ctl.draftingDocument(), bId.toStdString()));
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == plugsBefore - 1);
+        EDI_CHECK(!edi::drafting::plugIndexById(ctl.draftingDocument(), aId.toStdString()));
+        EDI_CHECK( edi::drafting::plugIndexById(ctl.draftingDocument(), bId.toStdString()));
 
         // Connection gone (cascaded from DeletePlugCommand).
-        assert(ctl.draftingDocument().connections.empty());
-        assert(!edi::drafting::connectionIndexById(ctl.draftingDocument(), cId.toStdString()));
+        EDI_CHECK(ctl.draftingDocument().connections.empty());
+        EDI_CHECK(!edi::drafting::connectionIndexById(ctl.draftingDocument(), cId.toStdString()));
 
         // Corridor walls and anchor marker of plug A gone.
-        assert(static_cast<int>(ctl.draftingDocument().objects.size())
+        EDI_CHECK(static_cast<int>(ctl.draftingDocument().objects.size())
                == objectsWithConn - doomed);
         // Plug B's anchor marker still exists.
         const std::string bAnchorId =
             ctl.draftingDocument().plugs.front().anchorObjectId;
-        assert(edi::drafting::findObject(ctl.draftingDocument(), bAnchorId) != nullptr);
+        EDI_CHECK(edi::drafting::findObject(ctl.draftingDocument(), bAnchorId) != nullptr);
 
         // One undo restores plug A + connection + corridor + anchor marker.
-        assert(ctl.undo());
-        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
-        assert(ctl.draftingDocument().connections.size() == connsBefore);
-        assert(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == plugsBefore);
+        EDI_CHECK(ctl.draftingDocument().connections.size() == connsBefore);
+        EDI_CHECK(static_cast<int>(ctl.draftingDocument().objects.size()) == objectsWithConn);
     }
 
     // (4) deletePlug(unknownId) → no-op (returns false).
@@ -5707,8 +5707,8 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.3, 0.3);
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
-        assert(!ctl.deletePlug(QStringLiteral("no-such-plug")));
-        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
+        EDI_CHECK(!ctl.deletePlug(QStringLiteral("no-such-plug")));
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == plugsBefore);
     }
 
     // --- Brief 029: B2-CTX mutual-exclusion fixes ----------------------------
@@ -5724,11 +5724,11 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
         // Canvas-click on the first plug's anchor marker (at 0.3, 0.3 in normalised coords).
         // This is a select_move click — it should clear the connection selection AND select
@@ -5738,9 +5738,9 @@ int main(int argc, char **argv)
 
         // has_connection_selection must now be false — the canvas click cleared it.
         const QVariantMap model = ctl.modelDocument();
-        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(!model.value(QStringLiteral("has_connection_selection")).toBool());
         // An object is now selected (the plug marker at that position).
-        assert(!model.value(QStringLiteral("selected_object_ids")).toList().isEmpty());
+        EDI_CHECK(!model.value(QStringLiteral("selected_object_ids")).toList().isEmpty());
     }
 
     // Fix 1 (plug-anchor variant): canvas-click a plug marker while a connection is
@@ -5753,7 +5753,7 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         ctl.selectConnection(cId);
@@ -5763,9 +5763,9 @@ int main(int argc, char **argv)
         ctl.clickCanvasNormalized(0.3, 0.3);
 
         const QVariantMap model = ctl.modelDocument();
-        assert(!model.value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(!model.value(QStringLiteral("has_connection_selection")).toBool());
         // The clicked object is a plug anchor → active_object_is_plug should be true.
-        assert(model.value(QStringLiteral("active_object_is_plug")).toBool());
+        EDI_CHECK(model.value(QStringLiteral("active_object_is_plug")).toBool());
     }
 
     // Fix 2a: selectConnection(id) → deleteConnection(id) → has_connection_selection false.
@@ -5776,16 +5776,16 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
         // Delete the selected connection — must clear m_activeConnectionId.
-        assert(ctl.deleteConnection(cId));
-        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(ctl.deleteConnection(cId));
+        EDI_CHECK(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     // Fix 2b: selectConnection(id) → deletePlug(endpoint) → connection cascaded
@@ -5797,18 +5797,18 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         // Select the connection, then delete plug A — the connection cascades.
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
-        assert(ctl.deletePlug(aId));
+        EDI_CHECK(ctl.deletePlug(aId));
         // Connection is gone (cascade); m_activeConnectionId should be cleared.
-        assert(ctl.draftingDocument().connections.empty());
-        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(ctl.draftingDocument().connections.empty());
+        EDI_CHECK(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     // --- Brief 032: cancelPendingCreation clears m_activeConnectionId -----------
@@ -5826,7 +5826,7 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         // Arm a plug-pick (sets m_pointCapture; also clears m_activeConnectionId —
@@ -5836,14 +5836,14 @@ int main(int argc, char **argv)
         // NOW set the connection selection while the point-capture is armed.
         // selectConnection does not touch m_pointCapture, so both states are live.
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
         // Escape — cancelPendingCreation sees m_pointCapture (doesn't early-return),
         // clears both m_pointCapture and m_activeConnectionId, then emits modelChanged
         // because hadConnectionSelection was true.
         ctl.cancelPendingCreation();
-        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     // --- Brief 027: B2-5 rerouteConnection -----------------------------------
@@ -5859,7 +5859,7 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
         const std::string connTag = "connection:" + cId.toStdString();
 
@@ -5870,15 +5870,15 @@ int main(int argc, char **argv)
                 if (tag == connTag) { oldWallIds.push_back(obj.id); break; }
             }
         }
-        assert(!oldWallIds.empty()); // corridor must have been created
+        EDI_CHECK(!oldWallIds.empty()); // corridor must have been created
 
         // Move plug A's anchor marker to a new position (simulates user drag).
         // selectObjectById resolves to the marker; updateSelectedObjectGeometryField
         // patches the PointGeometry via UpdateGeometryCommand.
         const std::string anchorAId = ctl.draftingDocument().plugs[0].anchorObjectId;
-        assert(ctl.selectObjectById(QString::fromStdString(anchorAId)));
-        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("x"), 0.1));
-        assert(ctl.updateSelectedObjectGeometryField(QStringLiteral("y"), 0.1));
+        EDI_CHECK(ctl.selectObjectById(QString::fromStdString(anchorAId)));
+        EDI_CHECK(ctl.updateSelectedObjectGeometryField(QStringLiteral("x"), 0.1));
+        EDI_CHECK(ctl.updateSelectedObjectGeometryField(QStringLiteral("y"), 0.1));
 
         // Record document state before reroute so we can compare after.
         const std::size_t objsBefore = ctl.draftingDocument().objects.size();
@@ -5886,12 +5886,12 @@ int main(int argc, char **argv)
         const std::size_t plugsBefore = ctl.draftingDocument().plugs.size();
 
         // Reroute: must succeed and the connection + plugs must be untouched.
-        assert(ctl.rerouteConnection(cId));
-        assert(ctl.draftingDocument().connections.size() == connsBefore);
-        assert(ctl.draftingDocument().plugs.size() == plugsBefore);
-        assert(ctl.draftingDocument().connections[0].id == cId.toStdString());
-        assert(ctl.draftingDocument().connections[0].plugA == aId.toStdString());
-        assert(ctl.draftingDocument().connections[0].plugB == bId.toStdString());
+        EDI_CHECK(ctl.rerouteConnection(cId));
+        EDI_CHECK(ctl.draftingDocument().connections.size() == connsBefore);
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == plugsBefore);
+        EDI_CHECK(ctl.draftingDocument().connections[0].id == cId.toStdString());
+        EDI_CHECK(ctl.draftingDocument().connections[0].plugA == aId.toStdString());
+        EDI_CHECK(ctl.draftingDocument().connections[0].plugB == bId.toStdString());
 
         // Old corridor wall ids must be gone (the reroute deleted them).
         for (const std::string &oldId : oldWallIds) {
@@ -5899,7 +5899,7 @@ int main(int argc, char **argv)
             for (const auto &obj : ctl.draftingDocument().objects) {
                 if (obj.id == oldId) { found = true; break; }
             }
-            assert(!found); // old wall must no longer exist
+            EDI_CHECK(!found); // old wall must no longer exist
         }
 
         // New corridor walls tagged with the SAME connTag must now exist.
@@ -5909,14 +5909,14 @@ int main(int argc, char **argv)
                 if (tag == connTag) { newWallIds.push_back(obj.id); break; }
             }
         }
-        assert(!newWallIds.empty()); // rerouted corridor must have walls
+        EDI_CHECK(!newWallIds.empty()); // rerouted corridor must have walls
         // Old and new wall ids are distinct (fresh ids were minted).
         for (const std::string &newId : newWallIds) {
             bool clash = false;
             for (const std::string &oldId : oldWallIds) {
                 if (newId == oldId) { clash = true; break; }
             }
-            assert(!clash);
+            EDI_CHECK(!clash);
         }
 
         // ── HEADLINE ASSERTION: the rerouted corridor FOLLOWS the moved anchor ──
@@ -5947,14 +5947,14 @@ int main(int argc, char **argv)
                 break;
             }
         }
-        assert(corridorNearMovedAnchor); // corridor must start at the moved anchor
+        EDI_CHECK(corridorNearMovedAnchor); // corridor must start at the moved anchor
 
         // Total object count is unchanged (same number of corridor walls) or
         // may differ — but at minimum the reroute produced at least one wall.
         (void)objsBefore; // count check is approximate; presence check above is canonical
 
         // One undo reverts the corridor (new walls gone, old walls back).
-        assert(ctl.undo());
+        EDI_CHECK(ctl.undo());
         bool oldWallsBack = true;
         for (const std::string &oldId : oldWallIds) {
             bool found = false;
@@ -5963,14 +5963,14 @@ int main(int argc, char **argv)
             }
             if (!found) { oldWallsBack = false; break; }
         }
-        assert(oldWallsBack);
+        EDI_CHECK(oldWallsBack);
         // And the new walls from the reroute should be gone after undo.
         for (const std::string &newId : newWallIds) {
             bool found = false;
             for (const auto &obj : ctl.draftingDocument().objects) {
                 if (obj.id == newId) { found = true; break; }
             }
-            assert(!found);
+            EDI_CHECK(!found);
         }
     }
 
@@ -5981,12 +5981,12 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const std::size_t objsBefore = ctl.draftingDocument().objects.size();
-        assert(!ctl.rerouteConnection(QStringLiteral("no-such-connection")));
+        EDI_CHECK(!ctl.rerouteConnection(QStringLiteral("no-such-connection")));
         // Document must be unchanged (no corridor modified or removed).
-        assert(ctl.draftingDocument().objects.size() == objsBefore);
-        assert(ctl.draftingDocument().connections.size() == 1);
+        EDI_CHECK(ctl.draftingDocument().objects.size() == objsBefore);
+        EDI_CHECK(ctl.draftingDocument().connections.size() == 1);
     }
 
     // --- Brief 033: B2-3 setPlugType ------------------------------------------
@@ -6002,8 +6002,8 @@ int main(int argc, char **argv)
         const std::string leafTag = "plug:" + pId.toStdString();
 
         // First setPlugType → "window".
-        assert(ctl.setPlugType(pId, QStringLiteral("window")));
-        assert(ctl.draftingDocument().plugs[0].type == "window");
+        EDI_CHECK(ctl.setPlugType(pId, QStringLiteral("window")));
+        EDI_CHECK(ctl.draftingDocument().plugs[0].type == "window");
 
         // Exactly one Wall with the leaf tag must exist, and it must be Window type.
         std::vector<std::string> leafIds;
@@ -6012,21 +6012,21 @@ int main(int argc, char **argv)
                 if (tag == leafTag) { leafIds.push_back(obj.id); break; }
             }
         }
-        assert(leafIds.size() == 1); // exactly one leaf
+        EDI_CHECK(leafIds.size() == 1); // exactly one leaf
         // Retrieve the leaf and verify its WallVisual type.
         const edi::drafting::DraftingObject *leafObj = nullptr;
         for (const auto &obj : ctl.draftingDocument().objects) {
             if (obj.id == leafIds[0]) { leafObj = &obj; break; }
         }
-        assert(leafObj != nullptr);
-        assert(leafObj->kind == edi::drafting::DraftingShapeKind::Wall);
-        assert(leafObj->metadata.wallVisual.type == edi::drafting::WallType::Window);
-        assert(leafObj->metadata.toolProvenance == "door");
+        EDI_CHECK(leafObj != nullptr);
+        EDI_CHECK(leafObj->kind == edi::drafting::DraftingShapeKind::Wall);
+        EDI_CHECK(leafObj->metadata.wallVisual.type == edi::drafting::WallType::Window);
+        EDI_CHECK(leafObj->metadata.toolProvenance == "door");
 
         // Second setPlugType → "secret": old leaf gone, new leaf present, type Secret.
         const std::string firstLeafId = leafIds[0];
-        assert(ctl.setPlugType(pId, QStringLiteral("secret")));
-        assert(ctl.draftingDocument().plugs[0].type == "secret");
+        EDI_CHECK(ctl.setPlugType(pId, QStringLiteral("secret")));
+        EDI_CHECK(ctl.draftingDocument().plugs[0].type == "secret");
 
         // Count leaves after second call — still exactly one.
         leafIds.clear();
@@ -6035,15 +6035,15 @@ int main(int argc, char **argv)
                 if (tag == leafTag) { leafIds.push_back(obj.id); break; }
             }
         }
-        assert(leafIds.size() == 1);                   // still ONE leaf
-        assert(leafIds[0] != firstLeafId);             // fresh id (old leaf replaced)
+        EDI_CHECK(leafIds.size() == 1);                   // still ONE leaf
+        EDI_CHECK(leafIds[0] != firstLeafId);             // fresh id (old leaf replaced)
         // Find and check the new leaf.
         const edi::drafting::DraftingObject *newLeaf = nullptr;
         for (const auto &obj : ctl.draftingDocument().objects) {
             if (obj.id == leafIds[0]) { newLeaf = &obj; break; }
         }
-        assert(newLeaf != nullptr);
-        assert(newLeaf->metadata.wallVisual.type == edi::drafting::WallType::Secret);
+        EDI_CHECK(newLeaf != nullptr);
+        EDI_CHECK(newLeaf->metadata.wallVisual.type == edi::drafting::WallType::Secret);
     }
 
     {
@@ -6054,7 +6054,7 @@ int main(int argc, char **argv)
         const std::string leafTag = "plug:" + pId.toStdString();
 
         // Apply once (window).
-        assert(ctl.setPlugType(pId, QStringLiteral("window")));
+        EDI_CHECK(ctl.setPlugType(pId, QStringLiteral("window")));
         const std::string windowLeafId = [&] {
             for (const auto &obj : ctl.draftingDocument().objects) {
                 for (const auto &t : obj.metadata.tags) {
@@ -6063,22 +6063,22 @@ int main(int argc, char **argv)
             }
             return std::string{};
         }();
-        assert(!windowLeafId.empty());
+        EDI_CHECK(!windowLeafId.empty());
 
         // Undo: plug.type reverts to "door" (the default placed by placePlugAtPoint)
         // and the window leaf disappears.
-        assert(ctl.undo());
-        assert(ctl.draftingDocument().plugs[0].type == "door");
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(ctl.draftingDocument().plugs[0].type == "door");
         bool leafGone = true;
         for (const auto &obj : ctl.draftingDocument().objects) {
             if (obj.id == windowLeafId) { leafGone = false; break; }
         }
-        assert(leafGone);
+        EDI_CHECK(leafGone);
         // No leaf tag should remain at all (leaf was created by setPlugType, not
         // by placePlugAtPoint — placePlugAtPoint creates no leaf).
         for (const auto &obj : ctl.draftingDocument().objects) {
             for (const auto &tag : obj.metadata.tags) {
-                assert(tag != leafTag); // no leaf should exist after undo
+                EDI_CHECK(tag != leafTag); // no leaf should exist after undo
             }
         }
     }
@@ -6088,9 +6088,9 @@ int main(int argc, char **argv)
         DrawingDocumentController ctl;
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.4, 0.4);
         const std::size_t objsBefore = ctl.draftingDocument().objects.size();
-        assert(!ctl.setPlugType(QStringLiteral("no-such-plug"), QStringLiteral("window")));
-        assert(ctl.draftingDocument().objects.size() == objsBefore);
-        assert(ctl.draftingDocument().plugs[0].type == "door"); // unchanged
+        EDI_CHECK(!ctl.setPlugType(QStringLiteral("no-such-plug"), QStringLiteral("window")));
+        EDI_CHECK(ctl.draftingDocument().objects.size() == objsBefore);
+        EDI_CHECK(ctl.draftingDocument().plugs[0].type == "door"); // unchanged
     }
 
     // --- Brief 034: undo/redo reconcile m_activeConnectionId ------------------
@@ -6109,28 +6109,28 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         // Step 1: select the plug-A anchor object (leaves a snapshot with
         // activeObjectId set).
         const QString anchorId = QString::fromStdString(
             ctl.draftingDocument().plugs[0].anchorObjectId);
-        assert(ctl.selectObjectById(anchorId));
-        assert(ctl.draftingDocument().activeObjectId.has_value()); // object is selected
+        EDI_CHECK(ctl.selectObjectById(anchorId));
+        EDI_CHECK(ctl.draftingDocument().activeObjectId.has_value()); // object is selected
 
         // Step 2: selectConnection → sets m_activeConnectionId, clears activeObjectId.
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(!ctl.draftingDocument().activeObjectId.has_value()); // cleared by selectConnection
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(!ctl.draftingDocument().activeObjectId.has_value()); // cleared by selectConnection
 
         // Step 3: undo → restores the prior snapshot (activeObjectId set from step 1).
         // reconcileActiveConnection() should see the conflict and clear m_activeConnectionId.
-        assert(ctl.undo());
+        EDI_CHECK(ctl.undo());
         // Object selection restored from snapshot → connection selection must be gone.
-        assert(ctl.draftingDocument().activeObjectId.has_value()); // object back
-        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(ctl.draftingDocument().activeObjectId.has_value()); // object back
+        EDI_CHECK(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     {
@@ -6144,21 +6144,21 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         // selectConnection with NO object selected beforehand.
         // The prior snapshot (from connectPlugs) has no activeObjectId.
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
         // Undo connectPlugs → removes the connection from the document.
         // reconcileActiveConnection sees condition (2): the connection is now gone
         // (dangling reference) → clears m_activeConnectionId.
-        assert(ctl.undo());
-        assert(ctl.draftingDocument().connections.empty()); // connection removed by undo
-        assert(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(ctl.draftingDocument().connections.empty()); // connection removed by undo
+        EDI_CHECK(!ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString().isEmpty());
     }
 
     {
@@ -6177,34 +6177,34 @@ int main(int argc, char **argv)
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.7, 0.7);
         const QString aId = QString::fromStdString(ctl.draftingDocument().plugs[0].id);
         const QString bId = QString::fromStdString(ctl.draftingDocument().plugs[1].id);
-        assert(ctl.connectPlugs(aId, bId));
+        EDI_CHECK(ctl.connectPlugs(aId, bId));
         const QString cId = QString::fromStdString(ctl.draftingDocument().connections[0].id);
 
         // Deselect everything: click an empty canvas region with select_move.
         // This clears activeObjectId but does NOT push an undo snapshot (pure
         // selection-only change). After this the doc has activeObjectId = nullopt.
         ctl.clickCanvasNormalized(0.0, 0.0);
-        assert(!ctl.draftingDocument().activeObjectId.has_value());
+        EDI_CHECK(!ctl.draftingDocument().activeObjectId.has_value());
 
         // Place a third plug. beginEdit() inside createObjectsAndSelect now
         // captures a snapshot with activeObjectId = nullopt (no conflict).
         ctl.beginPlugPick(); ctl.clickCanvasNormalized(0.5, 0.1);
-        assert(ctl.draftingDocument().plugs.size() == 3); // third plug placed
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 3); // third plug placed
 
         // Select the connection (no object selection active).
         ctl.selectConnection(cId);
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
 
         // Undo the third plug: restored snapshot has activeObjectId = nullopt AND
         // the connection still exists → neither reconcile condition fires →
         // m_activeConnectionId stays → connection selection survives.
-        assert(ctl.undo());
-        assert(ctl.draftingDocument().plugs.size() == 2); // third plug undone
-        assert(ctl.draftingDocument().connections.size() == 1); // connection still there
-        assert(!ctl.draftingDocument().activeObjectId.has_value()); // no object selected
+        EDI_CHECK(ctl.undo());
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 2); // third plug undone
+        EDI_CHECK(ctl.draftingDocument().connections.size() == 1); // connection still there
+        EDI_CHECK(!ctl.draftingDocument().activeObjectId.has_value()); // no object selected
         // Connection selection must survive (no conflict, no dangling reference).
-        assert(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
-        assert(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString()
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("has_connection_selection")).toBool());
+        EDI_CHECK(ctl.modelDocument().value(QStringLiteral("active_connection_id")).toString()
                == cId);
     }
 
@@ -6243,17 +6243,17 @@ int main(int argc, char **argv)
             edi::drafting::MapConnectionSpec conn;
             conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
             map.connections = {conn};
-            assert(ctl.createMapFromSpec(map));
+            EDI_CHECK(ctl.createMapFromSpec(map));
         }
-        assert(ctl.draftingDocument().plugs.size() == 2);
-        assert(ctl.draftingDocument().connections.size() == 1);
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 2);
+        EDI_CHECK(ctl.draftingDocument().connections.size() == 1);
 
         // Pick plug "a.door" (the first plug whose name starts with "a.").
         std::string plugId;
         for (const auto &p : ctl.draftingDocument().plugs) {
             if (p.name == "a.door") { plugId = p.id; break; }
         }
-        assert(!plugId.empty());
+        EDI_CHECK(!plugId.empty());
         const std::string leafTag = "plug:" + plugId;
 
         // Authored leaf must already be tagged (the backfill fix).
@@ -6263,11 +6263,11 @@ int main(int argc, char **argv)
                 if (tag == leafTag) { ++leafCountBefore; break; }
             }
         }
-        assert(leafCountBefore == 1); // exactly one authored leaf with the tag
+        EDI_CHECK(leafCountBefore == 1); // exactly one authored leaf with the tag
 
         // setPlugType → "window": must REPLACE, not duplicate.
-        assert(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
-        assert(ctl.draftingDocument().plugs[0].type == "window"
+        EDI_CHECK(ctl.setPlugType(QString::fromStdString(plugId), QStringLiteral("window")));
+        EDI_CHECK(ctl.draftingDocument().plugs[0].type == "window"
                || ctl.draftingDocument().plugs[1].type == "window"); // one of them updated
 
         int leafCountAfter = 0;
@@ -6276,7 +6276,7 @@ int main(int argc, char **argv)
                 if (tag == leafTag) { ++leafCountAfter; break; }
             }
         }
-        assert(leafCountAfter == 1); // still ONE leaf — authored leaf replaced, not duplicated
+        EDI_CHECK(leafCountAfter == 1); // still ONE leaf — authored leaf replaced, not duplicated
 
         // The surviving leaf must be Window type.
         bool foundWindow = false;
@@ -6291,17 +6291,17 @@ int main(int argc, char **argv)
                 foundWindow = true;
             }
         }
-        assert(foundWindow);
+        EDI_CHECK(foundWindow);
 
         // One undo reverts both type change and leaf swap.
-        assert(ctl.undo());
+        EDI_CHECK(ctl.undo());
         int leafCountAfterUndo = 0;
         for (const auto &obj : ctl.draftingDocument().objects) {
             for (const auto &tag : obj.metadata.tags) {
                 if (tag == leafTag) { ++leafCountAfterUndo; break; }
             }
         }
-        assert(leafCountAfterUndo == 1); // back to one leaf
+        EDI_CHECK(leafCountAfterUndo == 1); // back to one leaf
         // The reverted leaf should be Door type (original authored type).
         bool foundDoor = false;
         for (const auto &obj : ctl.draftingDocument().objects) {
@@ -6314,7 +6314,7 @@ int main(int argc, char **argv)
                 foundDoor = true;
             }
         }
-        assert(foundDoor);
+        EDI_CHECK(foundDoor);
     }
 
     {
@@ -6341,15 +6341,15 @@ int main(int argc, char **argv)
             edi::drafting::MapConnectionSpec conn;
             conn.from = {"a", "door"}; conn.to = {"b", "door"}; conn.type = "corridor";
             map.connections = {conn};
-            assert(ctl.createMapFromSpec(map));
+            EDI_CHECK(ctl.createMapFromSpec(map));
         }
-        assert(ctl.draftingDocument().plugs.size() == 2);
+        EDI_CHECK(ctl.draftingDocument().plugs.size() == 2);
 
         std::string plugId;
         for (const auto &p : ctl.draftingDocument().plugs) {
             if (p.name == "a.door") { plugId = p.id; break; }
         }
-        assert(!plugId.empty());
+        EDI_CHECK(!plugId.empty());
         const std::string leafTag = "plug:" + plugId;
 
         // Sanity: leaf exists before delete.
@@ -6360,9 +6360,9 @@ int main(int argc, char **argv)
             }
             if (leafBefore) break;
         }
-        assert(leafBefore);
+        EDI_CHECK(leafBefore);
 
-        assert(ctl.deletePlug(QString::fromStdString(plugId)));
+        EDI_CHECK(ctl.deletePlug(QString::fromStdString(plugId)));
 
         // Leaf must be gone (not orphaned).
         bool leafAfter = false;
@@ -6372,7 +6372,7 @@ int main(int argc, char **argv)
             }
             if (leafAfter) break;
         }
-        assert(!leafAfter); // no orphan
+        EDI_CHECK(!leafAfter); // no orphan
 
         // No stray "door"-provenanced wall should remain for this plug either.
         // (Guard against a leak where the tag was added but the leaf still isn't
@@ -6382,7 +6382,7 @@ int main(int argc, char **argv)
         for (const auto &obj : ctl.draftingDocument().objects) {
             if (obj.metadata.toolProvenance != "door") { continue; }
             for (const auto &tag : obj.metadata.tags) {
-                assert(tag != leafTag); // no stray door leaf for the deleted plug
+                EDI_CHECK(tag != leafTag); // no stray door leaf for the deleted plug
             }
         }
     }

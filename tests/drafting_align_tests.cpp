@@ -1,7 +1,7 @@
 #include "drafting/DraftingAlign.h"
 #include "drafting/DraftingStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 #include <utility>
@@ -18,14 +18,14 @@ bool nearlyEqual(double a, double b)
 DraftingObject object(DraftingObjectId id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     auto built = buildDraftingObject(std::move(id), kind, std::move(geometry));
-    assert(built.ok);
+    EDI_CHECK(built.ok);
     return built.object;
 }
 
 void add(DraftingDocument &document, DraftingObject object)
 {
     auto result = addObject(document, std::move(object));
-    assert(result.ok);
+    EDI_CHECK(result.ok);
 }
 
 const DraftingTranslation *findTranslation(const DraftingAlignmentResult &result, const DraftingObjectId &id)
@@ -42,17 +42,17 @@ const DraftingTranslation *findTranslation(const DraftingAlignmentResult &result
 
 int main()
 {
-    assert(std::string(draftingAlignmentModeName(DraftingAlignmentMode::CenterX)) == "center_x");
-    assert(draftingAlignmentModeFromId("left") == DraftingAlignmentMode::Left);
-    assert(draftingAlignmentModeFromId("right") == DraftingAlignmentMode::Right);
-    assert(draftingAlignmentModeFromId("top") == DraftingAlignmentMode::Top);
-    assert(draftingAlignmentModeFromId("bottom") == DraftingAlignmentMode::Bottom);
-    assert(draftingAlignmentModeFromId("center_x") == DraftingAlignmentMode::CenterX);
-    assert(draftingAlignmentModeFromId("center_y") == DraftingAlignmentMode::CenterY);
-    assert(!draftingAlignmentModeFromId("distribute_x"));
-    assert(draftingDistributeModeFromAxisId("x") == DraftingAlignmentMode::DistributeX);
-    assert(draftingDistributeModeFromAxisId("y") == DraftingAlignmentMode::DistributeY);
-    assert(!draftingDistributeModeFromAxisId("z"));
+    EDI_CHECK(std::string(draftingAlignmentModeName(DraftingAlignmentMode::CenterX)) == "center_x");
+    EDI_CHECK(draftingAlignmentModeFromId("left") == DraftingAlignmentMode::Left);
+    EDI_CHECK(draftingAlignmentModeFromId("right") == DraftingAlignmentMode::Right);
+    EDI_CHECK(draftingAlignmentModeFromId("top") == DraftingAlignmentMode::Top);
+    EDI_CHECK(draftingAlignmentModeFromId("bottom") == DraftingAlignmentMode::Bottom);
+    EDI_CHECK(draftingAlignmentModeFromId("center_x") == DraftingAlignmentMode::CenterX);
+    EDI_CHECK(draftingAlignmentModeFromId("center_y") == DraftingAlignmentMode::CenterY);
+    EDI_CHECK(!draftingAlignmentModeFromId("distribute_x"));
+    EDI_CHECK(draftingDistributeModeFromAxisId("x") == DraftingAlignmentMode::DistributeX);
+    EDI_CHECK(draftingDistributeModeFromAxisId("y") == DraftingAlignmentMode::DistributeY);
+    EDI_CHECK(!draftingDistributeModeFromAxisId("z"));
 
     DraftingDocument document = makeDraftingDocument("align_doc");
     add(document, object("rect_1", DraftingShapeKind::Rectangle, RectangleGeometry{{0.2, 0.3}, 0.2, 0.1}));
@@ -60,27 +60,27 @@ int main()
     add(document, object("point_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.9}}));
 
     auto left = planDraftingAlignment(document, {"rect_1", "circle_1", "point_1"}, DraftingAlignmentMode::Left);
-    assert(left.ok);
-    assert(left.translations.size() == 2);
+    EDI_CHECK(left.ok);
+    EDI_CHECK(left.translations.size() == 2);
     const DraftingTranslation *circleLeft = findTranslation(left, "circle_1");
     const DraftingTranslation *pointLeft = findTranslation(left, "point_1");
-    assert(circleLeft != nullptr);
-    assert(pointLeft != nullptr);
-    assert(nearlyEqual(circleLeft->dx, -0.45));
-    assert(nearlyEqual(circleLeft->dy, 0.0));
-    assert(nearlyEqual(pointLeft->dx, -0.3));
+    EDI_CHECK(circleLeft != nullptr);
+    EDI_CHECK(pointLeft != nullptr);
+    EDI_CHECK(nearlyEqual(circleLeft->dx, -0.45));
+    EDI_CHECK(nearlyEqual(circleLeft->dy, 0.0));
+    EDI_CHECK(nearlyEqual(pointLeft->dx, -0.3));
 
     auto centerY = planDraftingAlignment(document, {"rect_1", "circle_1", "point_1"}, DraftingAlignmentMode::CenterY);
-    assert(centerY.ok);
+    EDI_CHECK(centerY.ok);
     const DraftingTranslation *rectCenterY = findTranslation(centerY, "rect_1");
     const DraftingTranslation *circleCenterY = findTranslation(centerY, "circle_1");
     const DraftingTranslation *pointCenterY = findTranslation(centerY, "point_1");
-    assert(rectCenterY != nullptr);
-    assert(circleCenterY != nullptr);
-    assert(pointCenterY != nullptr);
-    assert(nearlyEqual(rectCenterY->dy, 0.25));
-    assert(nearlyEqual(circleCenterY->dy, 0.1));
-    assert(nearlyEqual(pointCenterY->dy, -0.3));
+    EDI_CHECK(rectCenterY != nullptr);
+    EDI_CHECK(circleCenterY != nullptr);
+    EDI_CHECK(pointCenterY != nullptr);
+    EDI_CHECK(nearlyEqual(rectCenterY->dy, 0.25));
+    EDI_CHECK(nearlyEqual(circleCenterY->dy, 0.1));
+    EDI_CHECK(nearlyEqual(pointCenterY->dy, -0.3));
 
     DraftingDocument distributeDocument = makeDraftingDocument("distribute_doc");
     add(distributeDocument, object("left_point", DraftingShapeKind::Point, PointGeometry{{0.1, 0.1}}));
@@ -90,48 +90,48 @@ int main()
         distributeDocument,
         {"right_point", "middle_point", "left_point"},
         DraftingAlignmentMode::DistributeX);
-    assert(distributeX.ok);
-    assert(distributeX.translations.size() == 1);
-    assert(distributeX.translations.front().objectId == "middle_point");
-    assert(nearlyEqual(distributeX.translations.front().dx, 0.1));
-    assert(nearlyEqual(distributeX.translations.front().dy, 0.0));
+    EDI_CHECK(distributeX.ok);
+    EDI_CHECK(distributeX.translations.size() == 1);
+    EDI_CHECK(distributeX.translations.front().objectId == "middle_point");
+    EDI_CHECK(nearlyEqual(distributeX.translations.front().dx, 0.1));
+    EDI_CHECK(nearlyEqual(distributeX.translations.front().dy, 0.0));
 
     auto distributeY = planDraftingAlignment(
         distributeDocument,
         {"right_point", "middle_point", "left_point"},
         DraftingAlignmentMode::DistributeY);
-    assert(distributeY.ok);
-    assert(distributeY.translations.empty());
+    EDI_CHECK(distributeY.ok);
+    EDI_CHECK(distributeY.translations.empty());
 
     auto tooFewForAlign = planDraftingAlignment(document, {"rect_1"}, DraftingAlignmentMode::Left);
-    assert(!tooFewForAlign.ok);
-    assert(tooFewForAlign.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!tooFewForAlign.ok);
+    EDI_CHECK(tooFewForAlign.code == DraftingResultCode::InvalidSelectionTarget);
 
     auto tooFewForDistribute = planDraftingAlignment(document, {"rect_1", "circle_1"}, DraftingAlignmentMode::DistributeX);
-    assert(!tooFewForDistribute.ok);
-    assert(tooFewForDistribute.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!tooFewForDistribute.ok);
+    EDI_CHECK(tooFewForDistribute.code == DraftingResultCode::InvalidSelectionTarget);
 
     auto missing = planDraftingAlignment(document, {"rect_1", "missing"}, DraftingAlignmentMode::Right);
-    assert(!missing.ok);
-    assert(missing.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!missing.ok);
+    EDI_CHECK(missing.code == DraftingResultCode::InvalidSelectionTarget);
 
     DraftingDocument lockedDocument = document;
     findObject(lockedDocument, "circle_1")->locked = true;
     auto locked = planDraftingAlignment(lockedDocument, {"rect_1", "circle_1"}, DraftingAlignmentMode::Left);
-    assert(!locked.ok);
-    assert(locked.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!locked.ok);
+    EDI_CHECK(locked.code == DraftingResultCode::InvalidSelectionTarget);
 
     DraftingDocument hiddenDocument = document;
     findObject(hiddenDocument, "circle_1")->visible = false;
     auto hidden = planDraftingAlignment(hiddenDocument, {"rect_1", "circle_1"}, DraftingAlignmentMode::Left);
-    assert(!hidden.ok);
-    assert(hidden.code == DraftingResultCode::InvalidSelectionTarget);
+    EDI_CHECK(!hidden.ok);
+    EDI_CHECK(hidden.code == DraftingResultCode::InvalidSelectionTarget);
 
     DraftingDocument missingLayerDocument = document;
     findObject(missingLayerDocument, "circle_1")->layerId = "missing_layer";
     auto missingLayer = planDraftingAlignment(missingLayerDocument, {"rect_1", "circle_1"}, DraftingAlignmentMode::Left);
-    assert(!missingLayer.ok);
-    assert(missingLayer.code == DraftingResultCode::LayerNotFound);
+    EDI_CHECK(!missingLayer.ok);
+    EDI_CHECK(missingLayer.code == DraftingResultCode::LayerNotFound);
 
     return 0;
 }

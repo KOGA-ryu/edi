@@ -1,7 +1,7 @@
 #include "drafting/DraftingPlotBounds.h"
 #include "drafting/DraftingStore.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 #include <string>
 
@@ -12,7 +12,7 @@ namespace {
 DraftingObject makeObject(std::string id, DraftingShapeKind kind, DraftingGeometry geometry)
 {
     auto built = buildDraftingObject(std::move(id), kind, std::move(geometry));
-    assert(built.ok);
+    EDI_CHECK(built.ok);
     return built.object;
 }
 
@@ -33,10 +33,10 @@ bool nearlyEqual(double a, double b)
 
 void assertBounds(Bounds2D bounds, double x, double y, double width, double height)
 {
-    assert(nearlyEqual(bounds.x, x));
-    assert(nearlyEqual(bounds.y, y));
-    assert(nearlyEqual(bounds.width, width));
-    assert(nearlyEqual(bounds.height, height));
+    EDI_CHECK(nearlyEqual(bounds.x, x));
+    EDI_CHECK(nearlyEqual(bounds.y, y));
+    EDI_CHECK(nearlyEqual(bounds.width, width));
+    EDI_CHECK(nearlyEqual(bounds.height, height));
 }
 
 } // namespace
@@ -46,59 +46,59 @@ int main()
     const DraftingGridProjection grid = plotGrid();
 
     DraftingDocument pointDocument = makeDraftingDocument("point_bounds_doc");
-    assert(addObject(pointDocument, makeObject("point_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}})).ok);
+    EDI_CHECK(addObject(pointDocument, makeObject("point_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}})).ok);
     const DraftingPlotBoundsResult pointBounds = selectedRawPlotOutputBounds(pointDocument, {"point_1"}, grid);
-    assert(pointBounds.ok);
+    EDI_CHECK(pointBounds.ok);
     assertBounds(pointBounds.bounds, 0.495, 0.495, 0.01, 0.01);
-    assert(pointBounds.status == DraftingPlotBoundsStatus::InsideDrawable);
-    assert(pointBounds.relation == DraftingDrawableBoundsRelation::Inside);
-    assert(std::string(draftingPlotBoundsStatusName(pointBounds.status)) == "inside");
-    assert(std::string(draftingDrawableBoundsRelationName(pointBounds.relation)) == "inside");
+    EDI_CHECK(pointBounds.status == DraftingPlotBoundsStatus::InsideDrawable);
+    EDI_CHECK(pointBounds.relation == DraftingDrawableBoundsRelation::Inside);
+    EDI_CHECK(std::string(draftingPlotBoundsStatusName(pointBounds.status)) == "inside");
+    EDI_CHECK(std::string(draftingDrawableBoundsRelationName(pointBounds.relation)) == "inside");
 
     DraftingDocument lineDocument = makeDraftingDocument("line_bounds_doc");
-    assert(addObject(lineDocument, makeObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.4, 0.5}})).ok);
+    EDI_CHECK(addObject(lineDocument, makeObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.4, 0.5}})).ok);
     const DraftingPlotBoundsResult lineBounds = selectedRawPlotOutputBounds(lineDocument, {"line_1"}, grid);
-    assert(lineBounds.ok);
+    EDI_CHECK(lineBounds.ok);
     assertBounds(lineBounds.bounds, 0.2, 0.3, 0.2, 0.2);
 
     DraftingDocument combinedDocument = makeDraftingDocument("combined_bounds_doc");
-    assert(addObject(combinedDocument, makeObject("point_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}})).ok);
-    assert(addObject(combinedDocument, makeObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.4, 0.5}})).ok);
+    EDI_CHECK(addObject(combinedDocument, makeObject("point_1", DraftingShapeKind::Point, PointGeometry{{0.5, 0.5}})).ok);
+    EDI_CHECK(addObject(combinedDocument, makeObject("line_1", DraftingShapeKind::Line, LineGeometry{{0.2, 0.3}, {0.4, 0.5}})).ok);
     const DraftingPlotBoundsResult combinedBounds = selectedRawPlotOutputBounds(combinedDocument, {"point_1", "line_1"}, grid);
-    assert(combinedBounds.ok);
+    EDI_CHECK(combinedBounds.ok);
     assertBounds(combinedBounds.bounds, 0.2, 0.3, 0.305, 0.205);
 
     const DraftingPlotBoundsResult allBounds = rawPlotOutputBounds(combinedDocument, grid);
-    assert(allBounds.ok);
+    EDI_CHECK(allBounds.ok);
     assertBounds(allBounds.bounds, 0.2, 0.3, 0.305, 0.205);
 
     DraftingDocument rejectedDocument = makeDraftingDocument("rejected_bounds_doc");
-    assert(addObject(rejectedDocument, makeObject("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.25})).ok);
-    assert(!selectedRawPlotOutputBounds(rejectedDocument, {"guide_1"}, grid).ok);
-    assert(!selectedRawPlotOutputBounds(rejectedDocument, {"missing_1"}, grid).ok);
+    EDI_CHECK(addObject(rejectedDocument, makeObject("guide_1", DraftingShapeKind::Guide, GuideGeometry{GuideOrientation::Horizontal, 0.25})).ok);
+    EDI_CHECK(!selectedRawPlotOutputBounds(rejectedDocument, {"guide_1"}, grid).ok);
+    EDI_CHECK(!selectedRawPlotOutputBounds(rejectedDocument, {"missing_1"}, grid).ok);
 
     DraftingObject lockedLine = makeObject("locked_line", DraftingShapeKind::Line, LineGeometry{{0.3, 0.3}, {0.4, 0.4}});
     lockedLine.locked = true;
-    assert(addObject(rejectedDocument, lockedLine).ok);
-    assert(!selectedRawPlotOutputBounds(rejectedDocument, {"locked_line"}, grid).ok);
+    EDI_CHECK(addObject(rejectedDocument, lockedLine).ok);
+    EDI_CHECK(!selectedRawPlotOutputBounds(rejectedDocument, {"locked_line"}, grid).ok);
 
     DraftingDocument outsideDocument = makeDraftingDocument("outside_bounds_doc");
-    assert(addObject(outsideDocument, makeObject("outside_point", DraftingShapeKind::Point, PointGeometry{{0.0, 0.0}})).ok);
+    EDI_CHECK(addObject(outsideDocument, makeObject("outside_point", DraftingShapeKind::Point, PointGeometry{{0.0, 0.0}})).ok);
     const DraftingPlotBoundsResult outsideBounds = selectedRawPlotOutputBounds(outsideDocument, {"outside_point"}, grid);
-    assert(outsideBounds.ok);
-    assert(outsideBounds.status == DraftingPlotBoundsStatus::OutsideDrawable);
-    assert(outsideBounds.relation == DraftingDrawableBoundsRelation::FullyOutside);
-    assert(std::string(draftingPlotBoundsStatusName(outsideBounds.status)) == "outside");
-    assert(!boundsInsideDrawable(outsideBounds.bounds, grid.drawableBounds));
+    EDI_CHECK(outsideBounds.ok);
+    EDI_CHECK(outsideBounds.status == DraftingPlotBoundsStatus::OutsideDrawable);
+    EDI_CHECK(outsideBounds.relation == DraftingDrawableBoundsRelation::FullyOutside);
+    EDI_CHECK(std::string(draftingPlotBoundsStatusName(outsideBounds.status)) == "outside");
+    EDI_CHECK(!boundsInsideDrawable(outsideBounds.bounds, grid.drawableBounds));
 
-    assert(classifyBoundsAgainstDrawable({0.2, 0.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::Inside);
-    assert(classifyBoundsAgainstDrawable({0.0, 0.2, 0.2, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::PartiallyOutside);
-    assert(classifyBoundsAgainstDrawable({1.2, 1.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::FullyOutside);
-    assert(classifyBoundsAgainstDrawable({0.0, 0.2, 1.0, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::TooLarge);
-    assert(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::FullyOutside)) == "fully_outside");
-    assert(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::TooLarge)) == "too_large");
-    assert(!selectedRawPlotOutputBounds(outsideDocument, {}, grid).ok);
-    assert(std::string(draftingPlotBoundsStatusName(DraftingPlotBoundsStatus::Unavailable)) == "unavailable");
+    EDI_CHECK(classifyBoundsAgainstDrawable({0.2, 0.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::Inside);
+    EDI_CHECK(classifyBoundsAgainstDrawable({0.0, 0.2, 0.2, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::PartiallyOutside);
+    EDI_CHECK(classifyBoundsAgainstDrawable({1.2, 1.2, 0.1, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::FullyOutside);
+    EDI_CHECK(classifyBoundsAgainstDrawable({0.0, 0.2, 1.0, 0.1}, grid.drawableBounds) == DraftingDrawableBoundsRelation::TooLarge);
+    EDI_CHECK(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::FullyOutside)) == "fully_outside");
+    EDI_CHECK(std::string(draftingDrawableBoundsRelationName(DraftingDrawableBoundsRelation::TooLarge)) == "too_large");
+    EDI_CHECK(!selectedRawPlotOutputBounds(outsideDocument, {}, grid).ok);
+    EDI_CHECK(std::string(draftingPlotBoundsStatusName(DraftingPlotBoundsStatus::Unavailable)) == "unavailable");
     assertBounds(translateBounds({0.1, 0.2, 0.3, 0.4}, 0.05, -0.1), 0.15, 0.1, 0.3, 0.4);
 
     return 0;

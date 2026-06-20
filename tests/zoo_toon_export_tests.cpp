@@ -9,7 +9,7 @@
 #include "zoo/AssetZoo.h"
 #include "zoo/ZooToonExport.h"
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <optional>
 #include <string>
 
@@ -74,14 +74,14 @@ int main()
         "  asset_0003,\"oak door\",door,blender:oak_door.glb,block_0009,oak_diffuse,\"hinge:@0,3\"\n";
 
     const std::string actual = exportZooToToon(zoo);
-    assert(actual == expected);
+    EDI_CHECK(actual == expected);
 
     // The validator flags a `·` in a textureRef.
     {
         AssetRecord bad;
         bad.textureRefs = {"stone·diffuse"};
         const std::optional<std::string> problem = zooManifestFieldProblem(bad);
-        assert(problem.has_value());
+        EDI_CHECK(problem.has_value());
     }
 
     // The validator flags an `@` in a socket name (a socket sub-grammar char).
@@ -89,13 +89,13 @@ int main()
         AssetRecord bad;
         bad.sockets = {AssetSocket{"north@door", "door", Anchor2D{0.0, 0.0}}};
         const std::optional<std::string> problem = zooManifestFieldProblem(bad);
-        assert(problem.has_value());
+        EDI_CHECK(problem.has_value());
     }
 
     // A clean record (the fixture's wall) has no problem.
     {
         const std::optional<std::string> problem = zooManifestFieldProblem(wall);
-        assert(!problem.has_value());
+        EDI_CHECK(!problem.has_value());
     }
 
     // A record carrying LEGITIMATE multibyte characters is accepted: `°` shares
@@ -107,7 +107,7 @@ int main()
         cleanMultibyte.textureRefs = {"marble°"};
         cleanMultibyte.sockets = {AssetSocket{"slope", "30°", Anchor2D{0.0, 0.0}}};
         const std::optional<std::string> problem = zooManifestFieldProblem(cleanMultibyte);
-        assert(!problem.has_value());
+        EDI_CHECK(!problem.has_value());
     }
 
     return 0;

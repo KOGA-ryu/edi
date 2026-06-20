@@ -15,7 +15,7 @@
 #include <QVariantMap>
 #include <QWheelEvent>
 
-#include <cassert>
+#include "EdiAssert.h"
 #include <cmath>
 
 namespace {
@@ -137,23 +137,23 @@ int main(int argc, char **argv)
     {
         const std::vector<QPointF> quad = drawing_canvas::wallCornerMiterFill(
             QPointF(0.0, 0.0), QPointF(-1.0, 0.0), QPointF(0.0, 1.0), 10.0, 10.0, 4.0);
-        assert(quad.size() == 4);
-        assert(near(quad[0].x(), 0.0) && near(quad[0].y(), -10.0)); // this band's outer corner
-        assert(near(quad[1].x(), 10.0) && near(quad[1].y(), -10.0)); // miter apex
-        assert(near(quad[2].x(), 10.0) && near(quad[2].y(), 0.0));   // neighbour's outer corner
-        assert(near(quad[3].x(), 0.0) && near(quad[3].y(), 0.0));    // the shared point
+        EDI_CHECK(quad.size() == 4);
+        EDI_CHECK(near(quad[0].x(), 0.0) && near(quad[0].y(), -10.0)); // this band's outer corner
+        EDI_CHECK(near(quad[1].x(), 10.0) && near(quad[1].y(), -10.0)); // miter apex
+        EDI_CHECK(near(quad[2].x(), 10.0) && near(quad[2].y(), 0.0));   // neighbour's outer corner
+        EDI_CHECK(near(quad[3].x(), 0.0) && near(quad[3].y(), 0.0));    // the shared point
 
         // Collinear walls (straight through) have no corner -> no fill.
         const std::vector<QPointF> straight = drawing_canvas::wallCornerMiterFill(
             QPointF(0.0, 0.0), QPointF(-1.0, 0.0), QPointF(1.0, 0.0), 10.0, 10.0, 4.0);
-        assert(straight.empty());
+        EDI_CHECK(straight.empty());
 
         // A sharp ~10deg V sends the apex past the miter limit -> 3-pt bevel.
         const double s = std::sin(10.0 * 3.14159265358979323846 / 180.0);
         const double c = std::cos(10.0 * 3.14159265358979323846 / 180.0);
         const std::vector<QPointF> bevel = drawing_canvas::wallCornerMiterFill(
             QPointF(0.0, 0.0), QPointF(0.0, 1.0), QPointF(s, c), 10.0, 10.0, 4.0);
-        assert(bevel.size() == 3);
+        EDI_CHECK(bevel.size() == 3);
 
         // The returned wedge must ALWAYS be a simple convex polygon (or empty) —
         // never a self-intersecting bow-tie. Unequal band thicknesses at an
@@ -184,14 +184,14 @@ int main(int argc, char **argv)
         for (int deg = 10; deg <= 350; deg += 10) {
             const QPointF tNbr(std::cos(deg * pi / 180.0), std::sin(deg * pi / 180.0));
             for (double hNbr : {4.0, 10.0, 18.0}) {
-                assert(convexOrEmpty(drawing_canvas::wallCornerMiterFill(
+                EDI_CHECK(convexOrEmpty(drawing_canvas::wallCornerMiterFill(
                     QPointF(0.0, 0.0), QPointF(-1.0, 0.0), tNbr, 10.0, hNbr, 4.0)));
             }
         }
         // The specific unequal-thickness obtuse corner that previously folded
         // (this=10, neighbour=4 at 45deg) now degrades to the 3-pt bevel.
         const QPointF foldDir(std::cos(45.0 * pi / 180.0), std::sin(45.0 * pi / 180.0));
-        assert(drawing_canvas::wallCornerMiterFill(
+        EDI_CHECK(drawing_canvas::wallCornerMiterFill(
                    QPointF(0.0, 0.0), QPointF(-1.0, 0.0), foldDir, 10.0, 4.0, 4.0).size() == 3);
     }
 
@@ -216,10 +216,10 @@ int main(int argc, char **argv)
                 wallItem(0.3, 0.5, 0.6, 0.5),
                 wallItem(0.6, 0.5, 0.6, 0.8)};
             drawing_canvas::annotateWallJoins(scene);
-            assert(scene[0].wall.joinB.drawCorner);   // lower index paints the corner
-            assert(!scene[1].wall.joinA.drawCorner);   // neighbour does not double-draw
-            assert(near(scene[0].wall.joinB.neighborFarX, 0.6));
-            assert(near(scene[0].wall.joinB.neighborFarY, 0.8)); // neighbour's far endpoint
+            EDI_CHECK(scene[0].wall.joinB.drawCorner);   // lower index paints the corner
+            EDI_CHECK(!scene[1].wall.joinA.drawCorner);   // neighbour does not double-draw
+            EDI_CHECK(near(scene[0].wall.joinB.neighborFarX, 0.6));
+            EDI_CHECK(near(scene[0].wall.joinB.neighborFarY, 0.8)); // neighbour's far endpoint
         }
         // Three walls at one point (T-junction): no miter anywhere.
         {
@@ -228,9 +228,9 @@ int main(int argc, char **argv)
                 wallItem(0.6, 0.5, 0.6, 0.8),
                 wallItem(0.6, 0.5, 0.9, 0.5)};
             drawing_canvas::annotateWallJoins(scene);
-            assert(!scene[0].wall.joinB.drawCorner);
-            assert(!scene[1].wall.joinA.drawCorner);
-            assert(!scene[2].wall.joinA.drawCorner);
+            EDI_CHECK(!scene[0].wall.joinB.drawCorner);
+            EDI_CHECK(!scene[1].wall.joinA.drawCorner);
+            EDI_CHECK(!scene[2].wall.joinA.drawCorner);
         }
     }
 
@@ -242,43 +242,43 @@ int main(int argc, char **argv)
     controller.setSelectedToolId(QStringLiteral("point_tool"));
     clickCanvas(controller, canvas, 0.5, 0.5);
     QVariantMap point = activeObject(controller);
-    assert(!point.isEmpty());
-    assert(point.value(QStringLiteral("kind")).toString() == QStringLiteral("point"));
-    assert(near(point.value(QStringLiteral("x")).toDouble(), 0.5));
-    assert(near(point.value(QStringLiteral("y")).toDouble(), 0.5));
+    EDI_CHECK(!point.isEmpty());
+    EDI_CHECK(point.value(QStringLiteral("kind")).toString() == QStringLiteral("point"));
+    EDI_CHECK(near(point.value(QStringLiteral("x")).toDouble(), 0.5));
+    EDI_CHECK(near(point.value(QStringLiteral("y")).toDouble(), 0.5));
 
     // Drag-move: clear the selection first so the press takes the object-drag
     // path (a selected point's edit handle sits exactly on it and would route
     // the press to handle-drag instead).
     controller.setSelectedToolId(QStringLiteral("select_move"));
     clickCanvas(controller, canvas, 0.9, 0.9);
-    assert(controller.selectedObjectId().isEmpty());
+    EDI_CHECK(controller.selectedObjectId().isEmpty());
     {
         const QPointF start = screenPointFor(controller, canvas, 0.5, 0.5);
         sendMouse(canvas, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
-        assert(!controller.selectedObjectId().isEmpty());
+        EDI_CHECK(!controller.selectedObjectId().isEmpty());
         const QPointF mid = screenPointFor(controller, canvas, 0.6, 0.55);
         sendMouse(canvas, QEvent::MouseMove, mid, Qt::NoButton, Qt::LeftButton);
         sendMouse(canvas, QEvent::MouseButtonRelease, mid, Qt::LeftButton, Qt::NoButton);
     }
     point = activeObject(controller);
-    assert(near(point.value(QStringLiteral("x")).toDouble(), 0.6));
-    assert(near(point.value(QStringLiteral("y")).toDouble(), 0.55));
+    EDI_CHECK(near(point.value(QStringLiteral("x")).toDouble(), 0.6));
+    EDI_CHECK(near(point.value(QStringLiteral("y")).toDouble(), 0.55));
 
     // Marquee select: drag on empty canvas around the point; it gets selected.
     {
         const QPointF start = screenPointFor(controller, canvas, 0.2, 0.2);
         sendMouse(canvas, QEvent::MouseButtonPress, start, Qt::LeftButton, Qt::LeftButton);
         // Press on empty space clears the selection before the marquee begins.
-        assert(controller.selectedObjectId().isEmpty());
+        EDI_CHECK(controller.selectedObjectId().isEmpty());
         const QPointF end = screenPointFor(controller, canvas, 0.8, 0.8);
         sendMouse(canvas, QEvent::MouseMove, end, Qt::NoButton, Qt::LeftButton);
         sendMouse(canvas, QEvent::MouseButtonRelease, end, Qt::LeftButton, Qt::NoButton);
     }
     {
         const QVariantList selected = controller.modelDocument().value(QStringLiteral("selected_object_ids")).toList();
-        assert(selected.size() == 1);
-        assert(selected.first().toString() == point.value(QStringLiteral("id")).toString());
+        EDI_CHECK(selected.size() == 1);
+        EDI_CHECK(selected.first().toString() == point.value(QStringLiteral("id")).toString());
     }
 
     // Two-click creation: a line tool needs press at both endpoints.
@@ -286,9 +286,9 @@ int main(int argc, char **argv)
     clickCanvas(controller, canvas, 0.2, 0.3);
     clickCanvas(controller, canvas, 0.4, 0.3);
     QVariantMap line = activeObject(controller);
-    assert(line.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-    assert(near(line.value(QStringLiteral("x1")).toDouble(), 0.2));
-    assert(near(line.value(QStringLiteral("x2")).toDouble(), 0.4));
+    EDI_CHECK(line.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+    EDI_CHECK(near(line.value(QStringLiteral("x1")).toDouble(), 0.2));
+    EDI_CHECK(near(line.value(QStringLiteral("x2")).toDouble(), 0.4));
 
     // Handle drag: press on the line's endpoint handle and drag it.
     controller.setSelectedToolId(QStringLiteral("select_move"));
@@ -300,9 +300,9 @@ int main(int argc, char **argv)
         sendMouse(canvas, QEvent::MouseButtonRelease, target, Qt::LeftButton, Qt::NoButton);
     }
     line = activeObject(controller);
-    assert(near(line.value(QStringLiteral("x2")).toDouble(), 0.45));
-    assert(near(line.value(QStringLiteral("y2")).toDouble(), 0.4));
-    assert(near(line.value(QStringLiteral("x1")).toDouble(), 0.2));
+    EDI_CHECK(near(line.value(QStringLiteral("x2")).toDouble(), 0.45));
+    EDI_CHECK(near(line.value(QStringLiteral("y2")).toDouble(), 0.4));
+    EDI_CHECK(near(line.value(QStringLiteral("x1")).toDouble(), 0.2));
 
     // Ctrl + wheel zoom is anchored at the cursor: the canvas point under the
     // anchor stays at the same screen pixel; other points move. The anchor is
@@ -313,12 +313,12 @@ int main(int argc, char **argv)
         const QPointF otherBefore = canvas.mapCanvasToScreen(0.6, 0.2);
         const double zoomBefore = canvas.viewportZoom();
         sendWheel(canvas, anchor, 120, Qt::ControlModifier);
-        assert(canvas.viewportZoom() > zoomBefore); // zoomed in
+        EDI_CHECK(canvas.viewportZoom() > zoomBefore); // zoomed in
         const QPointF anchorAfter = canvas.mapCanvasToScreen(0.3, 0.7);
-        assert(near(anchorAfter.x(), anchor.x()));
-        assert(near(anchorAfter.y(), anchor.y()));
+        EDI_CHECK(near(anchorAfter.x(), anchor.x()));
+        EDI_CHECK(near(anchorAfter.y(), anchor.y()));
         const QPointF otherAfter = canvas.mapCanvasToScreen(0.6, 0.2);
-        assert(!near(otherAfter.x(), otherBefore.x()) || !near(otherAfter.y(), otherBefore.y()));
+        EDI_CHECK(!near(otherAfter.x(), otherBefore.x()) || !near(otherAfter.y(), otherBefore.y()));
     }
 
     // Plain wheel pans the view (the anchor point moves on screen).
@@ -326,7 +326,7 @@ int main(int argc, char **argv)
         const QPointF before = canvas.mapCanvasToScreen(0.5, 0.5);
         sendWheel(canvas, before, 120, Qt::NoModifier);
         const QPointF after = canvas.mapCanvasToScreen(0.5, 0.5);
-        assert(!near(after.x(), before.x()) || !near(after.y(), before.y()));
+        EDI_CHECK(!near(after.x(), before.x()) || !near(after.y(), before.y()));
     }
 
     // Keyboard map. Use a fresh controller/canvas at zoom 1 so screenPointFor
@@ -341,23 +341,23 @@ int main(int argc, char **argv)
         clickCanvas(keyController, keyCanvas, 0.3, 0.3); // first click: pending
         const QPointF mid = screenPointFor(keyController, keyCanvas, 0.6, 0.6);
         sendMouse(keyCanvas, QEvent::MouseMove, mid, Qt::NoButton, Qt::NoButton);
-        assert(keyController.modelDocument().contains(QStringLiteral("preview_object")));
+        EDI_CHECK(keyController.modelDocument().contains(QStringLiteral("preview_object")));
         sendKey(keyCanvas, Qt::Key_Escape);
-        assert(!keyController.modelDocument().contains(QStringLiteral("preview_object")));
-        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+        EDI_CHECK(!keyController.modelDocument().contains(QStringLiteral("preview_object")));
+        EDI_CHECK(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
 
         // Create a point, then Delete removes it.
         keyController.setSelectedToolId(QStringLiteral("point_tool"));
         clickCanvas(keyController, keyCanvas, 0.5, 0.5);
-        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+        EDI_CHECK(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
         sendKey(keyCanvas, Qt::Key_Delete);
-        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+        EDI_CHECK(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
 
         // Create a point, Ctrl+D duplicates it.
         clickCanvas(keyController, keyCanvas, 0.4, 0.4);
-        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+        EDI_CHECK(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
         sendKey(keyCanvas, Qt::Key_D, Qt::ControlModifier);
-        assert(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
+        EDI_CHECK(keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 2);
 
         // Arrow key nudges the selection by the grid step.
         keyController.setSelectedToolId(QStringLiteral("select_move"));
@@ -365,25 +365,25 @@ int main(int argc, char **argv)
         const double beforeX = activeObject(keyController).value(QStringLiteral("x")).toDouble();
         sendKey(keyCanvas, Qt::Key_Right);
         const double afterX = activeObject(keyController).value(QStringLiteral("x")).toDouble();
-        assert(afterX > beforeX);
-        assert(keyController.selectedObjectId() == dupId);
+        EDI_CHECK(afterX > beforeX);
+        EDI_CHECK(keyController.selectedObjectId() == dupId);
 
         // N1: Ctrl+C / Ctrl+V / Ctrl+X drive the controller clipboard from the
         // canvas. Copy+paste the duplicate (still selected) to add one more.
         auto objectCount = [&]() {
             return keyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size();
         };
-        assert(objectCount() == 2);
+        EDI_CHECK(objectCount() == 2);
         sendKey(keyCanvas, Qt::Key_C, Qt::ControlModifier);
         sendKey(keyCanvas, Qt::Key_V, Qt::ControlModifier);
-        assert(objectCount() == 3);
+        EDI_CHECK(objectCount() == 3);
 
         // Cut everything, then paste it all back.
         keyController.selectObjectsInBoundsNormalized(0.0, 0.0, 1.0, 1.0);
         sendKey(keyCanvas, Qt::Key_X, Qt::ControlModifier);
-        assert(objectCount() == 0);
+        EDI_CHECK(objectCount() == 0);
         sendKey(keyCanvas, Qt::Key_V, Qt::ControlModifier);
-        assert(objectCount() == 3); // all three cut objects pasted back
+        EDI_CHECK(objectCount() == 3); // all three cut objects pasted back
     }
 
     // Two-click polygon creation honours the controller's side count. A fresh
@@ -397,8 +397,8 @@ int main(int argc, char **argv)
         clickCanvas(polyController, polyCanvas, 0.5, 0.5); // centre
         clickCanvas(polyController, polyCanvas, 0.7, 0.5); // radius point
         const QVariantMap polygon = activeObject(polyController);
-        assert(polygon.value(QStringLiteral("kind")).toString() == QStringLiteral("polygon"));
-        assert(polygon.value(QStringLiteral("points")).toList().size() == 5);
+        EDI_CHECK(polygon.value(QStringLiteral("kind")).toString() == QStringLiteral("polygon"));
+        EDI_CHECK(polygon.value(QStringLiteral("points")).toList().size() == 5);
     }
 
     // A multi-move object drag is a single undo step (regression: each move used
@@ -424,18 +424,18 @@ int main(int argc, char **argv)
         sendMouse(dragCanvas, QEvent::MouseButtonRelease, release, Qt::LeftButton, Qt::NoButton);
 
         const double movedX = activeObject(dragController).value(QStringLiteral("x")).toDouble();
-        assert(movedX > startX + 0.2); // the drag moved the point substantially
+        EDI_CHECK(movedX > startX + 0.2); // the drag moved the point substantially
         // One undo returns the point all the way to the start (proving the whole
         // drag is a single step, not one step per intermediate move).
-        assert(dragController.canUndo());
-        assert(dragController.undo());
+        EDI_CHECK(dragController.canUndo());
+        EDI_CHECK(dragController.undo());
         const double undoneX = activeObject(dragController).value(QStringLiteral("x")).toDouble();
-        assert(near(undoneX, startX));
+        EDI_CHECK(near(undoneX, startX));
         // Only the original point-creation step remains; a second undo empties it.
-        assert(dragController.canUndo());
+        EDI_CHECK(dragController.canUndo());
         dragController.undo();
-        assert(dragController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
-        assert(!dragController.canUndo());
+        EDI_CHECK(dragController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+        EDI_CHECK(!dragController.canUndo());
     }
 
     // Two-click arc creation, then drag its radius handle to grow the radius.
@@ -447,8 +447,8 @@ int main(int argc, char **argv)
         clickCanvas(arcController, arcCanvas, 0.5, 0.5); // centre
         clickCanvas(arcController, arcCanvas, 0.7, 0.5); // radius 0.2, start angle 0
         QVariantMap arc = activeObject(arcController);
-        assert(arc.value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
-        assert(near(arc.value(QStringLiteral("radius")).toDouble(), 0.2));
+        EDI_CHECK(arc.value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
+        EDI_CHECK(near(arc.value(QStringLiteral("radius")).toDouble(), 0.2));
         const double startRadius = arc.value(QStringLiteral("radius")).toDouble();
 
         // The radius handle sits at the mid angle ((0 + 105)/2 = 52.5deg).
@@ -466,7 +466,7 @@ int main(int argc, char **argv)
         sendMouse(arcCanvas, QEvent::MouseMove, target, Qt::NoButton, Qt::LeftButton);
         sendMouse(arcCanvas, QEvent::MouseButtonRelease, target, Qt::LeftButton, Qt::NoButton);
         arc = activeObject(arcController);
-        assert(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
+        EDI_CHECK(arc.value(QStringLiteral("radius")).toDouble() > startRadius);
     }
 
     // Two-click wall creation (a thick line), then drag its start endpoint
@@ -480,10 +480,10 @@ int main(int argc, char **argv)
         clickCanvas(wallController, wallCanvas, 0.3, 0.5); // a
         clickCanvas(wallController, wallCanvas, 0.7, 0.5); // b
         QVariantMap wall = activeObject(wallController);
-        assert(wall.value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
-        assert(near(wall.value(QStringLiteral("ax")).toDouble(), 0.3));
-        assert(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7));
-        assert(near(wall.value(QStringLiteral("thickness")).toDouble(), 0.1));
+        EDI_CHECK(wall.value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        EDI_CHECK(near(wall.value(QStringLiteral("ax")).toDouble(), 0.3));
+        EDI_CHECK(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7));
+        EDI_CHECK(near(wall.value(QStringLiteral("thickness")).toDouble(), 0.1));
 
         // Grab the start endpoint handle at (0.3,0.5) and drag it to (0.2,0.4).
         wallController.setSelectedToolId(QStringLiteral("select_move"));
@@ -493,9 +493,9 @@ int main(int argc, char **argv)
         sendMouse(wallCanvas, QEvent::MouseMove, target, Qt::NoButton, Qt::LeftButton);
         sendMouse(wallCanvas, QEvent::MouseButtonRelease, target, Qt::LeftButton, Qt::NoButton);
         wall = activeObject(wallController);
-        assert(near(wall.value(QStringLiteral("ax")).toDouble(), 0.2));
-        assert(near(wall.value(QStringLiteral("ay")).toDouble(), 0.4));
-        assert(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7)); // b end untouched
+        EDI_CHECK(near(wall.value(QStringLiteral("ax")).toDouble(), 0.2));
+        EDI_CHECK(near(wall.value(QStringLiteral("ay")).toDouble(), 0.4));
+        EDI_CHECK(near(wall.value(QStringLiteral("bx")).toDouble(), 0.7)); // b end untouched
     }
 
     // N2 arrow: a two-click line whose projection carries end_arrow; a plain
@@ -510,15 +510,15 @@ int main(int argc, char **argv)
         clickCanvas(arrowController, arrowCanvas, 0.2, 0.2);
         clickCanvas(arrowController, arrowCanvas, 0.6, 0.4);
         const QVariantMap arrow = activeObject(arrowController);
-        assert(arrow.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-        assert(arrow.value(QStringLiteral("end_arrow")).toBool());
+        EDI_CHECK(arrow.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        EDI_CHECK(arrow.value(QStringLiteral("end_arrow")).toBool());
 
         arrowController.setSelectedToolId(QStringLiteral("line_tool"));
         clickCanvas(arrowController, arrowCanvas, 0.3, 0.7);
         clickCanvas(arrowController, arrowCanvas, 0.7, 0.8);
         const QVariantMap plainLine = activeObject(arrowController);
-        assert(plainLine.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
-        assert(!plainLine.value(QStringLiteral("end_arrow")).toBool());
+        EDI_CHECK(plainLine.value(QStringLiteral("kind")).toString() == QStringLiteral("line"));
+        EDI_CHECK(!plainLine.value(QStringLiteral("end_arrow")).toBool());
     }
 
     // Polyline: clicks anchor vertices, a double-click finishes the trail.
@@ -536,7 +536,7 @@ int main(int argc, char **argv)
         sendMouse(polyCanvas, QEvent::MouseButtonRelease, a, Qt::LeftButton, Qt::NoButton);
         sendMouse(polyCanvas, QEvent::MouseButtonPress, b, Qt::LeftButton, Qt::LeftButton);
         sendMouse(polyCanvas, QEvent::MouseButtonRelease, b, Qt::LeftButton, Qt::NoButton);
-        assert(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
+        EDI_CHECK(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().isEmpty());
 
         // The double-click pair: its press anchors the final vertex, the
         // dblclick event closes the trail there.
@@ -544,8 +544,8 @@ int main(int argc, char **argv)
         sendMouse(polyCanvas, QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
         sendMouse(polyCanvas, QEvent::MouseButtonDblClick, c, Qt::LeftButton, Qt::LeftButton);
         const QVariantList objects = polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList();
-        assert(objects.size() == 1);
-        assert(objects.front().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("polyline"));
+        EDI_CHECK(objects.size() == 1);
+        EDI_CHECK(objects.front().toMap().value(QStringLiteral("kind")).toString() == QStringLiteral("polyline"));
 
         // Escape mid-trail leaves the document alone.
         polyController.setSelectedToolId(QStringLiteral("polyline_tool"));
@@ -553,7 +553,7 @@ int main(int argc, char **argv)
         sendMouse(polyCanvas, QEvent::MouseButtonRelease, a, Qt::LeftButton, Qt::NoButton);
         sendKey(polyCanvas, Qt::Key_Escape);
         sendMouse(polyCanvas, QEvent::MouseButtonDblClick, a, Qt::LeftButton, Qt::LeftButton);
-        assert(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
+        EDI_CHECK(polyController.modelDocument().value(QStringLiteral("drawing_objects")).toList().size() == 1);
     }
 
     // Overlay gating: during normal drafting a fresh shape adds NO wash to
@@ -588,25 +588,25 @@ int main(int argc, char **argv)
         overlayController.setSelectedToolId(QStringLiteral("circle_tool"));
         clickCanvas(overlayController, overlayCanvas, 0.4, 0.4);
         clickCanvas(overlayController, overlayCanvas, 0.6, 0.6); // circle, auto-selected
-        assert(!overlayController.selectedObjectId().isEmpty());
+        EDI_CHECK(!overlayController.selectedObjectId().isEmpty());
 
         // Normal drafting: the patch sits inside the new circle's bbox, off
         // the stroke — a box wash would tint all 400 pixels; without it the
         // patch stays (nearly) what the empty board showed.
         const QImage draftingPatch = patchAt(probe);
-        assert(diffCount(emptyPatch, draftingPatch) <= 40);
+        EDI_CHECK(diffCount(emptyPatch, draftingPatch) <= 40);
 
         // Plot preview: selection bounds + machine bounds return as washes.
         overlayCanvas.setPlotPreviewVisible(true);
         const QImage previewPatch = patchAt(probe);
-        assert(diffCount(draftingPatch, previewPatch) > 200);
+        EDI_CHECK(diffCount(draftingPatch, previewPatch) > 200);
 
         // And toggling OFF removes them again — the review caught warning
         // boxes burned into the static layer because the toggle changed no
         // cache key; this round-trip fails without the invalidation.
         overlayCanvas.setPlotPreviewVisible(false);
         const QImage offAgainPatch = patchAt(probe);
-        assert(diffCount(draftingPatch, offAgainPatch) <= 10);
+        EDI_CHECK(diffCount(draftingPatch, offAgainPatch) <= 10);
     }
 
     // View commands: Cmd/Ctrl +/-/0 step and reset the zoom through the
@@ -619,13 +619,13 @@ int main(int argc, char **argv)
         int zoomSignals = 0;
         QObject::connect(&viewCanvas, &DrawingCanvasWidget::zoomChanged, [&zoomSignals]() { ++zoomSignals; });
 
-        assert(near(viewCanvas.viewportZoom(), 1.0));
+        EDI_CHECK(near(viewCanvas.viewportZoom(), 1.0));
         sendKey(viewCanvas, Qt::Key_Equal, Qt::ControlModifier);
-        assert(viewCanvas.viewportZoom() > 1.2);
+        EDI_CHECK(viewCanvas.viewportZoom() > 1.2);
         sendKey(viewCanvas, Qt::Key_Minus, Qt::ControlModifier);
         sendKey(viewCanvas, Qt::Key_0, Qt::ControlModifier);
-        assert(near(viewCanvas.viewportZoom(), 1.0));
-        assert(zoomSignals == 3);
+        EDI_CHECK(near(viewCanvas.viewportZoom(), 1.0));
+        EDI_CHECK(zoomSignals == 3);
     }
 
     // Per-object styling paints: a line given its own color renders that
@@ -637,7 +637,7 @@ int main(int argc, char **argv)
         styleController.setSelectedToolId(QStringLiteral("line_tool"));
         clickCanvas(styleController, styleCanvas, 0.2, 0.5);
         clickCanvas(styleController, styleCanvas, 0.8, 0.5);
-        assert(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff2200")));
+        EDI_CHECK(styleController.setSelectedObjectStrokeColor(QStringLiteral("#ff2200")));
         styleController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(styleController, styleCanvas, 0.05, 0.05); // deselect: selection restroke would mask the color
 
@@ -652,22 +652,22 @@ int main(int argc, char **argv)
             }
             return false;
         };
-        assert(scanForInk(frame));
+        EDI_CHECK(scanForInk(frame));
 
         // Opacity is PEN ALPHA at the pixel level — the one hop the
         // projection tests cannot see. Fade the line to 0 and the red ink
         // must vanish from the same scan column (the edit bumps
         // modelGeneration, so the static layer re-renders on grab).
         clickCanvas(styleController, styleCanvas, 0.5, 0.5); // re-select the line
-        assert(styleController.setSelectedObjectStrokeOpacity(0.0));
+        EDI_CHECK(styleController.setSelectedObjectStrokeOpacity(0.0));
         clickCanvas(styleController, styleCanvas, 0.05, 0.05); // deselect again
-        assert(!scanForInk(styleCanvas.grab().toImage()));
+        EDI_CHECK(!scanForInk(styleCanvas.grab().toImage()));
 
         // Selected objects stay fully visible regardless of opacity — a
         // transparent object must still light up when picked, or it can
         // never be found to edit.
         clickCanvas(styleController, styleCanvas, 0.5, 0.5);
-        assert(styleController.selectedObjectId() != QString());
+        EDI_CHECK(styleController.selectedObjectId() != QString());
         const QImage selectedFrame = styleCanvas.grab().toImage();
         bool sawSelection = false;
         for (int dy = -4; dy <= 4 && !sawSelection; ++dy) {
@@ -676,7 +676,7 @@ int main(int argc, char **argv)
             // paints at full alpha in the selection color.
             sawSelection = pixel.value() > 0x80 && pixel != QColor(selectedFrame.pixel(QPoint(2, 2)));
         }
-        assert(sawSelection);
+        EDI_CHECK(sawSelection);
     }
 
     // Rulers paint: the band separators sit at the 20px lines in the
@@ -689,12 +689,12 @@ int main(int argc, char **argv)
         rulerCanvas.resize(600, 450);
         const QImage frame = rulerCanvas.grab().toImage();
         const QColor separator(frame.pixel(300, 20));
-        assert(separator != QColor(frame.pixel(300, 40))); // band edge differs from board
+        EDI_CHECK(separator != QColor(frame.pixel(300, 40))); // band edge differs from board
         bool sawTick = false;
         for (int x = 21; x < 600 && !sawTick; ++x) {
             sawTick = QColor(frame.pixel(x, 16)) != QColor(frame.pixel(x, 2));
         }
-        assert(sawTick); // at least one tick reaches into the band
+        EDI_CHECK(sawTick); // at least one tick reaches into the band
     }
 
     // ===== Painter render contracts =====
@@ -723,17 +723,17 @@ int main(int argc, char **argv)
         fillController.setSelectedToolId(QStringLiteral("rectangle_tool"));
         clickCanvas(fillController, fillCanvas, 0.3, 0.3);
         clickCanvas(fillController, fillCanvas, 0.7, 0.7);
-        assert(activeObject(fillController).value(QStringLiteral("kind")).toString() == QStringLiteral("rectangle"));
-        assert(fillController.setSelectedObjectFillColor(QStringLiteral("#2277ee")));
-        assert(fillController.setSelectedObjectFillOpacity(1.0));
+        EDI_CHECK(activeObject(fillController).value(QStringLiteral("kind")).toString() == QStringLiteral("rectangle"));
+        EDI_CHECK(fillController.setSelectedObjectFillColor(QStringLiteral("#2277ee")));
+        EDI_CHECK(fillController.setSelectedObjectFillOpacity(1.0));
         fillController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(fillController, fillCanvas, 0.02, 0.02); // deselect
 
         const QColor filled(fillCanvas.grab().toImage().pixel(interior));
         // An opaque fill covers the board it sits on: the interior pixel is now
         // the fill colour (within rounding) and it changed from the bare board.
-        assert(filled != emptyInterior);
-        assert(std::abs(filled.red() - 0x22) < 0x18
+        EDI_CHECK(filled != emptyInterior);
+        EDI_CHECK(std::abs(filled.red() - 0x22) < 0x18
             && std::abs(filled.green() - 0x77) < 0x18
             && std::abs(filled.blue() - 0xee) < 0x18);
     }
@@ -750,17 +750,17 @@ int main(int argc, char **argv)
         ellipseController.setSelectedToolId(QStringLiteral("ellipse_tool"));
         clickCanvas(ellipseController, ellipseCanvas, 0.5, 0.5);  // centre
         clickCanvas(ellipseController, ellipseCanvas, 0.8, 0.75); // rx=0.3, ry=0.25
-        assert(activeObject(ellipseController).value(QStringLiteral("kind")).toString() == QStringLiteral("ellipse"));
-        assert(ellipseController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(activeObject(ellipseController).value(QStringLiteral("kind")).toString() == QStringLiteral("ellipse"));
+        EDI_CHECK(ellipseController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         ellipseController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(ellipseController, ellipseCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = ellipseCanvas.grab().toImage();
         // Rightmost (0.8,0.5) and topmost (0.5,0.25) rim points are inked...
-        assert(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.5).toPoint(), 4));
-        assert(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.5, 0.25).toPoint(), 4));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.5).toPoint(), 4));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.5, 0.25).toPoint(), 4));
         // ...but the bbox CORNER (0.8,0.25) is bare — ~30px from the nearest rim.
-        assert(!anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.25).toPoint(), 6));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(ellipseController, ellipseCanvas, 0.8, 0.25).toPoint(), 6));
     }
 
     // Spline: the projection samples the Catmull-Rom curve through the control
@@ -783,19 +783,19 @@ int main(int argc, char **argv)
         sendMouse(splineCanvas, QEvent::MouseButtonPress, c, Qt::LeftButton, Qt::LeftButton);
         sendMouse(splineCanvas, QEvent::MouseButtonRelease, c, Qt::LeftButton, Qt::NoButton);
         sendMouse(splineCanvas, QEvent::MouseButtonDblClick, c, Qt::LeftButton, Qt::LeftButton);
-        assert(activeObject(splineController).value(QStringLiteral("kind")).toString() == QStringLiteral("spline"));
-        assert(splineController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(activeObject(splineController).value(QStringLiteral("kind")).toString() == QStringLiteral("spline"));
+        EDI_CHECK(splineController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         splineController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(splineController, splineCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = splineCanvas.grab().toImage();
         // The curve passes through the middle control point (it interpolates)...
-        assert(anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.2).toPoint(), 4));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.2).toPoint(), 4));
         // ...but the midpoint of the straight chord between the first and last
         // control points (0.5,0.5) is bare — the curve arched ~120px away from
         // it. A straight-line bug would ink exactly this pixel; a draws-nothing
         // bug would fail the assert above. Together they pin "smooth curve".
-        assert(!anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.5).toPoint(), 6));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(splineController, splineCanvas, 0.5, 0.5).toPoint(), 6));
     }
 
     // Text: the painter sizes a QFont to height x board and drawText()s the
@@ -808,21 +808,21 @@ int main(int argc, char **argv)
         textCanvas.resize(600, 450);
         textController.setSelectedToolId(QStringLiteral("text_tool"));
         clickCanvas(textController, textCanvas, 0.5, 0.5); // single click places "Text"
-        assert(activeObject(textController).value(QStringLiteral("kind")).toString() == QStringLiteral("text"));
-        assert(activeObject(textController).value(QStringLiteral("content")).toString() == QStringLiteral("Text"));
-        assert(textController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(activeObject(textController).value(QStringLiteral("kind")).toString() == QStringLiteral("text"));
+        EDI_CHECK(activeObject(textController).value(QStringLiteral("content")).toString() == QStringLiteral("Text"));
+        EDI_CHECK(textController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         textController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(textController, textCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = textCanvas.grab().toImage();
         const QPoint anchor = screenPointFor(textController, textCanvas, 0.5, 0.5).toPoint(); // glyph-box top-left
         // Glyph ink clusters in the box that opens down-and-right of the anchor.
-        assert(reddishCount(frame, QRect(anchor.x(), anchor.y(), 44, 24)) >= 4);
+        EDI_CHECK(reddishCount(frame, QRect(anchor.x(), anchor.y(), 44, 24)) >= 4);
         // Nothing left of the anchor: the text is left-anchored at its position.
-        assert(reddishCount(frame, QRect(anchor.x() - 40, anchor.y(), 36, 24)) == 0);
+        EDI_CHECK(reddishCount(frame, QRect(anchor.x() - 40, anchor.y(), 36, 24)) == 0);
         // Nothing above the anchor: the box top is the position, glyphs sit
         // below it — the ascent baseline-offset, the one subtle bit of drawText.
-        assert(reddishCount(frame, QRect(anchor.x(), anchor.y() - 28, 44, 24)) == 0);
+        EDI_CHECK(reddishCount(frame, QRect(anchor.x(), anchor.y() - 28, 44, 24)) == 0);
     }
 
     // Arc: flattened to an OPEN polyline (sampleArc) and drawn as a chain (not
@@ -836,19 +836,19 @@ int main(int argc, char **argv)
         arcController.setSelectedToolId(QStringLiteral("arc_tool"));
         clickCanvas(arcController, arcCanvas, 0.5, 0.5); // centre
         clickCanvas(arcController, arcCanvas, 0.7, 0.5); // radius 0.2, start angle 0 -> sweep 105deg
-        assert(activeObject(arcController).value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
-        assert(arcController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(activeObject(arcController).value(QStringLiteral("kind")).toString() == QStringLiteral("arc"));
+        EDI_CHECK(arcController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         arcController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(arcController, arcCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = arcCanvas.grab().toImage();
         const double deg = 3.14159265358979323846 / 180.0;
         const double mid = 52.5 * deg; // inside the 0..105 sweep
-        assert(anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
             0.5 + 0.2 * std::cos(mid), 0.5 + 0.2 * std::sin(mid)).toPoint(), 4));
-        assert(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas, 0.5, 0.5).toPoint(), 4));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas, 0.5, 0.5).toPoint(), 4));
         const double outside = 230.0 * deg; // well outside the sweep
-        assert(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(arcController, arcCanvas,
             0.5 + 0.2 * std::cos(outside), 0.5 + 0.2 * std::sin(outside)).toPoint(), 4));
     }
 
@@ -864,22 +864,22 @@ int main(int argc, char **argv)
         wallController.setSelectedToolId(QStringLiteral("wall_tool"));
         clickCanvas(wallController, wallCanvas, 0.2, 0.6); // a
         clickCanvas(wallController, wallCanvas, 0.8, 0.6); // b
-        assert(activeObject(wallController).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
-        assert(wallController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(activeObject(wallController).value(QStringLiteral("kind")).toString() == QStringLiteral("wall"));
+        EDI_CHECK(wallController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         wallController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(wallController, wallCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = wallCanvas.grab().toImage();
         // Inked on the centreline (the solid fill)...
-        assert(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.6).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.6).toPoint(), 3));
         // ...and inked a third of the way to the band edge (0.035 off the
         // centreline, inside the 0.05 half-thickness) — THIS is what a hairline
         // would miss, so it pins "band, not line".
-        assert(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.635).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.635).toPoint(), 3));
         // Bare well beyond the band (0.2 off >> half-thickness)...
-        assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.8).toPoint(), 5));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.5, 0.8).toPoint(), 5));
         // ...and bare past the square-capped end (the band does not overshoot b).
-        assert(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.92, 0.6).toPoint(), 5));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(wallController, wallCanvas, 0.92, 0.6).toPoint(), 5));
     }
 
     // Wall TYPE (M1.3): a window draws the band HOLLOW — outline stroked, interior
@@ -893,16 +893,16 @@ int main(int argc, char **argv)
         winController.setSelectedToolId(QStringLiteral("wall_tool"));
         clickCanvas(winController, winCanvas, 0.2, 0.6); // a
         clickCanvas(winController, winCanvas, 0.8, 0.6); // b
-        assert(winController.setSelectedWallType(QStringLiteral("window")));
-        assert(winController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(winController.setSelectedWallType(QStringLiteral("window")));
+        EDI_CHECK(winController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         winController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(winController, winCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = winCanvas.grab().toImage();
         // The window IS drawn — its outline cap at the a end is inked...
-        assert(anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.2, 0.6).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.2, 0.6).toPoint(), 3));
         // ...but the interior is BARE, where the solid band above was filled.
-        assert(!anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.5, 0.6).toPoint(), 3));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(winController, winCanvas, 0.5, 0.6).toPoint(), 3));
     }
 
     // Wall corner MITER (M1.2): two walls sharing an endpoint join into one band.
@@ -916,23 +916,23 @@ int main(int argc, char **argv)
         joinController.setSelectedToolId(QStringLiteral("wall_tool"));
         clickCanvas(joinController, joinCanvas, 0.3, 0.5); // wall1 a
         clickCanvas(joinController, joinCanvas, 0.6, 0.5); // wall1 b == shared corner
-        assert(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         joinController.setSelectedToolId(QStringLiteral("wall_tool"));
         clickCanvas(joinController, joinCanvas, 0.6, 0.5); // wall2 a (snaps to the corner)
         clickCanvas(joinController, joinCanvas, 0.6, 0.8); // wall2 b
-        assert(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(joinController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         joinController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(joinController, joinCanvas, 0.02, 0.02); // deselect
 
         const QImage frame = joinCanvas.grab().toImage();
         // The outer-notch pixel: past wall1's end (x>0.6) and above wall2's start
         // (y<0.5) — NOT covered by either square-capped band, only by the miter.
-        assert(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.62, 0.47).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.62, 0.47).toPoint(), 3));
         // The inner overlap is solid (both bands present).
-        assert(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.58, 0.52).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.58, 0.52).toPoint(), 3));
         // Beyond the miter apex (apex ~ (0.65,0.45)) the corner is bare — the
         // fill is a bounded wedge, not an unbounded overhang.
-        assert(!anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.72, 0.40).toPoint(), 4));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(joinController, joinCanvas, 0.72, 0.40).toPoint(), 4));
     }
 
     // Trim: the verb shortens a line back to a crossing boundary. The painter
@@ -950,7 +950,7 @@ int main(int argc, char **argv)
         trimController.setSelectedToolId(QStringLiteral("line_tool"));
         clickCanvas(trimController, trimCanvas, 0.2, 0.5);
         clickCanvas(trimController, trimCanvas, 0.8, 0.5);
-        assert(trimController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
+        EDI_CHECK(trimController.setSelectedObjectStrokeColor(QStringLiteral("#ff0000")));
         const QString targetId = trimController.selectedObjectId();
         clickCanvas(trimController, trimCanvas, 0.5, 0.2);
         clickCanvas(trimController, trimCanvas, 0.5, 0.8);
@@ -959,17 +959,17 @@ int main(int argc, char **argv)
         // the b end pulls back to the cut at x=0.5.
         trimController.setSelectedToolId(QStringLiteral("select_move"));
         clickCanvas(trimController, trimCanvas, 0.3, 0.5);
-        assert(trimController.selectedObjectId() == targetId);
-        assert(trimController.beginTrimSelectedLine());
+        EDI_CHECK(trimController.selectedObjectId() == targetId);
+        EDI_CHECK(trimController.beginTrimSelectedLine());
         clickCanvas(trimController, trimCanvas, 0.72, 0.5);
-        assert(near(activeObject(trimController).value(QStringLiteral("x2")).toDouble(), 0.5));
+        EDI_CHECK(near(activeObject(trimController).value(QStringLiteral("x2")).toDouble(), 0.5));
 
         clickCanvas(trimController, trimCanvas, 0.02, 0.02); // deselect
         const QImage frame = trimCanvas.grab().toImage();
         // Kept half (x=0.35) still carries the red target...
-        assert(anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.35, 0.5).toPoint(), 3));
+        EDI_CHECK(anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.35, 0.5).toPoint(), 3));
         // ...the removed stub (x=0.65) is bare of the target's red.
-        assert(!anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.65, 0.5).toPoint(), 3));
+        EDI_CHECK(!anyReddishNear(frame, screenPointFor(trimController, trimCanvas, 0.65, 0.5).toPoint(), 3));
     }
 
     return 0;

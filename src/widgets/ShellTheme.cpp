@@ -332,6 +332,39 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @rowSelected@;
             border-left: @listAccentWidth@px solid @accent@;
         }
+        /* QTabWidget/QTabBar chrome (FIX 3): without these rules the Blender
+           tab strips (recipeOutput, recipeTerminal) fall back to the pale
+           platform style. The selected tab lifts to @surface@ with a 2px
+           @accent@ underline — the same accent-marks-selection idiom as
+           QListWidget::item:selected above. */
+        QTabWidget::pane {
+            background: @surface@;
+            border: 1px solid @borderMajor@;
+            border-radius: 5px;
+            top: -1px;
+        }
+        QTabBar { background: transparent; }
+        QTabBar::tab {
+            color: @textMuted@;
+            background: @control@;
+            border: 1px solid @borderMinor@;
+            border-bottom: 2px solid transparent;
+            border-top-left-radius: 5px;
+            border-top-right-radius: 5px;
+            padding: 6px 12px;
+            margin-right: 2px;
+            font-size: @fontSm@px;
+            font-weight: 500;
+        }
+        QTabBar::tab:hover { background: @controlHover@; color: @text@; }
+        QTabBar::tab:selected {
+            color: @text@;
+            background: @surface@;
+            border-color: @borderMajor@;
+            border-bottom: 2px solid @accent@;
+            font-weight: 600;
+        }
+        QTabBar::tab:disabled { color: @disabled@; }
         #objectListEmpty {
             color: @textFaint@;
             font-size: @fontSm@px;

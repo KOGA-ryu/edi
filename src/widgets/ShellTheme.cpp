@@ -142,7 +142,7 @@ QString buildShellStyleSheet(const ShellTheme &t)
             background: @base@;
             border-top: @borderWidth@px solid @borderMajor@;
         }
-        #textEditorPanel {
+        #textEditorPanel, #recipeTerminalPanel {
             background: @base@;
             border-top: @borderWidth@px solid @borderMajor@;
         }

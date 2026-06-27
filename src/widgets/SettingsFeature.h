@@ -44,6 +44,12 @@ public:
         std::function<QVector<QPair<QString, QString>>()> panelGroupInventory;
         std::function<QString(const QString &)> panelSlotForGroup;
         std::function<void(const QString &, const QString &)> setPanelSlotForGroup;
+        // Feature toggle: show/hide the Map browser overlay. A getter/setter pair
+        // like the theme hooks above — the page owns no copy of the flag; it reads
+        // the live value and writes back, and the setter persists + remounts so the
+        // panel appears/disappears immediately.
+        std::function<bool()> mapBrowserEnabled;
+        std::function<void(bool)> setMapBrowserEnabled;
     };
 
     explicit SettingsFeature(ShellHooks hooks, QObject *parent = nullptr);

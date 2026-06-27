@@ -372,6 +372,23 @@ QWidget *SettingsFeature::buildPanelsPage()
             layout->addWidget(row);
         }
     }
+
+    // Feature toggles (FIX 1B): a panel the user can hide. Mirrors the belt
+    // checklist idiom — the checkbox is bound straight to the shell hook; the
+    // shell records the flag, persists it, and remounts so the overlay
+    // appears/disappears at once. Guarded on both hooks so the row is absent
+    // when a consumer wires only a subset of ShellHooks.
+    if (m_hooks.mapBrowserEnabled && m_hooks.setMapBrowserEnabled) {
+        layout->addWidget(makeSectionLabel(QStringLiteral("Features")));
+        auto *mapBrowserBox = new QCheckBox(QStringLiteral("Show Map browser panel"));
+        mapBrowserBox->setObjectName(QStringLiteral("mapBrowserToggle"));
+        mapBrowserBox->setChecked(m_hooks.mapBrowserEnabled());
+        connect(mapBrowserBox, &QCheckBox::toggled, this, [this](bool checked) {
+            m_hooks.setMapBrowserEnabled(checked);
+        });
+        layout->addWidget(mapBrowserBox);
+    }
+
     layout->addStretch(1);
     return page;
 }

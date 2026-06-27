@@ -370,6 +370,12 @@ private:
     // Frameless custom chrome; flip to false for a native frame when
     // debugging window-manager weirdness (the title bar stays either way).
     bool m_framelessChrome = true;
+    // Show the Map workspace's read-only browser overlay. DEFAULT ON so the
+    // behavior is unchanged unless the user opts out in Settings; persisted as the
+    // TOML key features.map_browser_enabled (a key, not a struct field — StaticConfig
+    // is a string map). Honored at MOUNT time so a saved workspace.toml that rebinds
+    // the Right slot to map_browser still respects the toggle.
+    bool m_mapBrowserEnabled = true;
     QSplitter *m_bodySplitter = nullptr;
     // The main area hosts the canvas at full size; right and bottom panels
     // are overlays positioned on top of it (user decision 2026-06-10: panels

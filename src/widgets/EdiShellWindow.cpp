@@ -483,6 +483,11 @@ edi::formats::StaticConfig EdiShellWindow::captureSettings() const
     setSettingsBool(config, "snap.object_priority_before_grid", m_controller->objectSnapPriorityBeforeGrid());
     setSettingsString(config, "snap.object_tolerance_preset", m_controller->objectSnapTolerancePresetId().toStdString());
 
+    // Feature flags: panels the user can hide. Persisted as a plain bool key, the
+    // same mechanism as the snap/grid toggles above (the value lives in m_*, not in
+    // any view), so it round-trips through edi.toml with everything else.
+    setSettingsBool(config, "features.map_browser_enabled", m_mapBrowserEnabled);
+
     setSettingsString(config, "plot.order_mode", m_controller->plotOrderModeId().toStdString());
     setSettingsString(config, "plot.direction_mode", m_controller->plotDirectionModeId().toStdString());
 
@@ -535,6 +540,10 @@ void EdiShellWindow::applySettings(const edi::formats::StaticConfig &config)
     m_controller->setGuideMoveSnapEnabled(settingsBool(config, "snap.guide_move_enabled", true));
     m_controller->setObjectSnapPriorityBeforeGrid(settingsBool(config, "snap.object_priority_before_grid", true));
     m_controller->setObjectSnapTolerancePreset(QString::fromStdString(settingsString(config, "snap.object_tolerance_preset", "normal")));
+
+    // Feature flags. Default TRUE so an existing edi.toml without the key (every
+    // file written before this slice) keeps the old behavior — the panel shows.
+    m_mapBrowserEnabled = settingsBool(config, "features.map_browser_enabled", true);
 
     m_controller->setPlotOrderModeId(QString::fromStdString(settingsString(config, "plot.order_mode", "layer_order")));
     m_controller->setPlotDirectionModeId(QString::fromStdString(settingsString(config, "plot.direction_mode", "preserve_direction")));
@@ -826,14 +835,50 @@ std::unique_ptr<SettingsFeature> EdiShellWindow::createSettingsFeature()
             m_draftingFeature->refreshBelt(m_workspaceLayout.belt);
         }
     };
+    // Feature toggle (FIX 1B): the getter reads the live flag; the setter records
+    // it, persists, and remounts so the overlay appears/disappears at once.
+    hooks.mapBrowserEnabled = [this]() { return m_mapBrowserEnabled; };
+    hooks.setMapBrowserEnabled = [this](bool enabled) {
+        if (enabled == m_mapBrowserEnabled) {
+            return; // no-op: avoid a needless remount when the value is unchanged
+        }
+        m_mapBrowserEnabled = enabled;
+        scheduleSettingsSave(); // ride the features.* key out in edi.toml
+        // Remount LIVE so the panel toggles immediately. We use applyWorkspaceLayout
+        // (NOT switchWorkspaceLayout) so this does not push a Back/Forward history
+        // entry — the layout's identity is unchanged, only the mount-time filter.
+        // DEFER (singleShot 0): this callback runs from inside the Settings checkbox,
+        // a child of m_settingsWindowContent; applyWorkspaceLayout DELETES that
+        // content and retires the SettingsFeature whose hook we are standing in.
+        // Deferring lets the signal unwind before the widget (and this lambda's
+        // owner) are freed — the same hazard the inspector unbind defers around.
+        QTimer::singleShot(0, this, [this]() { applyWorkspaceLayout(m_workspaceLayout); });
+    };
     return std::make_unique<SettingsFeature>(std::move(hooks));
 }
 
 void EdiShellWindow::mountWorkspace(const WorkspaceLayout &layout)
 {
     m_workspaceLayout = layout;
+    // Feature-flag guard (FIX 1B): when the Map browser is disabled, mount a COPY
+    // of the layout with its binding dropped — the stored m_workspaceLayout keeps
+    // the binding so a later re-enable (or a Back/Forward) restores it without a
+    // reload. We filter at MOUNT time, not at layout-build time, because a saved
+    // workspace.toml can rebind the Right slot to map_browser and must still be
+    // honored. mountWorkspaceLayout skips any slot whose feature isn't bound, so a
+    // removed binding simply leaves that overlay unmounted.
+    WorkspaceLayout mountLayout = m_workspaceLayout;
+    if (!m_mapBrowserEnabled) {
+        auto &bindings = mountLayout.bindings;
+        bindings.erase(
+            std::remove_if(bindings.begin(), bindings.end(),
+                           [](const SlotBinding &binding) {
+                               return binding.featureId == QLatin1String("map_browser");
+                           }),
+            bindings.end());
+    }
     const std::vector<MountedSlot> mounted =
-        mountWorkspaceLayout(m_workspaceLayout, m_featureRegistry, m_featureContext);
+        mountWorkspaceLayout(mountLayout, m_featureRegistry, m_featureContext);
 
     // Geometry stays the window's job: slots have fixed places in the frame,
     // and an unbound slot simply isn't added. The left panel goes in-flow

@@ -1215,12 +1215,19 @@ int main(int argc, char **argv)
         EDI_CHECK(summary->text().contains(QStringLiteral("0 rooms")));
         auto *mapList = shell.findChild<QListWidget *>(QStringLiteral("mapBrowserList"));
         EDI_CHECK(mapList != nullptr);
-        // An empty document still shows the two STRUCTURAL section headers (Plugs,
-        // Connections) — they are part of the browser's fixed shape, not content,
-        // so the readout always announces its sections even when graph-empty.
-        EDI_CHECK(mapList->count() == 2);
-        EDI_CHECK(mapList->item(0)->text() == QStringLiteral("── Plugs ──"));
-        EDI_CHECK(mapList->item(1)->text() == QStringLiteral("── Connections ──"));
+        // An empty document (no rooms/connections/plugs) shows a single DISABLED
+        // placeholder row instead of bare section headers — the "No render yet…"
+        // empty-state idiom, so a fresh map reads as intentional, not broken. The
+        // placeholder is unselectable (Qt::NoItemFlags). The structural section
+        // headers return as soon as the graph is non-empty (asserted below).
+        EDI_CHECK(mapList->count() == 1);
+        EDI_CHECK(mapList->item(0)->text().contains(QStringLiteral("No map yet")));
+        EDI_CHECK(mapList->item(0)->flags() == Qt::NoItemFlags);
+        // The purpose subtitle is always present (FIX 1A): a one-line statement of
+        // what this read-only pane is, so the empty pane is never a silent blank.
+        auto *mapSubtitle = shell.findChild<QLabel *>(QStringLiteral("mapBrowserSubtitle"));
+        EDI_CHECK(mapSubtitle != nullptr);
+        EDI_CHECK(mapSubtitle->text().contains(QStringLiteral("Read-only view")));
 
         // The browser is LIVE: author a tiny two-room graph and the summary +
         // list re-project on modelChanged (the connection bound to the panel).

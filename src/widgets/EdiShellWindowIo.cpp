@@ -725,12 +725,20 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
 
     auto *title = new QLabel(QStringLiteral("Map"));
     title->setObjectName(QStringLiteral("mapBrowserTitle"));
+    // One-line purpose subtitle (FIX 1A): states what this read-only pane IS, so a
+    // fresh document is never a silent blank. Its objectName is new (the asserted
+    // objectNames — mapBrowserTitle/Summary/List — are untouched).
+    auto *subtitle = new QLabel(
+        QStringLiteral("Read-only view of rooms, connections and plugs in the current map"));
+    subtitle->setObjectName(QStringLiteral("mapBrowserSubtitle"));
+    subtitle->setWordWrap(true);
     auto *summary = new QLabel;
     summary->setObjectName(QStringLiteral("mapBrowserSummary"));
     summary->setWordWrap(true);
     auto *list = new QListWidget;
     list->setObjectName(QStringLiteral("mapBrowserList"));
     layout->addWidget(title);
+    layout->addWidget(subtitle);
     layout->addWidget(summary);
     layout->addWidget(list, 1);
 
@@ -752,6 +760,19 @@ QWidget *EdiShellWindow::buildMapBrowserPanel()
                                   countLabel(doc.connections.size(), QStringLiteral("connection")),
                                   countLabel(doc.plugs.size(), QStringLiteral("plug"))));
         list->clear();
+        // Empty-state (FIX 1A): a fresh document has no map graph at all, so the
+        // list would be blank. Mirror the Blender Render pane's "No render yet…"
+        // affordance with a single DISABLED placeholder row (NoItemFlags greys it
+        // out and makes it unselectable — it is a sign, not a datum). Returning
+        // here also suppresses the "── Plugs ──"/"── Connections ──" headers that
+        // would otherwise label empty sections.
+        if (doc.rooms.empty() && doc.connections.empty() && doc.plugs.empty()) {
+            auto *placeholder = new QListWidgetItem(
+                QStringLiteral("No map yet — author rooms on the canvas or open a .map.toml"));
+            placeholder->setFlags(Qt::NoItemFlags);
+            list->addItem(placeholder);
+            return;
+        }
         // Footprints are stored in CANVAS units; show them in the AUTHORED units
         // the map was drawn in (feet), which is what the engine export speaks and
         // what an author recognizes — "12 × 11", not "0.24 × 0.22". canvasPerAuthoredUnit
